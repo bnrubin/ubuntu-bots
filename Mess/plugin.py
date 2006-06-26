@@ -33,8 +33,6 @@ class Mess(callbacks.PluginRegexp):
         if not count: count = 1 
         if count > 5: count = 5
         t = u' '.join([x.__call__([u"\u2680",u"\u2681",u"\u2682",u"\u2683",u"\u2684",u"\u2685"]) for x in [random.choice]*count])
-        print t
-        #print str(t)
         irc.reply(t)
     dice = wrap(dice, [additional('int')])
 

@@ -73,7 +73,6 @@ class Bantracker(callbacks.Plugin):
         self.logs[channel] = self.logs[channel][-199:] + [s.strip()]
         
     def doKickban(self, irc, channel, nick, target, kickmsg = None):
-        print "DoKickban: %s - %s - %s - %s" % (channel, nick, target, kickmsg)
         if not self.registryValue('enabled', channel):
             return
         n = now()
@@ -83,7 +82,6 @@ class Bantracker(callbacks.Plugin):
             db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, kickmsg, n))
 
     def doUnban(self, irc, channel, nick, mask):
-        print "DoUnban: %s - %s - %s" % (channel, nick, mask)
         if not self.registryValue('enabled', channel):
             return
         data = db_run("SELECT MAX(id) FROM bans where channel=%s and mask=%s", (channel, mask), expect_result=True)
@@ -150,7 +148,6 @@ class Bantracker(callbacks.Plugin):
             if 'b' in msg.args[1] or 'd' in msg.args[1]:
                 i = 2
                 plusmin = False
-                print msg.args
                 for c in msg.args[1]:
                     if   c == '-': plusmin = False
                     elif c == '+': plusmin = True

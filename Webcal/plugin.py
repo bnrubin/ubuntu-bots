@@ -195,7 +195,6 @@ class Webcal(callbacks.Plugin):
                     return
             #c = "#ubuntu-meeting"
             url = self.registryValue('url', c)
-            print c, url
             if not url:
                 meeting = ''
             else:
