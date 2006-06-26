@@ -1,0 +1,68 @@
+<html>
+  <head>
+    <title>Ubugtu bantracker</title>
+    <link rel="stylesheet" href="/bot.css" />
+    <link rel="shortcut icon" href="favicon.ico" type="image/png" />
+    <script type="text/javascript">
+      var DHTML = (document.getElementById || document.all || document.layers);
+      
+      function getObj(name) {
+        if (document.getElementById) {
+          this.obj = document.getElementById(name);
+          this.style = document.getElementById(name).style;
+        }
+        else if (document.all) {
+          this.obj = document.all[name];
+          this.style = document.all[name].style;
+        }
+        else if (document.layers) {
+          this.obj = document.layers[name];
+          this.style = document.layers[name];
+        }
+      }
+      function toggle(item,prefix) {
+        var c  = new getObj(prefix + '_' + item);
+        if ( c.style.display == 'inline' ) {
+          c.style.display = 'none';
+        }
+        else {
+          c.style.display = 'inline';
+        }
+    
+      }
+      function showlog(item) {
+        var c  = new getObj('log');
+        if ( c.style.display == 'block' ) {
+          c.style.display = 'none';
+        }
+        else {
+          loadlog(item);
+        }
+    
+      }
+      var r;
+      function loadlog(id) {
+        r = new XMLHttpRequest();
+        r.onreadystatechange = printlog;
+        r.open("GET",'https://bugbot.ubuntulinux.nl/bans.cgi?log=' + id, true);
+        r.send(null);
+      }
+      function printlog() {
+        if (r.readyState == 4) {
+          var c = new getObj('log');
+          c.obj.innerHTML = r.responseText;
+          c.style.display = 'block';
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="main">
+      <h1>Ubugtu Bantracker</h1>
+      <p>
+      %s
+      </p>
+      <p>&copy;2006 Dennis Kaarsemaker</p>
+    </div>
+  </body>
+</html>
