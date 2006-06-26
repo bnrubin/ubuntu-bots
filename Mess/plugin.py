@@ -7,7 +7,7 @@ import random, re, time, commands, urllib2
 import supybot.ircmsgs as ircmsgs
 
 _bofhfile = '/home/dennis/ubugtu/plugins/Mess/bofh.txt'
-_bofhdata = open(bofhfile).readlines()
+_bofhdata = [x.strip() for x in open(_bofhfile).readlines()]
 
 class Mess(callbacks.PluginRegexp):
     """Random Mess plugin"""

@@ -79,7 +79,6 @@ class Encyclopedia(callbacks.PluginRegexp):
             return False
         for c in irc.callbacks:
             comm = msg.args[1].split()[0]
-            print c.isDisabled(comm)
             if c.isCommandMethod(comm) and not c.isDisabled(comm):
                 return False
         if capability:
