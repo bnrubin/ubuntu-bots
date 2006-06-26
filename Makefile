@@ -1,4 +1,4 @@
-ALL=$(shell find . -name '???*' -type d -printf '%p.tar.gz\n')
+ALL=$(shell find . -name '???*' -maxdepth 1 -type d -printf '%p.tar.gz\n')
 
 default: $(ALL)
 
