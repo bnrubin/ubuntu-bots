@@ -22,6 +22,8 @@ def configure(advanced):
 Webcal = conf.registerPlugin('Webcal')
 conf.registerChannelValue(conf.supybot.plugins.Webcal, 'url',
     registry.String('',"""Webcal URL for the channel"""))
+conf.registerChannelValue(conf.supybot.plugins.Webcal, 'filter',
+    registry.String('',"""What to filter on in the ical feed"""))
 conf.registerChannelValue(conf.supybot.plugins.Webcal, 'topic',
     registry.String('',"""Topic template"""))
 conf.registerGlobalValue(conf.supybot.plugins.Webcal, 'defaultChannel',
