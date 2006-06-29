@@ -91,7 +91,7 @@ class Webcal(callbacks.Plugin):
                 if num_events == 1:
                     return '%s in %s' % (preamble, diff(delta))
                 events = events[1:]
-            preamble += ' | '
+                preamble += ' | '
         # n_e = 1 -> next meeting
         # n_t = T -> n_t
         if num_events == 1:
