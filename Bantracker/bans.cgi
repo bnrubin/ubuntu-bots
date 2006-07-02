@@ -17,7 +17,7 @@ person   = None
 error    = ''
 
 # Delete old sessions
-cur.execute("""DELETE FROM sessions WHERE time < %d""", int(time.time()) - 86400)
+cur.execute("""DELETE FROM sessions WHERE time < %d""", int(time.time()) - 2592000 * 3)
 # Registration?
 if form.has_key('lpuser') and form.has_key('lpmail'):
     cur.execute("""SELECT * FROM USERS WHERE username = %s""", form['lpuser'].value)
