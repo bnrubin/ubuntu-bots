@@ -8,11 +8,15 @@ import supybot.ircmsgs as ircmsgs
 
 _bofhfile = '/home/dennis/ubugtu/plugins/Mess/bofh.txt'
 _bofhdata = [x.strip() for x in open(_bofhfile).readlines()]
+_42file = '/home/dennis/ubugtu/plugins/Mess/42.txt'
+_42data = [x.strip() for x in open(_42file).readlines()]
+_ballfile = '/home/dennis/ubugtu/plugins/Mess/ball.txt'
+_balldata = [x.strip() for x in open(_ballfile).readlines()]
 
 class Mess(callbacks.PluginRegexp):
     """Random Mess plugin"""
     threaded = True
-    regexps = ['hugme']
+    regexps = ['hugme','r42','ball']
     hugs = ["hugs %s","gives %s a big hug","gives %s a sloppy wet kiss",
             "huggles %s","squeezes %s","humps %s"]
     regex = re.compile('</h1>.*?<p>(.*?)</p>', re.DOTALL)
@@ -176,6 +180,21 @@ class Mess(callbacks.PluginRegexp):
             i = random.randint(0,len(_bofhdata)-1)
         irc.reply("BOFH excuse #%d: %s" % (i, _bofhdata[i]))
     bofh = wrap(bofh, [additional('int')])
+    
+    def r42(self, irc, msg, match):
+        """^@42$"""
+        if not self.ok(msg.args[0]): return
+        #if num and num >= 1 and num <= len(_bofhdata):
+        #    i = num
+        #else:
+        i = random.randint(0,len(_42data)-1)
+        irc.reply(_42data[i])
+
+    def ball(self, irc, msg, match):
+        """^magic 8ball.*\?$"""
+        if not self.ok(msg.args[0]): return
+        i = random.randint(0,len(_balldata)-1)
+        irc.reply(_balldata[i])
 
     def bauer(self, irc, msg, args, count=0):
         """ Display a Jack Bauer fact """

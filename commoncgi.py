@@ -8,12 +8,21 @@ if os.environ.has_key('HTTP_COOKIE'):
     cookie.load(os.environ['HTTP_COOKIE'])
 
 if cookie.has_key('sess'):
-    cookie['sess']['max-age'] = 2592000
+    cookie['sess']['max-age'] = 2592000 * 3
     cookie['sess']['version'] = 1
 if cookie.has_key('tz'):
-    cookie['tz']['max-age'] = 2592000
+    cookie['tz']['max-age'] = 2592000 * 3
     cookie['tz']['version'] = 1
-sys.stdout = StringIO.StringIO()
+
+class IOWrapper:
+    def __init__(self):
+        self.buf = []
+    def write(self, val):
+        self.buf.append(val)
+    def getvalue(self):
+        return self.buf
+    
+sys.stdout = IOWrapper()
 
 def send_page(template):
     data = sys.stdout.getvalue()
@@ -25,7 +34,10 @@ def send_page(template):
     fd = open(template)
     tmpl = fd.read()
     fd.close()
-    print tmpl % data
+    print tmpl[:tmpl.find('%s')]
+    for d in data:
+        print d
+    print tmpl[tmpl.find('%s')+2:]
     sys.exit(0)
 
 def q(txt):

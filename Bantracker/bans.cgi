@@ -311,7 +311,7 @@ for b in bans[start:end]:
     # Operator
     print '<td>%s' % b[2]
     if b[4]:                  # Ban removal
-        print '<br /><span class="removal">%s</span>' % b[5]
+        print u'<br /><span class="removal">%s</span>' % b[5]
     print '</td>'
     # Time
     print '<td>%s'      % pickle.loads(b[3]).astimezone(tz).strftime("%b %d %Y %H:%M:%S")
@@ -334,8 +334,9 @@ for b in bans[start:end]:
         print '<span class="removal">(No comments) </span>'
     else:
         for c in comments:
-            print '%s <span class="removal"><br />%s, %s</span><br />' % \
-                (q(c[1]),c[0],pickle.loads(c[2]).astimezone(tz).strftime("%b %d %Y %H:%M:%S"))
+            print q(c[1])
+            print u' <span class="removal"><br />%s, %s</span><br />' % \
+                (c[0],pickle.loads(c[2]).astimezone(tz).strftime("%b %d %Y %H:%M:%S"))
     print """<span class="pseudolink" onclick="toggle('%s','comment')">Add comment</span>""" % b[6]
     print """<div class="invisible" id="comment_%s"><br />""" % b[6]
     print """<form action="bans.cgi" method="POST"><textarea cols="50" rows="5" class="input" name="comment"></textarea><br />"""

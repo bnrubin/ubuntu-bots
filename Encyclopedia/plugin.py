@@ -71,11 +71,12 @@ class Encyclopedia(callbacks.PluginRegexp):
         self.seens = {}
 
     # Capability check
-    def _precheck(self, irc, msg, capability=None, timeout=None):
+    def _precheck(self, irc, msg, capability=None, timeout=None, withnick=False):
         channel = msg.args[0].lower()
         inchannel = channel.startswith('#')
         excl = msg.args[1].startswith('!')
-        if inchannel and not excl:
+        wn = msg.args[1].startswith('ubotu')
+        if inchannel and not (excl or (wn and withnick)):
             return False
         for c in irc.callbacks:
             comm = msg.args[1].split()[0]
@@ -131,8 +132,9 @@ class Encyclopedia(callbacks.PluginRegexp):
             irc.error('An error occured (code 561)')
 
     def showfactoid(self, irc, msg, match):
-        r"^(!|ubotu\S?\s)?(?P<noalias>-)?\s*(tell\s+(?P<nick>\S+)\s+about\s+)?(?P<factoid>\S.*?)(>\s*(?P<nick2>\S+))?$"
-        db = self._precheck(irc, msg, timeout=(msg.args[0], match.group('nick'), match.group('factoid'), match.group('nick2')))
+        r"^(!|!?ubotu\S?\s)?(?P<noalias>-)?\s*(tell\s+(?P<nick>\S+)\s+about\s+)?(?P<factoid>\S.+?)(>\s*(?P<nick2>\S+))?$"
+        withnick = bool(match.group(1)) and msg.args[1].startswith('ubotu')
+        db = self._precheck(irc, msg, withnick=True, timeout=(msg.args[0], match.group('nick'), match.group('factoid'), match.group('nick2')))
         if not db: return
         to = channel = msg.args[0]
         if channel[0] != '#':
@@ -178,11 +180,21 @@ class Encyclopedia(callbacks.PluginRegexp):
             if not noalias:
                 factoid = resolve_alias(db,factoid,channel)
             else:
+                if not self._precheck(irc, msg, timeout=(to,factoid.name,1)):
+                    return
                 cur.execute("SELECT name FROM facts WHERE value = %s", '<alias> ' + factoid.name)
                 data = cur.fetchall()
                 if(len(data)):
-                    irc.queueMsg(ircmsgs.privmsg(to, "%s aliases: %s" % (factoid.name, ', '.join([x[0].strip() for x in data]))))
-                    return
+                    #irc.queueMsg(ircmsgs.privmsg(to, "%s aliases: %s" % (factoid.name, ', '.join([x[0].strip() for x in data]))))
+                    aliases = "%s aliases: %s" % (factoid.name, ', '.join([x[0].strip() for x in data]))
+                else:
+                    if factoid.value.strip().startswith('<alias>'):
+                        aliases = "%s is %s" % (factoid.name, factoid.value.strip())
+                    else:
+                        aliases = "%s has no aliases" % factoid.name
+                authorinfo = "Added by %s on %s" % (factoid.author[:factoid.author.find('!')], factoid.added[:factoid.added.find('.')])
+                irc.queueMsg(ircmsgs.privmsg(to,"%s - %s" % (aliases, authorinfo)))
+                return
             # Do timing
             if not self._precheck(irc, msg, timeout=(to,factoid.name)):
                 return
