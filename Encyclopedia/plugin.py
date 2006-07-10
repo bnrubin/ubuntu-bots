@@ -40,7 +40,7 @@ def get_factoid(db, name, channel):
     factoid = cur.fetchall()
     if len(factoid):
         f = factoid[0]
-        return Factoid(f[0],f[1],f[2],f[3],f[4])
+        return Factoid(f[0].replace(channel,'')[:-1],f[1],f[2],f[3],f[4])
     cur.execute("SELECT name, value, author, added, popularity FROM facts WHERE name = %s", name)
     factoid = cur.fetchall()
     if len(factoid):
