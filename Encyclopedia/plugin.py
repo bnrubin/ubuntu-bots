@@ -17,6 +17,7 @@ import supybot.ircdb as ircdb
 from email import FeedParser
 import re
 import os
+import fcntl
 apt_pkg.init()
 
 fallback = ('ubuntu', '#ubuntu')
@@ -85,13 +86,19 @@ class Encyclopedia(callbacks.PluginRegexp):
         if capability:
             try:
                 _ = ircdb.users.getUser(msg.prefix)
+                if not ircdb.checkCapability(msg.prefix, capability):
+                    raise KeyError, "Bogus error to trigger the log"
             except KeyError:
                 irc.queueMsg(ircmsgs.privmsg('#ubuntu-ops', "In %s, %s said: %s" % (msg.args[0], msg.nick, msg.args[1])))
                 irc.reply("Your edit request has been forwarded to #ubuntu-ops. Thank you for your attention to detail",private=True)
-                return False
-            if not ircdb.checkCapability(msg.prefix, capability):
-                irc.queueMsg(ircmsgs.privmsg('#ubuntu-ops', "In %s, %s said: %s" % (msg.args[0], msg.nick, msg.args[1])))
-                irc.reply("Your edit request has been forwarded to #ubuntu-ops. Thank you for your attention to detail",private=True)
+                lfd = open('/home/dennis/public_html/botlogs/lock','a')
+                fcntl.lockf(lfd, fcntl.LOCK_EX)
+                fd = open('/home/dennis/public_html/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),'a')
+                fd.write("%s  %-20s %-16s  %s\n" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),msg.args[0], msg.nick, msg.args[1]))
+                fd.close()
+                fcntl.lockf(lfd,fcntl.LOCK_UN)
+                lfd.close()
+                os.chmod('/home/dennis/public_html/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),0644)
                 return False
         if timeout:
             for key in self.times.keys():
@@ -132,7 +139,7 @@ class Encyclopedia(callbacks.PluginRegexp):
             irc.error('An error occured (code 561)')
 
     def showfactoid(self, irc, msg, match):
-        r"^(!|!?ubotu\S?\s)?(?P<noalias>-)?\s*(tell\s+(?P<nick>\S+)\s+about\s+)?(?P<factoid>\S.+?)(>\s*(?P<nick2>\S+))?$"
+        r"^(!|!?ubotu\S?\s)?(?P<noalias>-)?\s*(tell\s+(?P<nick>\S+)\s+about\s+)?(?P<factoid>\S.*?)(>\s*(?P<nick2>\S+).*)?$"
         withnick = bool(match.group(1)) and msg.args[1].startswith('ubotu')
         db = self._precheck(irc, msg, withnick=True, timeout=(msg.args[0], match.group('nick'), match.group('factoid'), match.group('nick2')))
         if not db: return
@@ -177,9 +184,7 @@ class Encyclopedia(callbacks.PluginRegexp):
                 irc.reply('I know nothing about %s' % match.group('factoid'))
                 return
             # Output factoid
-            if not noalias:
-                factoid = resolve_alias(db,factoid,channel)
-            else:
+            if noalias:
                 if not self._precheck(irc, msg, timeout=(to,factoid.name,1)):
                     return
                 cur.execute("SELECT name FROM facts WHERE value = %s", '<alias> ' + factoid.name)
@@ -194,22 +199,49 @@ class Encyclopedia(callbacks.PluginRegexp):
                         aliases = "%s has no aliases" % factoid.name
                 authorinfo = "Added by %s on %s" % (factoid.author[:factoid.author.find('!')], factoid.added[:factoid.added.find('.')])
                 irc.queueMsg(ircmsgs.privmsg(to,"%s - %s" % (aliases, authorinfo)))
-                return
-            # Do timing
-            if not self._precheck(irc, msg, timeout=(to,factoid.name)):
-                return
-            cur.execute("UPDATE FACTS SET popularity = %d WHERE name = %s", factoid.popularity+1, factoid.name)
-            db.commit()
-            if factoid.value.startswith('<reply>'):
-                irc.queueMsg(ircmsgs.privmsg(to, '%s%s' % (retmsg, factoid.value[7:].strip())))
             else:
-                irc.queueMsg(ircmsgs.privmsg(to, '%s%s is %s' % (retmsg, factoid.name, factoid.value.strip())))
+                factoid = resolve_alias(db,factoid,channel)
+                # Do timing
+                if not self._precheck(irc, msg, timeout=(to,factoid.name)):
+                    return
+                cur.execute("UPDATE FACTS SET popularity = %d WHERE name = %s", factoid.popularity+1, factoid.name)
+                db.commit()
+                if factoid.value.startswith('<reply>'):
+                    irc.queueMsg(ircmsgs.privmsg(to, '%s%s' % (retmsg, factoid.value[7:].strip())))
+                else:
+                    irc.queueMsg(ircmsgs.privmsg(to, '%s%s is %s' % (retmsg, factoid.name, factoid.value.strip())))
+            # Now look for the -also factoid, but don't error on it
+            factoid = get_factoid(db, factoid.name + '-also', channel)
+            if not factoid:
+                return
+            if noalias:
+                if not self._precheck(irc, msg, timeout=(to,factoid.name,1)):
+                    return
+                cur.execute("SELECT name FROM facts WHERE value = %s", '<alias> ' + factoid.name)
+                data = cur.fetchall()
+                if(len(data)):
+                    aliases = "%s aliases: %s" % (factoid.name, ', '.join([x[0].strip() for x in data]))
+                else:
+                    if factoid.value.strip().startswith('<alias>'):
+                        aliases = "%s is %s" % (factoid.name, factoid.value.strip())
+                    else:
+                        aliases = "%s has no aliases" % factoid.name
+                authorinfo = "Added by %s on %s" % (factoid.author[:factoid.author.find('!')], factoid.added[:factoid.added.find('.')])
+                irc.queueMsg(ircmsgs.privmsg(to,"%s - %s" % (aliases, authorinfo)))
+            else:
+                factoid = resolve_alias(db,factoid,channel)
+                # Do timing
+                if not self._precheck(irc, msg, timeout=(to,factoid.name)):
+                    return
+                cur.execute("UPDATE FACTS SET popularity = %d WHERE name = %s", factoid.popularity+1, factoid.name)
+                db.commit()
+                irc.queueMsg(ircmsgs.privmsg(to, '%s%s' % (retmsg, factoid.value.strip())))
         except:
             raise
             irc.error('An error occured (code 813)')
 
     def addfactoid(self, irc, msg, match):
-        r"^!?(?P<no>no,?\s+)?(?P<factoid>\S.*?)\s+is\s+(?P<fact>\S.*)"
+        r"^!?(?P<no>no,?\s+)?(?P<factoid>\S.*?)\s+is\s+(?P<also>also\s+)?(?P<fact>\S.*)"
         db = self._precheck(irc, msg, capability='editfactoids', timeout=(msg.args[0],match.group(0)))
         if not db: return
         channel = msg.args[0]
@@ -224,6 +256,12 @@ class Encyclopedia(callbacks.PluginRegexp):
            factoid.startswith('find') or \
            factoid.startswith('search'):
             return
+        if match.group('also'):
+            factoid = get_factoid(db, match.group('factoid'), channel)
+            if not factoid:
+                irc.reply('I know nothing about %s yet' % match.group('factoid'))
+                return
+            factoid = factoid.name + '-also'
 
         try:
             # See if the alias exists and resolve it...
@@ -343,12 +381,12 @@ class Encyclopedia(callbacks.PluginRegexp):
                 irc.reply("Can't forget factoids with aliases")
             else:
                 cur.execute("DELETE FROM facts WHERE name = %s", match.group('factoid'))
+                cur.execute("DELETE FROM facts WHERE name = %s", match.group('factoid') + '-also')
                 db.commit()
                 irc.reply("I've forgotten it")
         except:
             raise
             irc.error('An error occured (code 124)')
-
         
     aptcommand = """apt-cache\\
                      -o"Dir::State::Lists=/home/dennis/ubugtu/data/%s"\\
