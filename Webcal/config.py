@@ -26,5 +26,7 @@ conf.registerChannelValue(conf.supybot.plugins.Webcal, 'filter',
     registry.String('',"""What to filter on in the ical feed"""))
 conf.registerChannelValue(conf.supybot.plugins.Webcal, 'topic',
     registry.String('',"""Topic template"""))
+conf.registerChannelValue(conf.supybot.plugins.Webcal, 'doTopic',
+    registry.Boolean(False,"""Whether to manage the topic"""))
 conf.registerGlobalValue(conf.supybot.plugins.Webcal, 'defaultChannel',
     registry.String('',"""Default channel for /msg replies"""))

@@ -195,8 +195,7 @@ class Webcal(callbacks.Plugin):
 
     # Warn people that you manage the topic
     def doTopic(self, irc, msg):
-        url = self.registryValue('url', msg.args[0])
-        if not url:
+        if not self.registryValue('doTopic'):
             return
         irc.reply("The topic of %s is managed by me and filled with the contents of %s - please don't change manually" % (msg.args[0],url), private=True)
 

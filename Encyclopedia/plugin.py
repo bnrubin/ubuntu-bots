@@ -23,7 +23,9 @@ apt_pkg.init()
 fallback = ('ubuntu', '#ubuntu')
 datadir = '/home/dennis/ubugtu/data/facts'
 
-def r(section):
+def r(repo,section):
+    if 'seveas' in repo:
+        return 'Seveas'
     if '/' in section:
         return section[:section.find('/')]
     return 'main'
@@ -389,19 +391,20 @@ class Encyclopedia(callbacks.PluginRegexp):
             irc.error('An error occured (code 124)')
         
     aptcommand = """apt-cache\\
-                     -o"Dir::State::Lists=/home/dennis/ubugtu/data/%s"\\
-                     -o"Dir::etc::sourcelist=/home/dennis/ubugtu/data/%s.list"\\
-                     -o"Dir::State::status=/home/dennis/ubugtu/data/%s.status"\\
-                     -o"Dir::Cache=/home/dennis/ubugtu/data/cache"\\
+                     -o"Dir::State::Lists=/home/dennis/ubugtu/data/apt/%s"\\
+                     -o"Dir::etc::sourcelist=/home/dennis/ubugtu/data/apt/%s.list"\\
+                     -o"Dir::State::status=/home/dennis/ubugtu/data/apt/%s.status"\\
+                     -o"Dir::Cache=/home/dennis/ubugtu/data/apt/cache"\\
                      %s %s"""
     def info(self, irc, msg, match):
         r"^!?info\s+(?P<package>\S+)(\s+(?P<distro>\S+))?"
         if not self._precheck(irc, msg, timeout=(msg.args[0],match.group('package'), match.group('distro'))):
             return
         distro = 'dapper'
-        if (match.group('distro') in ('warty','hoary','breezy','dapper','edgy')):
+        if (match.group('distro') in ('warty','hoary','breezy','dapper','edgy','breezy-seveas','dapper-seveas')):
             distro = match.group('distro')
         data = commands.getoutput(self.aptcommand % (distro, distro, distro, 'show', match.group('package')))
+        print data
         if not data or 'E: No packages found' in data:
             irc.reply('Package %s does not exist in %s' % (match.group('package'), distro))
         else:
@@ -417,7 +420,7 @@ class Encyclopedia(callbacks.PluginRegexp):
                     maxp = p
                 del parser
             irc.reply("%s: %s. In repository %s, is %s. Version %s (%s), package size %s kB, installed size %s kB" %
-                      (maxp['Package'], maxp['Description'].split('\n')[0], r(maxp['Section']),
+                      (maxp['Package'], maxp['Description'].split('\n')[0], r(distro, maxp['Section']),
                        maxp['Priority'], maxp['Version'], distro, int(maxp['Size'])/1024, maxp['Installed-Size']))
                        
     def find(self, irc, msg, match):
