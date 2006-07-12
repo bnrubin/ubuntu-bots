@@ -79,7 +79,7 @@ class Encyclopedia(callbacks.PluginRegexp):
         inchannel = channel.startswith('#')
         excl = msg.args[1].startswith('!')
         wn = msg.args[1].startswith('ubotu')
-        if inchannel and not (excl or (wn and withnick)):
+        if inchannel and not (excl or (withnick and wn)):
             return False
         for c in irc.callbacks:
             comm = msg.args[1].split()[0]
@@ -141,7 +141,7 @@ class Encyclopedia(callbacks.PluginRegexp):
             irc.error('An error occured (code 561)')
 
     def showfactoid(self, irc, msg, match):
-        r"^(!|!?ubotu\S?\s)?(?P<noalias>-)?\s*(tell\s+(?P<nick>\S+)\s+about\s+)?(?P<factoid>\S.*?)(>\s*(?P<nick2>\S+).*)?$"
+        r"^(!?ubotu\S?\s+|!)?(?P<noalias>-)?\s*(tell\s+(?P<nick>\S+)\s+about\s+)?(?P<factoid>\S.*?)(>\s*(?P<nick2>\S+).*)?$"
         withnick = bool(match.group(1)) and msg.args[1].startswith('ubotu')
         db = self._precheck(irc, msg, withnick=True, timeout=(msg.args[0], match.group('nick'), match.group('factoid'), match.group('nick2')))
         if not db: return
@@ -183,11 +183,11 @@ class Encyclopedia(callbacks.PluginRegexp):
         try:
             factoid = get_factoid(db, factoid, channel)
             if not factoid:
-                irc.reply('I know nothing about %s' % match.group('factoid'))
+                irc.reply('I know nothing about %s - try searching bots.ubuntulinux.nl, help.ubuntu.com and wiki.ubuntu.com' % match.group('factoid'))
                 return
             # Output factoid
             if noalias:
-                if not self._precheck(irc, msg, timeout=(to,factoid.name,1)):
+                if not self._precheck(irc, msg, timeout=(to,factoid.name,1),withnick=True):
                     return
                 cur.execute("SELECT name FROM facts WHERE value = %s", '<alias> ' + factoid.name)
                 data = cur.fetchall()
@@ -204,7 +204,7 @@ class Encyclopedia(callbacks.PluginRegexp):
             else:
                 factoid = resolve_alias(db,factoid,channel)
                 # Do timing
-                if not self._precheck(irc, msg, timeout=(to,factoid.name)):
+                if not self._precheck(irc, msg, timeout=(to,factoid.name,2),withnick=True):
                     return
                 cur.execute("UPDATE FACTS SET popularity = %d WHERE name = %s", factoid.popularity+1, factoid.name)
                 db.commit()
@@ -404,7 +404,6 @@ class Encyclopedia(callbacks.PluginRegexp):
         if (match.group('distro') in ('warty','hoary','breezy','dapper','edgy','breezy-seveas','dapper-seveas')):
             distro = match.group('distro')
         data = commands.getoutput(self.aptcommand % (distro, distro, distro, 'show', match.group('package')))
-        print data
         if not data or 'E: No packages found' in data:
             irc.reply('Package %s does not exist in %s' % (match.group('package'), distro))
         else:
