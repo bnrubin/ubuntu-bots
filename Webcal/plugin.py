@@ -32,7 +32,7 @@ def _event_to_string(event, timezone):
 def diff(delta):
     s = ''
     if delta.days:
-        if delta.days > 1:
+        if delta.days != 1:
             s = 's'
         return '%d day%s' % (delta.days, s)
     h = ''
@@ -42,7 +42,7 @@ def diff(delta):
         h = '%d hour%s ' % (int(delta.seconds/3600),s)
     s = ''
     seconds = delta.seconds % 3600
-    if seconds > 120:
+    if seconds > 120 or seconds < 60:
         s = 's'
     return '%s%d minute%s' % (h,(seconds/60),s)
 
@@ -108,7 +108,7 @@ class Webcal(callbacks.Plugin):
     def _autotopics(self):
         for c in self.irc.state.channels:
             url = self.registryValue('url', c)
-            if url:
+            if url and self.registryValue('doTopic', c):
                 newtopic = self._gettopic(url, c)
                 if newtopic and not (newtopic.strip() == self.irc.state.getTopic(c).strip()):
                     self.irc.queueMsg(ircmsgs.topic(c, newtopic))
@@ -128,7 +128,7 @@ class Webcal(callbacks.Plugin):
 
     def topic(self, irc, msg, args):
         url = self.registryValue('url', msg.args[0])
-        if not url:
+        if not url or not self.registryValue('doTopic'):
             return
         self._refresh_cache(url)
         newtopic = self._gettopic(url, msg.args[0])
