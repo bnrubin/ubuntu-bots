@@ -30,6 +30,8 @@ def q(txt):
 database = 'ubuntu'
 
 form = cgi.FieldStorage()
+if 'db' in form:
+    database = form['db'].value
 try:
     page = int(form['page'].value)
 except:
@@ -50,14 +52,14 @@ num = cur.fetchall()[0][0]
 npages = int(ceil(num / float(NUM_PER_PAGE)))
 out('&middot;')
 for i in range(npages):
-    out(' <a href="factoids.cgi?order=%s&page=%s">%d</a> &middot;' % (order_by, i, i+1))
+    out(' <a href="factoids.cgi?db=%s&order=%s&page=%s">%d</a> &middot;' % (database, order_by, i, i+1))
 out('<br />Order by<br />&middot;')
-out(' <a href="factoids.cgi?order=%s&page=%d">%s</a> &middot;' % ('name ASC', page, 'Name +'))
-out(' <a href="factoids.cgi?order=%s&page=%d">%s</a> &middot;' % ('name DESC', page, 'Name -'))
-out(' <a href="factoids.cgi?order=%s&page=%d">%s</a> &middot;' % ('popularity ASC', page, 'Popularity +'))
-out(' <a href="factoids.cgi?order=%s&page=%d">%s</a> &middot;' % ('popularity DESC', page, 'Popularity -'))
-out(' <a href="factoids.cgi?order=%s&page=%d">%s</a> &middot;' % ('added ASC', page, 'Date added +'))
-out(' <a href="factoids.cgi?order=%s&page=%d">%s</a> &middot;' % ('added DESC', page, 'Date added -'))
+out(' <a href="factoids.cgi?db=%s&order=%s&page=%d">%s</a> &middot;' % (database, 'name ASC', page, 'Name +'))
+out(' <a href="factoids.cgi?db=%s&order=%s&page=%d">%s</a> &middot;' % (database, 'name DESC', page, 'Name -'))
+out(' <a href="factoids.cgi?db=%s&order=%s&page=%d">%s</a> &middot;' % (database, 'popularity ASC', page, 'Popularity +'))
+out(' <a href="factoids.cgi?db=%s&order=%s&page=%d">%s</a> &middot;' % (database, 'popularity DESC', page, 'Popularity -'))
+out(' <a href="factoids.cgi?db=%s&order=%s&page=%d">%s</a> &middot;' % (database, 'added ASC', page, 'Date added +'))
+out(' <a href="factoids.cgi?db=%s&order=%s&page=%d">%s</a> &middot;' % (database, 'added DESC', page, 'Date added -'))
 
 
 out('<table cellspacing="0"><tr><th>Factoid</th><th>Value</th><th>Author</th></tr>')

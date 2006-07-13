@@ -41,10 +41,10 @@ def diff(delta):
     if delta.seconds > 3600:
         h = '%d hour%s ' % (int(delta.seconds/3600),s)
     s = ''
-    seconds = delta.seconds % 3600
-    if seconds > 120 or seconds < 60:
+    minutes = (delta.seconds % 3600) / 60
+    if minutes != 1:
         s = 's'
-    return '%s%d minute%s' % (h,(seconds/60),s)
+    return '%s%d minute%s' % (h,minutes,s)
 
 class Webcal(callbacks.Plugin):
     """@schedule <timezone>: display the schedule in your timezone"""
@@ -89,7 +89,7 @@ class Webcal(callbacks.Plugin):
             if ev0.startDate < now or (delta.days == 0 and delta.seconds < 10 * 60):
                 preamble = 'Current meeting: %s' % ev0.summary.replace('Meeting','').strip()
                 if num_events == 1:
-                    return '%s in %s' % (preamble, diff(delta))
+                    return preamble
                 events = events[1:]
                 preamble += ' | '
         # n_e = 1 -> next meeting

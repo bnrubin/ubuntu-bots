@@ -26,6 +26,8 @@ datadir = '/home/dennis/ubugtu/data/facts'
 def r(repo,section):
     if 'seveas' in repo:
         return 'Seveas'
+    if 'buntudot' in repo:
+        return 'buntudot'
     if '/' in section:
         return section[:section.find('/')]
     return 'main'
@@ -114,6 +116,7 @@ class Encyclopedia(callbacks.PluginRegexp):
             db,channel = fallback
         if channel not in self.databases:
             self.databases[channel] = sqlite.connect(os.path.join(datadir, '%s.db' % db))
+            self.databases[channel].name = db
         return self.databases[channel]
 
     def searchfactoid(self, irc, msg, match):
@@ -183,7 +186,7 @@ class Encyclopedia(callbacks.PluginRegexp):
         try:
             factoid = get_factoid(db, factoid, channel)
             if not factoid:
-                irc.reply('I know nothing about %s - try searching bots.ubuntulinux.nl, help.ubuntu.com and wiki.ubuntu.com' % match.group('factoid'))
+                irc.reply('I know nothing about %s - try searching http://bots.ubuntulinux.nl/factoids.cgi?db=%s' % (match.group('factoid'),db.name))
                 return
             # Output factoid
             if noalias:
@@ -401,9 +404,10 @@ class Encyclopedia(callbacks.PluginRegexp):
         if not self._precheck(irc, msg, timeout=(msg.args[0],match.group('package'), match.group('distro'))):
             return
         distro = 'dapper'
-        if (match.group('distro') in ('warty','hoary','breezy','dapper','edgy','breezy-seveas','dapper-seveas')):
+        if (match.group('distro') in ('warty','hoary','breezy','dapper','edgy','breezy-seveas','dapper-seveas','dapper-buntudot')):
             distro = match.group('distro')
         data = commands.getoutput(self.aptcommand % (distro, distro, distro, 'show', match.group('package')))
+        data2 = commands.getoutput(self.aptcommand % (distro, distro, distro, 'showsrc', match.group('package')))
         if not data or 'E: No packages found' in data:
             irc.reply('Package %s does not exist in %s' % (match.group('package'), distro))
         else:
@@ -418,9 +422,23 @@ class Encyclopedia(callbacks.PluginRegexp):
                 if apt_pkg.VersionCompare(maxp['Version'], p['Version']) < 0:
                     maxp = p
                 del parser
-            irc.reply("%s: %s. In repository %s, is %s. Version %s (%s), package size %s kB, installed size %s kB" %
+            maxp2 = {'Version': '0'}
+            packages2 = [x.strip() for x in data2.split('\n\n')]
+            for p in packages2:
+                if not p.strip():
+                    continue
+                parser = FeedParser.FeedParser()
+                parser.feed(p)
+                p = parser.close()
+                if apt_pkg.VersionCompare(maxp2['Version'], p['Version']) < 0:
+                    maxp2 = p
+                del parser
+            archs = ''
+            if maxp2['Architecture'] not in ('all','any'):
+                archs = ' (Only available for %s)' % maxp2['Architecture']
+            irc.reply("%s: %s. In repository %s, is %s. Version %s (%s), package size %s kB, installed size %s kB%s" %
                       (maxp['Package'], maxp['Description'].split('\n')[0], r(distro, maxp['Section']),
-                       maxp['Priority'], maxp['Version'], distro, int(maxp['Size'])/1024, maxp['Installed-Size']))
+                       maxp['Priority'], maxp['Version'], distro, int(maxp['Size'])/1024, maxp['Installed-Size'], archs))
                        
     def find(self, irc, msg, match):
         r"^!?find\s+(?P<package>\S+)(\s+(?P<distro>\S+))?"
