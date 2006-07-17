@@ -24,7 +24,9 @@ class Mess(callbacks.PluginRegexp):
     jre1 = ('http://www.jackbauerfacts.com/index.php?rate_twenty_four',
             re.compile('current-rating.*?width.*?<td>(.*?)</td>', re.DOTALL))
     jre2 = ('http://www.notrly.com/jackbauer/',
-             re.compile('<p class="fact">(.*?)</p>'))
+             re.compile('<p class="fact">(.*?)</p>', re.DOTALL))
+    mgurl = ('http://www.macgyver.co.za/',
+             re.compile(r'wishtable">(.*?)<div', re.DOTALL))
     badwords = ['sex','masturbate','fuck','rape','dick','pussy','prostitute','hooker',
                 'orgasm','sperm','cunt','penis','shit','piss','urin','bitch','semen']
     i = 0
@@ -78,6 +80,7 @@ class Mess(callbacks.PluginRegexp):
                     val = self.entre.sub(entities[entity], val)
                 else:
                     val = self.entre.sub('?', val)
+            val = val.replace('<br />','').replace('\n','').replace('\r','')
             _val = val.lower()
             for word in self.badwords:
                 if word in _val:
@@ -205,6 +208,15 @@ class Mess(callbacks.PluginRegexp):
             irc.reply(f)
     bauer = wrap(bauer)
 
+    def macgyver(self, irc, msg, args, count=0):
+        """ Display a macgyver fact """
+        if not self.ok(msg.args[0]): return
+        f = self._macgyver()
+        if f:
+            irc.reply(f)
+    macgyver = wrap(macgyver)
+    mcgyver = macgyver
+
     def futurama(self, irc, msg, args):
         """ Display a futurama quote """
         if not self.ok(msg.args[0]): return
@@ -257,5 +269,30 @@ class Mess(callbacks.PluginRegexp):
         except:
             time.sleep(1)
             return self._bauer(count+1)
+            
+    def _macgyver(self,count=0):
+        (url, rx) = self.mgurl
+        if count > 5:
+            return
+        try:
+            fact = utils.web.getUrl(url)
+            reo = rx.search(fact)
+            val = reo.group(1).replace('<p>','').replace('</p>','').replace('&quot;','"').replace('&nbsp;',' ')
+            val = re.sub(r'\s+', ' ', val).strip()
+            while self.entre.search(val):
+                entity = self.entre.search(val).group(1)
+                print entity
+                if entity in entities:
+                    val = self.entre.sub(entities[entity], val)
+                else:
+                    val = self.entre.sub('?', val)
+            _val = val.lower()
+            for word in self.badwords:
+                if word in _val:
+                    raise RuntimeError
+            return val
+        except:
+            time.sleep(1)
+            return self._macgyver(count+1)
 
 Class = Mess
