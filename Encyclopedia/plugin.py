@@ -247,11 +247,6 @@ class Encyclopedia(callbacks.PluginRegexp):
 
     def addfactoid(self, irc, msg, match):
         r"^!?(?P<no>no,?\s+)?(?P<factoid>\S.*?)\s+is\s+(?P<also>also\s+)?(?P<fact>\S.*)"
-        db = self._precheck(irc, msg, capability='editfactoids', timeout=(msg.args[0],match.group(0)))
-        if not db: return
-        channel = msg.args[0]
-        cur = db.cursor()
-
         factoid = match.group('factoid').lower().strip()
         fact = match.group('fact').strip()
         if '<sed>' in match.group(0) or \
@@ -261,6 +256,11 @@ class Encyclopedia(callbacks.PluginRegexp):
            factoid.startswith('find') or \
            factoid.startswith('search'):
             return
+        db = self._precheck(irc, msg, capability='editfactoids', timeout=(msg.args[0],match.group(0)))
+        if not db: return
+        channel = msg.args[0]
+        cur = db.cursor()
+
         if match.group('also'):
             factoid = get_factoid(db, match.group('factoid'), channel)
             if not factoid:
@@ -486,6 +486,7 @@ class Encyclopedia(callbacks.PluginRegexp):
             irc.error('User %s is not registered' % name)
         else:
             u.addCapability('editfactoids')
+            irc.replySuccess()
     addeditor = wrap(addeditor, ['text'])
 
     def editors(self, irc, msg, args):
@@ -504,7 +505,12 @@ class Encyclopedia(callbacks.PluginRegexp):
         except:
             irc.error('User %s is not registered' % name)
         else:
-            u.removeCapability('editfactoids')
+            try:
+                u.removeCapability('editfactoids')
+            except:
+                irc.error('User %s is not an editor' % name)
+            else: 
+                irc.replySuccess()
     removeeditor = wrap(removeeditor, ['text'])
         
 Class = Encyclopedia
