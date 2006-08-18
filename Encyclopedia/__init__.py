@@ -30,6 +30,8 @@ __url__ = '' # 'http://supybot.com/Members/yourname/Factoid plugin/download'
 import config
 import plugin
 reload(plugin) # In case we're being reloaded.
+import plugin_ng
+reload(plugin_ng)
 # Add more reloads here if you add third-party modules and want them to be
 # reloaded when this plugin is reloaded.  Don't forget to import them as well!
 
@@ -37,6 +39,7 @@ if world.testing:
     import test
 
 Class = plugin.Class
+Class = plugin_ng.Class
 configure = config.configure
 
 # vim:set shiftwidth=4 tabstop=4 expandtab textwidth=79:

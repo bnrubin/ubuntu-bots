@@ -133,7 +133,7 @@ class Bantracker(callbacks.Plugin):
 
     def doPart(self, irc, msg):
         for channel in msg.args[0].split(','):
-            self.doLog(irc, channel, '*** %s has left %s %s\n' % (msg.nick, channel, msg.args[1]))
+            self.doLog(irc, channel, '*** %s (%s) has left %s (%s)\n' % (msg.nick, msg.prefix, channel, msg.args[1]))
             if msg.args[1].startswith('requested by'):
                 args = msg.args[1].split()
                 self.doKickban(irc, channel, args[2].replace(':',''), msg.nick, ' '.join(args[3:])[1:-1].strip())

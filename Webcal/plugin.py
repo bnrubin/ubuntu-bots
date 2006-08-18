@@ -104,6 +104,20 @@ class Webcal(callbacks.Plugin):
         if '%s' in template and not no_topic:
             newtopic = template % str(newtopic)
         return preamble + newtopic
+
+    def _meeting_in_progress(self, url):
+        if url not in self.cache.keys():
+            self._refresh_cache(url)
+        now = datetime.datetime.now(pytz.UTC)
+        events = filter(lambda x: self._filter(x,channel,now),self.cache[url])[:1]
+        if len(events):
+            if len(events) > 1 and events[1].startDate < now:
+                    events = events[1:]
+            ev0 = events[0]
+            delta = abs(ev0.startDate - now)
+            if ev0.startDate < now or (delta.days == 0 and delta.seconds < 10 * 60):
+                return True
+        return False
         
     def _autotopics(self):
         for c in self.irc.state.channels:

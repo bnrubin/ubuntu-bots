@@ -3,6 +3,7 @@ import sys
 sys.path.append('/home/dennis/public_html')
 from commoncgi import *
 import lp_auth
+import sha
 
 ### Variables
 db       = '/home/dennis/ubugtu/data/bans.db'
@@ -117,7 +118,7 @@ if not person or not person.authenticated:
              Login:<br />
              <input class="input" type="text" name="user" /><br />
              Password:<br />
-             <input class="input" type="password" name="pw" /><br /><br />
+             <input class="input" type="password" name="pw" /><br />
              <input class="submit" type="submit" value="Log in" />
            </form>
            <form>
@@ -168,7 +169,24 @@ for zone in pytz.common_timezones:
     if zone == tz:
         print ' selected="selected"'
     print ">%s</option>" % zone
-print '</select><input class="submit" type="submit" value="change" /></form></div>'
+print '</select><input class="submit" type="submit" value="change" /></form><br />'
+if form.has_key('pw1') and form.has_key('pw2'):
+    pw1 = form['pw1'].value; pw2 = form['pw2'].value
+    if pw1 and pw2:
+        if pw1 != pw2:
+            print "Passwords don't match!<br />"
+        else:
+            cur.execute("SELECT salt FROM users WHERE username = %s", person.nick)
+            salt = cur.fetchall()[0][0]
+            cur.execute("UPDATE USERS SET password = %s WHERE username = %s",
+                         (sha.new(salt + sha.new(pw1 + salt).hexdigest().lower()).hexdigest().lower(), person.nick))
+            con.commit()
+print '<form action="bans.cgi" method="POST">'
+print 'Password: '
+print '<input class="input" type="password" name="pw1" size="10"/>'
+print '<input class="input" type="password" name="pw2" size="10"/>'
+print '<input class="submit" type="submit" value="change" /></form></div>'
+
 tz = pytz.timezone(tz)
 
 # Search form

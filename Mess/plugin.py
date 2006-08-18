@@ -27,6 +27,8 @@ class Mess(callbacks.PluginRegexp):
              re.compile('<p class="fact">(.*?)</p>', re.DOTALL))
     mgurl = ('http://www.macgyver.co.za/',
              re.compile(r'wishtable">(.*?)<div', re.DOTALL))
+    bsurl = ('http://geekz.co.uk/schneierfacts/',
+             re.compile(r'"fact">(.*?)</p', re.DOTALL))
     badwords = ['sex','masturbate','fuck','rape','dick','pussy','prostitute','hooker',
                 'orgasm','sperm','cunt','penis','shit','piss','urin','bitch','semen']
     i = 0
@@ -216,13 +218,21 @@ class Mess(callbacks.PluginRegexp):
             irc.reply(f)
     macgyver = wrap(macgyver)
     mcgyver = macgyver
+    
+    def bruce(self, irc, msg, args, count=0):
+        """ Display a bruce fact """
+        if not self.ok(msg.args[0]): return
+        f = self._bruce()
+        if f:
+            irc.reply(f)
+    bruce = wrap(bruce)
 
     def futurama(self, irc, msg, args):
         """ Display a futurama quote """
         if not self.ok(msg.args[0]): return
         u = urllib2.urlopen('http://slashdot.org')
         h = [x for x in u.headers.headers if x.startswith('X') and not x.startswith('X-Powered-By')][0]
-        irc.reply(h[2:-2])
+        irc.reply(h[2:-2].replace(' ',' "',1) + '"')
     futurama = wrap(futurama)
 
     def yourmom(self, irc, msg, args):
@@ -294,5 +304,30 @@ class Mess(callbacks.PluginRegexp):
         except:
             time.sleep(1)
             return self._macgyver(count+1)
+            
+    def _bruce(self,count=0):
+        (url, rx) = self.bsurl
+        if count > 5:
+            return
+        try:
+            fact = utils.web.getUrl(url)
+            reo = rx.search(fact)
+            val = reo.group(1).replace('<p>','').replace('</p>','').replace('&quot;','"').replace('&nbsp;',' ')
+            val = re.sub(r'\s+', ' ', val).strip()
+            while self.entre.search(val):
+                entity = self.entre.search(val).group(1)
+                print entity
+                if entity in entities:
+                    val = self.entre.sub(entities[entity], val)
+                else:
+                    val = self.entre.sub('?', val)
+            _val = val.lower()
+            for word in self.badwords:
+                if word in _val:
+                    raise RuntimeError
+            return val
+        except:
+            time.sleep(1)
+            return self._bruce(count+1)
 
 Class = Mess

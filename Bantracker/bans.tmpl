@@ -44,7 +44,7 @@
       function loadlog(id) {
         r = new XMLHttpRequest();
         r.onreadystatechange = printlog;
-        r.open("GET",'https://bugbot.ubuntulinux.nl/bans.cgi?log=' + id, true);
+        r.open("GET",'/bans.cgi?log=' + id, true);
         r.send(null);
       }
       function printlog() {

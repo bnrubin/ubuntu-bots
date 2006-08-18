@@ -83,6 +83,8 @@ class Encyclopedia(callbacks.PluginRegexp):
         wn = msg.args[1].startswith('ubotu')
         if inchannel and not (excl or (withnick and wn)):
             return False
+        if msg.args[1].strip()[0] == '%': # FIXME: replywhenaddressed.chars oslt
+            return False
         for c in irc.callbacks:
             comm = msg.args[1].split()[0]
             if c.isCommandMethod(comm) and not c.isDisabled(comm):
@@ -172,6 +174,9 @@ class Encyclopedia(callbacks.PluginRegexp):
             if match.group('nick2'): nick = match.group('nick2')
             if nick == 'me': nick = msg.nick
             if nick:
+               if nick.lower() == 'ubotu':
+                   irc.error("You lose.")
+                   return
                for chan in irc.state.channels:
                     if nick in irc.state.channels[chan].users and\
                        msg.nick in irc.state.channels[chan].users:
