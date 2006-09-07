@@ -22,8 +22,9 @@ fallback = ('ubuntu', '#ubuntu')
 datadir = '/home/dennis/ubugtu/data/facts'
 aptdir = '/home/dennis/ubugtu/data/apt'
 relaychannel = '#ubuntu-ops'
-# Keep 'distros' in search order!
-distros = ('dapper','breezy','edgy','hoary','warty','dapper-seveas','breezy-seveas','dapper-buntudot')
+distros = ('dapper','breezy','edgy','hoary','warty','dapper-commercial','dapper-seveas','breezy-seveas','dapper-imbrandon','edgy-imbrandon')
+# Keep 'earchistros' in search order!
+searchdistros = ('dapper','dapper-commercial','dapper-seveas','dapper-imbrandon')
 defaultdistro = 'dapper'
 
 # Simple wrapper class for factoids
@@ -154,6 +155,10 @@ class Encyclopedia(callbacks.Plugin):
             if ' is ' in text.lower() or text.lower().endswith(' is'):
                 return # Bad hack attempt :)
             text = '%s =~ s/^/<deleted>/' % text[7:]
+        if text.lower().startswith('unforget '):
+            if ' is ' in text.lower() or text.lower().endswith(' is'):
+                return # Bad hack attempt :)
+            text = '%s =~ s/^<deleted>//' % text[9:]
         if ' is<sed>' in text:
             text = text.replace('is<sed>','=~',1)
         elif ' is <sed>' in text:
@@ -293,7 +298,7 @@ class Encyclopedia(callbacks.Plugin):
                 else:
                     irc.error("That person could not be found in any channel you're in")
                     return
-            factoids = get_factoids(db, text, channel, resolve = not display_info, info = display_info)
+            factoids = get_factoids(db, text.lower(), channel, resolve = not display_info, info = display_info)
             replied = False
             for key in ('channel_primary', 'global_primary'):
                 if getattr(factoids, key):
@@ -398,45 +403,53 @@ def findpkg(pkg,filelookup=True):
 
 def pkginfo(pkg):
     _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum() or x in '.-'])
-    distro = defaultdistro
+    distro = None
     if len(pkg.strip().split()) > 1:
         distro = ''.join([x for x in pkg.strip().split(None,2)[1] if x.isalnum() or x in '-.'])
-    if distro not in distros:
-        distro = defaultdistro
+    if not distro:
+        checkdists = searchdistros
+    elif distro not in distros:
+        checkdists = [defaultdistro]
+    else:
+        checkdists = [distro]
     pkg = _pkg
 
-    data = commands.getoutput(aptcommand % (distro, distro, distro, 'show', pkg))
-    data2 = commands.getoutput(aptcommand % (distro, distro, distro, 'showsrc', pkg))
-    if not data or 'E: No packages found' in data:
-        return 'Package %s does not exist in %s' % (pkg, distro)
-    maxp = {'Version': '0'}
-    packages = [x.strip() for x in data.split('\n\n')]
-    for p in packages:
-        if not p.strip():
+    for distro in checkdists:
+        data = commands.getoutput(aptcommand % (distro, distro, distro, 'show', pkg))
+        data2 = commands.getoutput(aptcommand % (distro, distro, distro, 'showsrc', pkg))
+        if not data or 'E: No packages found' in data:
             continue
-        parser = FeedParser.FeedParser()
-        parser.feed(p)
-        p = parser.close()
-        if apt_pkg.VersionCompare(maxp['Version'], p['Version']) < 0:
-            maxp = p
-        del parser
-    maxp2 = {'Version': '0'}
-    packages2 = [x.strip() for x in data2.split('\n\n')]
-    for p in packages2:
-        if not p.strip():
-            continue
-        parser = FeedParser.FeedParser()
-        parser.feed(p)
-        p = parser.close()
-        if apt_pkg.VersionCompare(maxp2['Version'], p['Version']) < 0:
-            maxp2 = p
-        del parser
-    archs = ''
-    if maxp2['Architecture'] not in ('all','any'):
-        archs = ' (Only available for %s)' % maxp2['Architecture']
-    return("%s: %s. In component %s, is %s. Version %s (%s), package size %s kB, installed size %s kB%s" %
-           (maxp['Package'], maxp['Description'].split('\n')[0], component(maxp['Section']),
-            maxp['Priority'], maxp['Version'], distro, int(maxp['Size'])/1024, maxp['Installed-Size'], archs))
+        maxp = {'Version': '0'}
+        packages = [x.strip() for x in data.split('\n\n')]
+        for p in packages:
+            if not p.strip():
+                continue
+            parser = FeedParser.FeedParser()
+            parser.feed(p)
+            p = parser.close()
+            if apt_pkg.VersionCompare(maxp['Version'], p['Version']) < 0:
+                maxp = p
+            del parser
+        maxp2 = {'Version': '0'}
+        packages2 = [x.strip() for x in data2.split('\n\n')]
+        for p in packages2:
+            if not p.strip():
+                continue
+            parser = FeedParser.FeedParser()
+            parser.feed(p)
+            p = parser.close()
+            if apt_pkg.VersionCompare(maxp2['Version'], p['Version']) < 0:
+                maxp2 = p
+            del parser
+        archs = ''
+        if maxp2['Architecture'] not in ('all','any'):
+            archs = ' (Only available for %s)' % maxp2['Architecture']
+        return("%s: %s. In component %s, is %s. Version %s (%s), package size %s kB, installed size %s kB%s" %
+               (maxp['Package'], maxp['Description'].split('\n')[0], component(maxp['Section']),
+                maxp['Priority'], maxp['Version'], distro, int(maxp['Size'])/1024, maxp['Installed-Size'], archs))
+    if len(checkdists) > 1:
+        return 'Package %s does not exist in any distro I know' % pkg
+    return 'Package %s does not exist in %s' % (pkg, distro)
                        
 def component(arg):
     if '/' in arg: return arg[:arg.find('/')]
@@ -509,330 +522,4 @@ def capab(prefix, capability):
     except:
         pass
     return False
-
-####################################
-##
-##    # Capability check
-##    def _precheck(self, irc, msg, capability=None, timeout=None, withnick=False):
-##        channel = msg.args[0].lower()
-##        inchannel = channel.startswith('#')
-##        excl = msg.args[1].startswith('!')
-##        wn = msg.args[1].startswith('ubotu')
-##        if inchannel and not (excl or (withnick and wn)):
-##            return False
-##        if msg.args[1].strip()[0] == '%': # FIXME: replywhenaddressed.chars oslt
-##            return False
-##        for c in irc.callbacks:
-##            comm = msg.args[1].split()[0]
-##            if c.isCommandMethod(comm) and not c.isDisabled(comm):
-##                return False
-##        if capability:
-##            try:
-##                _ = ircdb.users.getUser(msg.prefix)
-##                if not ircdb.checkCapability(msg.prefix, capability):
-##                    raise KeyError, "Bogus error to trigger the log"
-##            except KeyError:
-##                irc.queueMsg(ircmsgs.privmsg('#ubuntu-ops', "In %s, %s said: %s" % (msg.args[0], msg.nick, msg.args[1])))
-##                irc.reply("Your edit request has been forwarded to #ubuntu-ops. Thank you for your attention to detail",private=True)
-##                lfd = open('/home/dennis/public_html/botlogs/lock','a')
-##                fcntl.lockf(lfd, fcntl.LOCK_EX)
-##                fd = open('/home/dennis/public_html/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),'a')
-##                fd.write("%s  %-20s %-16s  %s\n" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),msg.args[0], msg.nick, msg.args[1]))
-##                fd.close()
-##                fcntl.lockf(lfd,fcntl.LOCK_UN)
-##                lfd.close()
-##                os.chmod('/home/dennis/public_html/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),0644)
-##                return False
-##        if timeout:
-##            for key in self.times.keys():
-##                if self.times[key] < time.time() - 15:
-##                    self.times.pop(key)
-##            if timeout in self.times:
-##                return False
-##            self.times[timeout] = time.time()
-##        db = self.registryValue('database',channel)
-##        if not db:
-##            db,channel = fallback
-##        if channel not in self.databases:
-##            self.databases[channel] = sqlite.connect(os.path.join(datadir, '%s.db' % db))
-##            self.databases[channel].name = db
-##        return self.databases[channel]
-##
-##    def searchfactoid(self, irc, msg, match):
-##        r"^!?search\s+(?P<query>.+)"
-##        db = self._precheck(irc, msg, timeout=(msg.args[0],match.group('query')))
-##        if not db: return
-##        cur = db.cursor()
-##        query = '%%%s%%' % match.group('query').replace('%','').replace('*','%')
-##        try:
-##            cur.execute("SELECT name FROM facts WHERE (value LIKE %s OR name LIKE %s ) AND value NOT LIKE '<alias>%%'", (query, query))
-##            data = cur.fetchall()
-##            all = [x[0] for x in data]
-##            cur.execute("SELECT value FROM facts WHERE name LIKE %s AND value LIKE '<alias>%%'", query)
-##            data = cur.fetchall()
-##            all += [x[0][7:].strip() for x in data]
-##            all = list(set(all))
-##
-##            if len(all) > 10:
-##                irc.reply("Found: %s (and %d more)" % (', '.join(all[:10]), len(all)-10))
-##            elif len(all):
-##                irc.reply("Found: %s" % ', '.join(all))
-##            else:
-##                irc.reply("Found nothing")
-##        except:
-##            irc.error('An error occured (code 561)')
-##
-##    def showfactoid(self, irc, msg, match):
-##        r"^(!?ubotu\S?\s+|!)?(?P<noalias>-)?\s*(tell\s+(?P<nick>\S+)\s+about\s+)?(?P<factoid>\S.*?)(>\s*(?P<nick2>\S+).*)?$"
-##        withnick = bool(match.group(1)) and msg.args[1].startswith('ubotu')
-##        db = self._precheck(irc, msg, withnick=True, timeout=(msg.args[0], match.group('nick'), match.group('factoid'), match.group('nick2')))
-##        if not db: return
-##        to = channel = msg.args[0]
-##        if channel[0] != '#':
-##            to = msg.nick
-##        cur = db.cursor()
-##        retmsg = ''
-##        
-##        noalias = match.group('noalias')
-##        factoid = match.group('factoid').lower().strip()
-##        if ' is ' in match.group(0) or \
-##           '=~' in match.group(0) or \
-##           '<sed>' in match.group(0) or \
-##           factoid.startswith('forget ') or \
-##           factoid.startswith('info ') or \
-##           factoid.startswith('find ') or \
-##           factoid.startswith('search ') or \
-##           factoid.startswith('seen'):
-##            return
-##
-##        #if channel.startswith('#'):
-##        if True:
-##            nick = match.group('nick')
-##            if match.group('nick2'): nick = match.group('nick2')
-##            if nick == 'me': nick = msg.nick
-##            if nick:
-##               if nick.lower() == 'ubotu':
-##                   irc.error("You lose.")
-##                   return
-##               for chan in irc.state.channels:
-##                    if nick in irc.state.channels[chan].users and\
-##                       msg.nick in irc.state.channels[chan].users:
-##                        retmsg = '%s wants you to know: ' % msg.nick
-##                        to = nick
-##                        break
-##               else:
-##                   irc.error("That person could not be found in any channel you're in")
-##                   return
-##
-##        # Retrieve factoid
-##        try:
-##            factoid = get_factoid(db, factoid, channel)
-##            if not factoid:
-##                irc.reply('I know nothing about %s - try searching http://bots.ubuntulinux.nl/factoids.cgi?db=%s' % (match.group('factoid'),db.name))
-##                return
-##            # Output factoid
-##            if noalias:
-##                if not self._precheck(irc, msg, timeout=(to,factoid.name,1),withnick=True):
-##                    return
-##                cur.execute("SELECT name FROM facts WHERE value = %s", '<alias> ' + factoid.name)
-##                data = cur.fetchall()
-##                if(len(data)):
-##                    #irc.queueMsg(ircmsgs.privmsg(to, "%s aliases: %s" % (factoid.name, ', '.join([x[0].strip() for x in data]))))
-##                    aliases = "%s aliases: %s" % (factoid.name, ', '.join([x[0].strip() for x in data]))
-##                else:
-##                    if factoid.value.strip().startswith('<alias>'):
-##                        aliases = "%s is %s" % (factoid.name, factoid.value.strip())
-##                    else:
-##                        aliases = "%s has no aliases" % factoid.name
-##                authorinfo = "Added by %s on %s" % (factoid.author[:factoid.author.find('!')], factoid.added[:factoid.added.find('.')])
-##                irc.queueMsg(ircmsgs.privmsg(to,"%s - %s" % (aliases, authorinfo)))
-##            else:
-##                factoid = resolve_alias(db,factoid,channel)
-##                # Do timing
-##                if not self._precheck(irc, msg, timeout=(to,factoid.name,2),withnick=True):
-##                    return
-##                cur.execute("UPDATE FACTS SET popularity = %d WHERE name = %s", factoid.popularity+1, factoid.name)
-##                db.commit()
-##                if factoid.value.startswith('<reply>'):
-##                    irc.queueMsg(ircmsgs.privmsg(to, '%s%s' % (retmsg, factoid.value[7:].strip())))
-##                else:
-##                    irc.queueMsg(ircmsgs.privmsg(to, '%s%s is %s' % (retmsg, factoid.name, factoid.value.strip())))
-##            # Now look for the -also factoid, but don't error on it
-##            factoid = get_factoid(db, factoid.name + '-also', channel)
-##            if not factoid:
-##                return
-##            if noalias:
-##                if not self._precheck(irc, msg, timeout=(to,factoid.name,1)):
-##                    return
-##                cur.execute("SELECT name FROM facts WHERE value = %s", '<alias> ' + factoid.name)
-##                data = cur.fetchall()
-##                if(len(data)):
-##                    aliases = "%s aliases: %s" % (factoid.name, ', '.join([x[0].strip() for x in data]))
-##                else:
-##                    if factoid.value.strip().startswith('<alias>'):
-##                        aliases = "%s is %s" % (factoid.name, factoid.value.strip())
-##                    else:
-##                        aliases = "%s has no aliases" % factoid.name
-##                authorinfo = "Added by %s on %s" % (factoid.author[:factoid.author.find('!')], factoid.added[:factoid.added.find('.')])
-##                irc.queueMsg(ircmsgs.privmsg(to,"%s - %s" % (aliases, authorinfo)))
-##            else:
-##                factoid = resolve_alias(db,factoid,channel)
-##                # Do timing
-##                if not self._precheck(irc, msg, timeout=(to,factoid.name)):
-##                    return
-##                cur.execute("UPDATE FACTS SET popularity = %d WHERE name = %s", factoid.popularity+1, factoid.name)
-##                db.commit()
-##                irc.queueMsg(ircmsgs.privmsg(to, '%s%s' % (retmsg, factoid.value.strip())))
-##        except:
-##            raise
-##            irc.error('An error occured (code 813)')
-##
-##    def addfactoid(self, irc, msg, match):
-##        r"^!?(?P<no>no,?\s+)?(?P<factoid>\S.*?)\s+is\s+(?P<also>also\s+)?(?P<fact>\S.*)"
-##        factoid = match.group('factoid').lower().strip()
-##        fact = match.group('fact').strip()
-##        if '<sed>' in match.group(0) or \
-##           '=~' in match.group(0) or \
-##           factoid.startswith('forget') or \
-##           factoid.startswith('info') or \
-##           factoid.startswith('find') or \
-##           factoid.startswith('search'):
-##            return
-##        db = self._precheck(irc, msg, capability='editfactoids', timeout=(msg.args[0],match.group(0)))
-##        if not db: return
-##        channel = msg.args[0]
-##        cur = db.cursor()
-##
-##        if match.group('also'):
-##            factoid = get_factoid(db, match.group('factoid'), channel)
-##            if not factoid:
-##                irc.reply('I know nothing about %s yet' % match.group('factoid'))
-##                return
-##            factoid = factoid.name + '-also'
-##
-##        try:
-##            # See if the alias exists and resolve it...
-##            old_factoid = get_factoid(db, factoid, channel)
-##            if old_factoid:
-##                if not fact.startswith('<alias>'):
-##                    old_factoid = resolve_alias(db, old_factoid, channel)
-##                # Unresolvable alias
-##                if not old_factoid.name:
-##                    irc.reply(old_factoid.value)
-##                    return
-##                if match.group('no'):
-##                    if fact.startswith('<alias>'):
-##                        cur.execute("SELECT COUNT(*) FROM facts WHERE value = %s", '<alias> ' + factoid)
-##                        num = cur.fetchall()[0][0]
-##                        if num:
-##                            irc.reply("Can't turn factoid with aliases into an alias")
-##                            return
-##                        alias_factoid = get_factoid(db, fact[7:].lower().strip(), channel)
-##                        if not alias_factoid:
-##                            alias_factoid =  Factoid('','Error: unresolvable <alias>','','',0)
-##                        else:
-##                            alias_factoid = resolve_alias(db, alias_factoid, channel)
-##                        if not alias_factoid.name:
-##                            irc.reply(alias_factoid.value)
-##                            return
-##                        fact = '<alias> %s' % alias_factoid.name
-##                        fact = fact.lower()
-##                    cur.execute("""UPDATE facts SET value=%s, author=%s, added=%s WHERE name=%s""", 
-##                                (fact, msg.prefix, str(datetime.datetime.now()), old_factoid.name))
-##                    db.commit()
-##                    irc.reply("I'll remember that")
-##                else:
-##                    irc.reply('%s is already known...' % factoid)
-##            else:
-##                if fact.lower().startswith('<alias>'):
-##                    old_factoid = get_factoid(db, fact[7:].lower().strip(), channel)
-##                    if not old_factoid:
-##                        old_factoid =  Factoid('','Error: unresolvable <alias>','','',0)
-##                    else:
-##                        old_factoid = resolve_alias(db, old_factoid, channel)
-##                    if not old_factoid.name:
-##                        irc.reply(old_factoid.value)
-##                        return
-##                    fact = '<alias> %s' % old_factoid.name
-##                    fact = fact.lower()
-##                cur.execute("""INSERT INTO facts (name, value, author, added) VALUES
-##                            (%s, %s, %s, %s)""", (factoid, fact, msg.prefix, str(datetime.datetime.now())))
-##                db.commit()
-##                irc.reply("I'll remember that")
-##        except:
-##            irc.error('An error occured (code 735)')
-##            
-##    def editfactoid(self, irc, msg, match):
-##        r"^!?(?P<factoid>.*?)\s*(=~|(\s+is\s*)<sed>)\s*s?(?P<regex>.*)"
-##        db = self._precheck(irc, msg, capability='editfactoids', timeout=(msg.args[0],match.group(0)))
-##        if not db: return
-##        channel = msg.args[0]
-##        cur = db.cursor()
-##
-##        factoid = match.group('factoid').lower().strip()
-##        regex = match.group('regex').strip()
-##        if factoid.startswith('forget') or \
-##           factoid.startswith('info') or \
-##           factoid.startswith('find') or \
-##           factoid.startswith('search'): return
-##        # Store factoid if nonexistant or 'no' is given
-##        try:
-##            # See if the alias exists and resolve it...
-##            factoid = get_factoid(db, factoid, channel)
-##            if factoid:
-##                factoid = resolve_alias(db, factoid, channel)
-##                # Unresolvable alias
-##                if not factoid.name:
-##                    irc.reply(old_factoid.value)
-##                    return
-##                delim = regex[0]
-##                if regex[-1] != delim:
-##                    irc.reply("Missing end delimiter")
-##                    return
-##                data = regex.split(delim)[1:-1]
-##                if len(data) != 2:
-##                    irc.reply("You used the delimiter too often. Maybe try another one?")
-##                    return
-##                regex, change = data
-##                if '<alias>' in change.lower():
-##                    irc.reply("Can't turn factoids into aliases this way")
-##                    return
-##                try:
-##                    regex = re.compile(regex)
-##                except:
-##                    irc.reply("Malformed regex")
-##                    return
-##                newval = regex.sub(change, factoid.value, 1)
-##                if newval != factoid.value:
-##                    cur.execute("""UPDATE facts SET value=%s, author=%s, added=%s WHERE name=%s""", 
-##                                (newval, msg.prefix, str(datetime.datetime.now()), factoid.name))
-##                    db.commit()
-##                    irc.reply("I'll remember that")
-##                else:
-##                    irc.reply("No changes, not saving")
-##            else:
-##                irc.reply('I know nothing about %s' % match.group('factoid'))
-##        except:
-##            irc.error('An error occured (code 735)')
-##            
-##    def deletefactoid(self, irc, msg, match):
-##        r"^!?forget\s+(?P<factoid>\S.*)"
-##        db = self._precheck(irc, msg, capability='editfactoids', timeout=(msg.args[0],match.group('factoid')))
-##        if not db: return
-##        channel = msg.args[0]
-##        cur = db.cursor()
-##        try:
-##            cur.execute("SELECT COUNT(*) FROM facts WHERE value = %s", '<alias> ' + match.group('factoid'))
-##            num = cur.fetchall()[0][0]
-##            if num:
-##                irc.reply("Can't forget factoids with aliases")
-##            else:
-##                cur.execute("DELETE FROM facts WHERE name = %s", match.group('factoid'))
-##                cur.execute("DELETE FROM facts WHERE name = %s", match.group('factoid') + '-also')
-##                db.commit()
-##                irc.reply("I've forgotten it")
-##        except:
-##            raise
-##            irc.error('An error occured (code 124)')
-##        
 Class = Encyclopedia
