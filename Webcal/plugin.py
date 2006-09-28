@@ -207,6 +207,10 @@ class Webcal(callbacks.Plugin):
     now = wrap(now, [additional('text')])
     time = now
 
+    def subscribe(self, irc, msg, args, meeting):
+        print meeting
+    subscribe = wrap(subscribe, ['text'])
+
     # Warn people that you manage the topic
     def doTopic(self, irc, msg):
         if not self.registryValue('doTopic'):

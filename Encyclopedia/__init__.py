@@ -28,8 +28,7 @@ __contributors__ = {}
 __url__ = '' # 'http://supybot.com/Members/yourname/Factoid plugin/download'
 
 import config
-import plugin
-reload(plugin) # In case we're being reloaded.
+reload(config)
 import plugin_ng
 reload(plugin_ng)
 # Add more reloads here if you add third-party modules and want them to be
@@ -38,7 +37,6 @@ reload(plugin_ng)
 if world.testing:
     import test
 
-Class = plugin.Class
 Class = plugin_ng.Class
 configure = config.configure
 

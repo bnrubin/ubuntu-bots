@@ -18,14 +18,12 @@ from email import FeedParser
 import re, os, fcntl, time
 apt_pkg.init()
 
-fallback = ('ubuntu', '#ubuntu')
 datadir = '/home/dennis/ubugtu/data/facts'
 aptdir = '/home/dennis/ubugtu/data/apt'
-relaychannel = '#ubuntu-ops'
 distros = ('dapper','breezy','edgy','hoary','warty','dapper-commercial','dapper-seveas','breezy-seveas','dapper-imbrandon','edgy-imbrandon')
-# Keep 'earchistros' in search order!
-searchdistros = ('dapper','dapper-commercial','dapper-seveas','dapper-imbrandon')
 defaultdistro = 'dapper'
+# Keep 'searchistros' in search order!
+searchdistros = ('dapper','dapper-commercial','dapper-seveas','dapper-imbrandon')
 
 # Simple wrapper class for factoids
 class Factoid:
@@ -127,28 +125,29 @@ class Encyclopedia(callbacks.Plugin):
         # XXX these 3 belong in a different plugin, but hey
         if text.lower()[:4] in ('info','seen','find'):
             text = text.lower()
-        if text.startswith('info '):
-            irc.reply(pkginfo(text[5:].strip()))
-            return
-        if text.startswith('find '):
-            irc.reply(findpkg(text[5:].strip()))
-            return
-        if text.startswith('seen '):
-            self.seens[text[5:].strip()] = (target, time.time())
-            queue(irc, 'seenserv', "seen %s" % text[5:].strip())
-            return
+        if self.registryValue('packagelookup'):
+            if text.startswith('info '):
+                queue(irc, target, pkginfo(text[5:].strip()))
+                return
+            if text.startswith('find '):
+                queue(irc, target, findpkg(text[5:].strip()))
+                return
+            if text.startswith('seen '):
+                self.seens[text[5:].strip()] = (target, time.time())
+                queue(irc, 'seenserv', "seen %s" % text[5:].strip())
+                return
 
         # Factoid manipulation
         db = self.registryValue('database',channel)
         if not db:
-            db,channel = fallback
+            db,channel = self.registryValue('fallbackdb'), self.registryValue('fallbackchannel')
         if channel not in self.databases:
             self.databases[channel] = sqlite.connect(os.path.join(datadir, '%s.db' % db))
             self.databases[channel].name = db
         db = self.databases[channel]
         
         if text.lower().startswith('search '):
-            irc.reply(searchfactoid(text[7:].strip().lower()))
+            irc.reply(searchfactoid(db, text[7:].strip().lower()))
             return
         do_new = False
         if text.lower().startswith('forget '):
@@ -165,7 +164,7 @@ class Encyclopedia(callbacks.Plugin):
             text = text.replace('is <sed>','=~',1)
         if ' is ' in text and '=~' not in text:
             do_new = True
-            if text.lower().startswith('no '):
+            if text.lower()[:3] in ('no ','no,'):
                 do_new = False
                 text = text[3:].strip()
             if text.startswith('is '):
@@ -186,8 +185,8 @@ class Encyclopedia(callbacks.Plugin):
         if '=~' in text:
             # Editing
             if not capab(msg.prefix, 'editfactoids'):
-                irc.queueMsg(ircmsgs.privmsg(relaychannel, "In %s, %s said: %s" % (msg.args[0], msg.nick, msg.args[1])))
-                irc.reply("Your edit request has been forwarded to #ubuntu-ops. Thank you for your attention to detail",private=True)
+                irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel'), "In %s, %s said: %s" % (msg.args[0], msg.nick, msg.args[1])))
+                irc.reply("Your edit request has been forwarded to %s. Thank you for your attention to detail",self.registryValue('relaychannel'),private=True)
                 lfd = open('/home/dennis/public_html/botlogs/lock','a')
                 fcntl.lockf(lfd, fcntl.LOCK_EX)
                 fd = open('/home/dennis/public_html/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),'a')
@@ -318,9 +317,12 @@ class Encyclopedia(callbacks.Plugin):
                         break
             else:
                 if not replied:
-                    i = pkginfo(text)
-                    if not i.startswith('Package'):
-                        queue(irc, target, i)
+                    if self.registryValue('packagelookup'):
+                        i = pkginfo(text)
+                        if not i.startswith('Package'):
+                            queue(irc, target, i)
+                        else:
+                            irc.reply("Sorry, I don't know anything about %s - try searching on http://bots.ubuntulinux.nl/factoids.cgi" % text)
                     else:
                         irc.reply("Sorry, I don't know anything about %s - try searching on http://bots.ubuntulinux.nl/factoids.cgi" % text)
             for key in ('channel_secondary', 'global_secondary'):
@@ -485,6 +487,22 @@ def get_factoids(db, name, channel, resolve = True, info = False):
         factoids.channel_primary   = factoid_info(db, factoids.channel_primary, channel)
         factoids.channel_secondary = factoid_info(db, factoids.channel_secondary, channel)
     return factoids
+
+def searchfactoid(db, factoid):
+    keys = factoid.split()[:5]
+    cur = db.cursor()
+    ret = {}
+    for k in keys:
+        k = k.replace("'","\'")
+        cur.execute("SELECT name FROM facts WHERE name LIKE '%%%s%%' OR VAlUE LIKE '%%%s%%'" % (k, k))
+        res = cur.fetchall()
+        for r in res:
+            r = r[0]
+            try:
+                ret[r] += 1
+            except:
+                ret[r] = 1
+    return 'Found: %s' % ','.join(sorted(ret.keys(), lambda x, y: cmp(ret[x], ret[y]))[:10])
 
 def factoid_info(db,factoid,channel):
     if factoid:

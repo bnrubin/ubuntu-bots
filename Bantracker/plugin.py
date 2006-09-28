@@ -171,7 +171,7 @@ class Bantracker(callbacks.Plugin):
     def doQuit(self, irc, msg):
         for (channel, chan) in self.lastStates[irc].channels.iteritems():
             if msg.nick in chan.users:
-                self.doLog(irc, channel, '*** %s has quit IRC\n' % msg.nick)
+                self.doLog(irc, channel, '*** %s has quit IRC (%s)\n' % (msg.nick, msg.args[0]))
 
     def outFilter(self, irc, msg):
         # Gotta catch my own messages *somehow* :)
