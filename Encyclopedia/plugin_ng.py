@@ -185,8 +185,8 @@ class Encyclopedia(callbacks.Plugin):
         if '=~' in text:
             # Editing
             if not capab(msg.prefix, 'editfactoids'):
+                irc.reply("Your edit request has been forwarded to %s. Thank you for your attention to detail"%self.registryValue('relaychannel'),private=True)
                 irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel'), "In %s, %s said: %s" % (msg.args[0], msg.nick, msg.args[1])))
-                irc.reply("Your edit request has been forwarded to %s. Thank you for your attention to detail",self.registryValue('relaychannel'),private=True)
                 lfd = open('/home/dennis/public_html/botlogs/lock','a')
                 fcntl.lockf(lfd, fcntl.LOCK_EX)
                 fd = open('/home/dennis/public_html/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),'a')
@@ -322,9 +322,9 @@ class Encyclopedia(callbacks.Plugin):
                         if not i.startswith('Package'):
                             queue(irc, target, i)
                         else:
-                            irc.reply("Sorry, I don't know anything about %s - try searching on http://bots.ubuntulinux.nl/factoids.cgi" % text)
+                            irc.reply(self.registryValue('notfoundmsg') % text)
                     else:
-                        irc.reply("Sorry, I don't know anything about %s - try searching on http://bots.ubuntulinux.nl/factoids.cgi" % text)
+                        irc.reply(self.registryValue('notfoundmsg') % text)
             for key in ('channel_secondary', 'global_secondary'):
                 if getattr(factoids, key):
                     factoid = getattr(factoids,key)

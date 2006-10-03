@@ -31,6 +31,8 @@ conf.registerGlobalValue(Encyclopedia, 'fallbackchannel',
     registry.String('#ubuntu', 'Fallback channel'))
 conf.registerGlobalValue(Encyclopedia, 'relaychannel',
     registry.String('#ubuntu-ops', 'Relay channel for unauthorized edits'))
+conf.registerGlobalValue(Encyclopedia, 'notfoundmsg',
+    registry.String('Factoid %s not found', 'Reply when factoid isn\'t found'))
 
 
 # vim:set shiftwidth=4 tabstop=4 expandtab textwidth=79:
