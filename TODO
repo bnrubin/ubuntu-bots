@@ -1,0 +1,8 @@
+Bantracker:
+    - Documentation
+
+Bugtracker:
+    - Make sure to use reply.whenAddressedBy
+
+Encyclopedia:
+    - The list of search repos/default repo must be configurable per channel

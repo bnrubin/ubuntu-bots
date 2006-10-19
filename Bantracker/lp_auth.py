@@ -1,8 +1,17 @@
 #!/usr/bin/python
 #
-# Simple authentication against launchpad and group membership checking.
-# Feel free to use, modify and distribute as you see fit.
-# (c) 2006 Dennis Kaarsemaker <dennis@kaarsemaker.net>
+# Copyright (c) 2005,2006 Dennis Kaarsemaker
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of version 2 of the GNU General Public License as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+###
 
 import urllib,urllib2
 import xml.dom.minidom as dom

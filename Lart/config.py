@@ -1,5 +1,6 @@
 ###
 # Copyright (c) 2005, Daniel DiPaolo
+#               2006, Dennis Kaarsemaker
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without

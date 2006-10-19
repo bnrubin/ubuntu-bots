@@ -29,7 +29,7 @@ CPU radiator broken
 It works the way the Wang did, what's the problem
 positron router malfunction
 cellular telephone interference
-techtonic stress
+tectonic stress
 piezo-electric interference
 (l)user error
 working as designed
@@ -75,7 +75,7 @@ You're out of memory
 There isn't any problem
 Unoptimized hard drive
 Typo in the code
-Yes, yes, its called a design limitation
+Yes, yes, it's called a design limitation
 Look, buddy:  Windows 3.1 IS A General Protection Fault.
 That's a great computer you have there; have you considered how it would work as a BSD machine?
 Please excuse me, I have to circuit an AC line through my head to get this database working.
@@ -101,7 +101,7 @@ IRQ dropout
 Collapsed Backbone
 Power company testing new voltage spike (creation) equipment
 operators on strike due to broken coffee machine
-backup tape overwritten with copy of system manager's favourite CD
+backup tape overwritten with copy of system manager's favorite CD
 UPS interrupted the server's power
 The electrician didn't know what the yellow cable was so he yanked the ethernet out.
 The keyboard isn't plugged in
@@ -148,7 +148,7 @@ Party-bug in the Aloha protocol.
 Insert coin for new game
 Dew on the telephone lines.
 Arcserve crashed the server again.
-Some one needed the powerstrip, so they pulled the switch plug.
+Someone needed the powerstrip, so they pulled the switch plug.
 My pony-tail hit the on/off switch on the power strip.
 Big to little endian conversion error
 You can tune a file system, but you can't tune a fish

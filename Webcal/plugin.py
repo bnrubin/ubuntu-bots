@@ -21,7 +21,8 @@ import supybot.schedule as schedule
 import supybot.ircmsgs as ircmsgs
 import pytz
 import ical
-import datetime
+import datetime, shelve, re
+import cPickle as pickle
 reload(ical)
 
 def _event_to_string(event, timezone):
@@ -56,11 +57,13 @@ class Webcal(callbacks.Plugin):
         schedule.addPeriodicEvent(self._refresh_cache,  60 * 20, name=self.name())
         schedule.addPeriodicEvent(self._autotopics,     60, name=self.name() + 'b')
         self.cache = {}
+        self.subs = shelve.open('/home/dennis/ubugtu/data/subscriptions.db')
 
     def die(self):
         schedule.removeEvent(self.name())
         schedule.removeEvent(self.name() + 'b')
         self.cache.clear()
+        self.subs.close()
 
     def reset(self):
         self.cache.clear()
@@ -207,9 +210,24 @@ class Webcal(callbacks.Plugin):
     now = wrap(now, [additional('text')])
     time = now
 
-    def subscribe(self, irc, msg, args, meeting):
-        print meeting
+    def subscribe(self, irc, msg, args, regex):
+        try:
+            rx = re.compile(regex)
+        except:
+            irc.error("Invalid reguar expression")
+            return
+        self.subs[msg.nick.lower()] = (regex, rx)
+        self.subs.sync()
+        irc.reply("Subscription succesful")
     subscribe = wrap(subscribe, ['text'])
+    
+    def subscription(self, irc, msg, args):
+        n = msg.nick.lower()
+        if n in self.subs:
+            irc.reply("Your subscription: %s" % self.subs[n][0])
+        else:
+            irc.reply("You haven't subscribed yet")
+    subscription = wrap(subscription)
 
     # Warn people that you manage the topic
     def doTopic(self, irc, msg):

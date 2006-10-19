@@ -20,7 +20,7 @@ apt_pkg.init()
 
 datadir = '/home/dennis/ubugtu/data/facts'
 aptdir = '/home/dennis/ubugtu/data/apt'
-distros = ('dapper','breezy','edgy','hoary','warty','dapper-commercial','dapper-seveas','breezy-seveas','dapper-imbrandon','edgy-imbrandon')
+distros = ('dapper','breezy','edgy','hoary','warty','dapper-commercial','dapper-seveas','breezy-seveas','dapper-imbrandon','edgy-imbrandon', 'dapper-backports')
 defaultdistro = 'dapper'
 # Keep 'searchistros' in search order!
 searchdistros = ('dapper','dapper-commercial','dapper-seveas','dapper-imbrandon')
@@ -309,10 +309,10 @@ class Encyclopedia(callbacks.Plugin):
                         db.commit()
                     if factoid.value.startswith('<reply>'):
                         #irc.queueMsg(ircmsgs.privmsg(target, '%s%s' % (retmsg, factoid.value[7:].strip())))
-                        queue(irc, target, '%s%s' % (retmsg, factoid.value[7:].strip()))
+                        queue(irc, target, '%s%s' % (retmsg, factoid.value[7:].strip().replace('$chan',channel)))
                     else:
                         #irc.queueMsg(ircmsgs.privmsg(target, '%s%s is %s' % (retmsg, factoid.name, factoid.value.strip())))
-                        queue(irc, target, '%s%s is %s' % (retmsg, factoid.name, factoid.value.strip()))
+                        queue(irc, target, '%s%s is %s' % (retmsg, factoid.name, factoid.value.strip().replace('$chan',channel)))
                     if not display_info:
                         break
             else:
@@ -389,7 +389,7 @@ def findpkg(pkg,filelookup=True):
     data = commands.getoutput(aptcommand % (distro, distro, distro, 'search -n', pkg))
     if not data:
         if filelookup:
-            print aptfilecommand % (distro, distro, pkg)
+            #print aptfilecommand % (distro, distro, pkg)
             data = commands.getoutput(aptfilecommand % (distro, distro, pkg)).split()
             if data:
                 if len(data) > 5:
@@ -468,7 +468,6 @@ def real_get_factoid(cur,name,deleted=False):
         return Factoid(f[0],f[1],f[2],f[3],f[4])
 
 def get_factoids(db, name, channel, resolve = True, info = False):
-    print resolve
     cur = db.cursor()
     factoids = FactoidSet()
     factoids.global_primary    = real_get_factoid(cur, name)
