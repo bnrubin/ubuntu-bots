@@ -270,7 +270,7 @@ class Encyclopedia(callbacks.Plugin):
                     f.name += '-%s' % newchannel
                     f.value = '<alias> ' + aliases.channel_primary.name
                 else:
-                    irc.error("Unresolvable alias:")
+                    irc.error("Unresolvable alias: %s" % alias)
                     return
             # Finally, save
             cur.execute("UPDATE facts SET value = %s WHERE name = %s", (f.value, f.name))
@@ -284,11 +284,15 @@ class Encyclopedia(callbacks.Plugin):
             if '>' in text:
                 _target = text[text.rfind('>')+1:].strip()
                 text = text[:text.rfind('>')].strip()
-            if text.startswith('tell ') and ' about ' in text:
-                _target = text[5:].strip().split(None,1)[0]
+            if text.startswith('tell '):
+                text = ' ' + text
+            if ' tell ' in text and ' about ' in text:
+                _target = text[text.find(' tell ')+6:].strip().split(None,1)[0]
                 text = text[text.find(' about ')+7:].strip()
             if _target:
             # Validate
+                if _target == 'me':
+                    target = msg.nick
                 for chan in irc.state.channels:
                     if _target in irc.state.channels[chan].users and msg.nick in irc.state.channels[chan].users:
                         target = _target   
