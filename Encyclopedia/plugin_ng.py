@@ -20,10 +20,7 @@ apt_pkg.init()
 
 datadir = '/home/dennis/ubugtu/data/facts'
 aptdir = '/home/dennis/ubugtu/data/apt'
-distros = ('dapper','breezy','edgy','hoary','warty','dapper-commercial','dapper-seveas','breezy-seveas','dapper-imbrandon','edgy-imbrandon', 'dapper-backports')
-defaultdistro = 'dapper'
-# Keep 'searchistros' in search order!
-searchdistros = ('dapper','dapper-commercial','dapper-seveas','dapper-imbrandon')
+distros = ('dapper','breezy','edgy','hoary','warty','dapper-commercial','dapper-seveas','breezy-seveas','dapper-imbrandon','edgy-imbrandon', 'dapper-backports','edgy-seveas')
 
 # Simple wrapper class for factoids
 class Factoid:
@@ -39,6 +36,7 @@ class FactoidSet:
 
 msgcache = {}
 def queue(irc, to, msg):
+    print "Message to %s: %s" % (to, msg)
     now = time.time()
     for m in msgcache.keys():
         if msgcache[m] < now - 30:
@@ -83,6 +81,11 @@ class Encyclopedia(callbacks.Plugin):
         irc.reply(', '.join([ircdb.users.getUser(u).name for u in ircdb.users.users \
                              if 'editfactoids' in ircdb.users.getUser(u).capabilities]))
     editors = wrap(editors)
+
+    def _checkdists(self, channel):
+        cd = self.registryValue('searchorder', channel=channel)
+        print cd
+        return cd.split()
     
     def moderators(self, irc, msg, args):
         irc.reply(', '.join([ircdb.users.getUser(u).name for u in ircdb.users.users \
@@ -103,6 +106,8 @@ class Encyclopedia(callbacks.Plugin):
                 self.seens.pop(n)
 
     def doPrivmsg(self, irc, msg):
+        if chr(1) in msg.args[1]:
+            return
         recipient, text = msg.args
         text = addressed(recipient, text, irc)
         if not text:
@@ -127,10 +132,10 @@ class Encyclopedia(callbacks.Plugin):
             text = text.lower()
         if self.registryValue('packagelookup'):
             if text.startswith('info '):
-                queue(irc, target, pkginfo(text[5:].strip()))
+                queue(irc, target, pkginfo(text[5:].strip(),self._checkdists(msg.args[0])))
                 return
             if text.startswith('find '):
-                queue(irc, target, findpkg(text[5:].strip()))
+                queue(irc, target, findpkg(text[5:].strip(),self._checkdists(msg.args[0])))
                 return
             if text.startswith('seen '):
                 self.seens[text[5:].strip()] = (target, time.time())
@@ -162,7 +167,7 @@ class Encyclopedia(callbacks.Plugin):
             text = text.replace('is<sed>','=~',1)
         elif ' is <sed>' in text:
             text = text.replace('is <sed>','=~',1)
-        if ' is ' in text and '=~' not in text:
+        if ' is ' in text and '=~' not in text and not ('|' in text and text.find(' is ') > text.find('|')):
             do_new = True
             if text.lower()[:3] in ('no ','no,'):
                 do_new = False
@@ -180,7 +185,6 @@ class Encyclopedia(callbacks.Plugin):
             else:
                 irc.error('Internal error, please report')
                 return
-
         # Big action 1: editing factoids
         if '=~' in text:
             # Editing
@@ -263,8 +267,14 @@ class Encyclopedia(callbacks.Plugin):
             # Check resolving of aliases
             if f.value.startswith('<alias>'):
                 alias = f.value[7:].strip()
+                if name == alias:
+                    irc.error("Recursive <alias> detected. Bailing out!")
+                    return
                 aliases = get_factoids(db, alias, newchannel, resolve=True)
                 if aliases.global_primary:
+                    if name == aliases.global_primary.name:
+                        irc.error("Recursive <alias> detected. Bailing out!")
+                        return
                     f.value = '<alias> ' + aliases.global_primary.name
                 elif aliases.channel_primary:
                     f.name += '-%s' % newchannel
@@ -289,10 +299,13 @@ class Encyclopedia(callbacks.Plugin):
             if ' tell ' in text and ' about ' in text:
                 _target = text[text.find(' tell ')+6:].strip().split(None,1)[0]
                 text = text[text.find(' about ')+7:].strip()
+            if '|' in text:
+                retmsg = text[text.find('|')+1:].strip() + ': '
+                text = text[:text.find('|')].strip()
             if _target:
             # Validate
                 if _target == 'me':
-                    target = msg.nick
+                    _target = msg.nick
                 for chan in irc.state.channels:
                     if _target in irc.state.channels[chan].users and msg.nick in irc.state.channels[chan].users:
                         target = _target   
@@ -303,6 +316,8 @@ class Encyclopedia(callbacks.Plugin):
                     return
             factoids = get_factoids(db, text.lower(), channel, resolve = not display_info, info = display_info)
             replied = False
+            if target.lower() == msg.nick.lower() and msg.args[0][0] == '#':
+                queue(irc, target, "To send answers to yourself, please use /msg instead of spamming the channel")
             for key in ('channel_primary', 'global_primary'):
                 if getattr(factoids, key):
                     replied = True
@@ -322,7 +337,7 @@ class Encyclopedia(callbacks.Plugin):
             else:
                 if not replied:
                     if self.registryValue('packagelookup'):
-                        i = pkginfo(text)
+                        i = pkginfo(text,self._checkdists(msg.args[0]))
                         if not i.startswith('Package'):
                             queue(irc, target, i)
                         else:
@@ -353,12 +368,12 @@ def addressed(recipients, text, irc):
         text = text.strip()
         if text[0] == '!':
             text = text[1:]
-            if text.lower().startswith('ubotu'):
+            if text.lower().startswith('ubotu') and (len(text) < 5 or not text[5].isalnum()):
                 t2 = text[5:].strip()
-                if t2 and t2.find('>') != 0:
+                if t2 and t2.find('>') != 0 and t2.find('|') != 0:
                     text = text[5:].strip()
             return text
-        if text.lower().startswith('ubotu'): # FIXME: use nickname variable
+        if text.lower().startswith('ubotu') and not text[5].isalnum(): # FIXME: use nickname variable
             return text[5:]
         return False
     else: # Private messages
@@ -381,13 +396,13 @@ aptcommand = """apt-cache\\
                  -o"Dir::Cache=%s/cache"\\
                  %%s %%s""" % tuple([aptdir]*4)
 aptfilecommand = """apt-file -s %s/%%s.list -c %s/apt-file/%%s -l -F search %%s""" % tuple([aptdir]*2)
-def findpkg(pkg,filelookup=True):
+def findpkg(pkg,checkdists,filelookup=True):
     _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum or x in '.-'])
-    distro = defaultdistro
+    distro = checkdists[0]
     if len(pkg.strip().split()) > 1:
         distro = ''.join([x for x in pkg.strip().split(None,2)[1] if x.isalnum or x in '.-'])
     if distro not in distros:
-        distro = defaultdistro
+        distro = checkdists[0]
     pkg = _pkg
 
     data = commands.getoutput(aptcommand % (distro, distro, distro, 'search -n', pkg))
@@ -407,18 +422,19 @@ def findpkg(pkg,filelookup=True):
     else:
         return "Found: %s" % ', '.join(pkgs[:5])
 
-def pkginfo(pkg):
+def pkginfo(pkg,checkdists):
+    print pkg, checkdists
     _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum() or x in '.-'])
     distro = None
     if len(pkg.strip().split()) > 1:
         distro = ''.join([x for x in pkg.strip().split(None,2)[1] if x.isalnum() or x in '-.'])
-    if not distro:
-        checkdists = searchdistros
-    elif distro not in distros:
-        checkdists = [defaultdistro]
-    else:
-        checkdists = [distro]
+    if distro:
+        if distro not in distros:
+            checkdists = [checkdists[0]]
+        else:
+            checkdists = [distro]
     pkg = _pkg
+    print pkg, checkdists
 
     for distro in checkdists:
         data = commands.getoutput(aptcommand % (distro, distro, distro, 'show', pkg))
@@ -433,6 +449,7 @@ def pkginfo(pkg):
             parser = FeedParser.FeedParser()
             parser.feed(p)
             p = parser.close()
+            print p, p['Version']
             if apt_pkg.VersionCompare(maxp['Version'], p['Version']) < 0:
                 maxp = p
             del parser
