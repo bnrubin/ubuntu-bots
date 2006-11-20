@@ -36,7 +36,6 @@ class FactoidSet:
 
 msgcache = {}
 def queue(irc, to, msg):
-    print "Message to %s: %s" % (to, msg)
     now = time.time()
     for m in msgcache.keys():
         if msgcache[m] < now - 30:
@@ -84,7 +83,6 @@ class Encyclopedia(callbacks.Plugin):
 
     def _checkdists(self, channel):
         cd = self.registryValue('searchorder', channel=channel)
-        print cd
         return cd.split()
     
     def moderators(self, irc, msg, args):
@@ -408,7 +406,6 @@ def findpkg(pkg,checkdists,filelookup=True):
     data = commands.getoutput(aptcommand % (distro, distro, distro, 'search -n', pkg))
     if not data:
         if filelookup:
-            #print aptfilecommand % (distro, distro, pkg)
             data = commands.getoutput(aptfilecommand % (distro, distro, pkg)).split()
             if data:
                 if len(data) > 5:
@@ -423,7 +420,6 @@ def findpkg(pkg,checkdists,filelookup=True):
         return "Found: %s" % ', '.join(pkgs[:5])
 
 def pkginfo(pkg,checkdists):
-    print pkg, checkdists
     _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum() or x in '.-'])
     distro = None
     if len(pkg.strip().split()) > 1:
@@ -434,7 +430,6 @@ def pkginfo(pkg,checkdists):
         else:
             checkdists = [distro]
     pkg = _pkg
-    print pkg, checkdists
 
     for distro in checkdists:
         data = commands.getoutput(aptcommand % (distro, distro, distro, 'show', pkg))
@@ -449,7 +444,6 @@ def pkginfo(pkg,checkdists):
             parser = FeedParser.FeedParser()
             parser.feed(p)
             p = parser.close()
-            print p, p['Version']
             if apt_pkg.VersionCompare(maxp['Version'], p['Version']) < 0:
                 maxp = p
             del parser

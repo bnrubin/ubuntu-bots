@@ -12,6 +12,8 @@ _42file = '/home/dennis/ubugtu/plugins/Mess/42.txt'
 _42data = [x.strip() for x in open(_42file).readlines()]
 _ballfile = '/home/dennis/ubugtu/plugins/Mess/ball.txt'
 _balldata = [x.strip() for x in open(_ballfile).readlines()]
+_ferengifile = '/home/dennis/ubugtu/plugins/Mess/ferengi.txt'
+_ferengidata = [x.rstrip() for x in open(_ferengifile).readlines()]
 
 class Mess(callbacks.PluginRegexp):
     """Random Mess plugin"""
@@ -195,6 +197,15 @@ class Mess(callbacks.PluginRegexp):
         #else:
         i = random.randint(0,len(_42data)-1)
         irc.reply(_42data[i])
+        
+    def ferengi(self, irc, msg, match):
+        if not self.ok(msg.args[0]): return
+        #if num and num >= 1 and num <= len(_bofhdata):
+        #    i = num
+        #else:
+        i = random.randint(0,len(_ferengidata)-1)
+        irc.reply("Ferengi rule of acquisition" + _ferengidata[i])
+    ferengi = wrap(ferengi)
 
     def ball(self, irc, msg, match):
         """^magic 8ball.*\?$"""
@@ -249,8 +260,18 @@ class Mess(callbacks.PluginRegexp):
         data = data[data.find('<font'):data.find('</font')]
         while '<' in data:
             data = data[:data.find('<')] + data[data.find('>')+1:]
-        irc.reply(data.replace("\n",''))
+        irc.reply(data.replace("\r\n",' ').replace("\r",' ').replace("\n",' '))
     bush = wrap(bush)
+
+    def southpark(self, irc, msg, args):
+        """TIMMEHH!!"""
+        if not self.ok(msg.args[0], True): return
+        data = utils.web.getUrl('http://www.southparkquotes.com/random.php?num=1')
+        data = data[data.find('<p>')+3:data.find('</p>')]
+        while '<' in data:
+            data = data[:data.find('<')] + data[data.find('>')+1:]
+        irc.reply(data.replace("\r\n",' ').replace("\r",' ').replace("\n",' '))
+    southpark = wrap(southpark)
 
     def _bauer(self,count=0):
 #        if self.i % 2 == 0:
@@ -291,7 +312,6 @@ class Mess(callbacks.PluginRegexp):
             val = re.sub(r'\s+', ' ', val).strip()
             while self.entre.search(val):
                 entity = self.entre.search(val).group(1)
-                print entity
                 if entity in entities:
                     val = self.entre.sub(entities[entity], val)
                 else:
@@ -316,7 +336,6 @@ class Mess(callbacks.PluginRegexp):
             val = re.sub(r'\s+', ' ', val).strip()
             while self.entre.search(val):
                 entity = self.entre.search(val).group(1)
-                print entity
                 if entity in entities:
                     val = self.entre.sub(entities[entity], val)
                 else:
