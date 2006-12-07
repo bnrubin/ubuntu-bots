@@ -395,10 +395,10 @@ aptcommand = """apt-cache\\
                  %%s %%s""" % tuple([aptdir]*4)
 aptfilecommand = """apt-file -s %s/%%s.list -c %s/apt-file/%%s -l -F search %%s""" % tuple([aptdir]*2)
 def findpkg(pkg,checkdists,filelookup=True):
-    _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum or x in '.-'])
+    _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum or x in '.-_'])
     distro = checkdists[0]
     if len(pkg.strip().split()) > 1:
-        distro = ''.join([x for x in pkg.strip().split(None,2)[1] if x.isalnum or x in '.-'])
+        distro = ''.join([x for x in pkg.strip().split(None,2)[1] if x.isalnum or x in '.-_'])
     if distro not in distros:
         distro = checkdists[0]
     pkg = _pkg
@@ -420,10 +420,10 @@ def findpkg(pkg,checkdists,filelookup=True):
         return "Found: %s" % ', '.join(pkgs[:5])
 
 def pkginfo(pkg,checkdists):
-    _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum() or x in '.-'])
+    _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum() or x in '.-_'])
     distro = None
     if len(pkg.strip().split()) > 1:
-        distro = ''.join([x for x in pkg.strip().split(None,2)[1] if x.isalnum() or x in '-.'])
+        distro = ''.join([x for x in pkg.strip().split(None,2)[1] if x.isalnum() or x in '-._'])
     if distro:
         if distro not in distros:
             checkdists = [checkdists[0]]

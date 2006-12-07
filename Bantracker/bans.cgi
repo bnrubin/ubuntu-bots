@@ -59,22 +59,26 @@ if form.has_key('lpuser') and form.has_key('lpmail'):
                     for i in xrange(8):
                         password += chars[random.randint(0,len(chars)-1)]
                         salt += chars[random.randint(0,len(chars)-1)]
-                    os.system('gpg --homedir /tmp --keyserver hkp://subkeys.pgp.net --recv-keys %s' % newperson.key)
-                    (infd, outfd) = os.popen2('gpg --homedir /tmp --encrypt --armor --trust-model always --recipient %s' 
+                    try:
+                        os.system('gpg --homedir /tmp --keyserver hkp://subkeys.pgp.net --recv-keys %s 2>/dev/null' % newperson.key)
+                        (infd, outfd) = os.popen2('gpg --homedir /tmp --encrypt --armor --trust-model always --recipient %s 2>/dev/null' 
                                               % newperson.key)
-                    infd.write(password)
-                    infd.close()
-                    gpg = outfd.read()
-                    outfd.close()
-                    fd = os.popen('mail -a "From: Ubugtu <ubugtu@ubuntu-nl.org>" -s "Your bantracker account" %s' 
-                                  % form['lpmail'].value.replace('ubuntu@sourceguru.net','mezzle@gmail.com'), 'w')
-                    fd.write(gpg)
-                    fd.close()
-                    error = "Your password has been sent (encrypted) to your e-mail address"
-                    cur.execute("""INSERT INTO users (username, salt, password) VALUES (%s, %s, %s)""",
-                                (form['lpuser'].value, salt, 
-                                 sha.new(salt + sha.new(password + salt).hexdigest().lower()).hexdigest().lower()))
-                    con.commit()
+                        infd.write(password)
+                        infd.close()
+                        gpg = outfd.read()
+                        outfd.close()
+                    except:
+                        error = "A gpg error occured. Please check your key on launchpad"
+                    else:
+                        fd = os.popen('mail -a "From: Ubugtu <ubugtu@ubuntu-nl.org>" -s "Your bantracker account" %s' 
+                                      % form['lpmail'].value.replace('ubuntu@sourceguru.net','mezzle@gmail.com'), 'w')
+                        fd.write(gpg)
+                        fd.close()
+                        error = "Your password has been sent (encrypted) to your e-mail address"
+                        cur.execute("""INSERT INTO users (username, salt, password) VALUES (%s, %s, %s)""",
+                                    (form['lpuser'].value, salt, 
+                                     sha.new(salt + sha.new(password + salt).hexdigest().lower()).hexdigest().lower()))
+                        con.commit()
             else:
                 error = """Username and mailaddress don't match. Username is the $someone
                            in http://launchpad.net/people/$someone that is your
