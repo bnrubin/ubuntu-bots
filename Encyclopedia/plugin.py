@@ -97,14 +97,14 @@ class Encyclopedia(callbacks.PluginRegexp):
             except KeyError:
                 irc.queueMsg(ircmsgs.privmsg('#ubuntu-ops', "In %s, %s said: %s" % (msg.args[0], msg.nick, msg.args[1])))
                 irc.reply("Your edit request has been forwarded to #ubuntu-ops. Thank you for your attention to detail",private=True)
-                lfd = open('/home/dennis/public_html/botlogs/lock','a')
+                lfd = open('/var/www/bots.ubuntulinux.nl/botlogs/lock','a')
                 fcntl.lockf(lfd, fcntl.LOCK_EX)
-                fd = open('/home/dennis/public_html/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),'a')
+                fd = open('/var/www/bots.ubuntulinux.nl/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),'a')
                 fd.write("%s  %-20s %-16s  %s\n" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),msg.args[0], msg.nick, msg.args[1]))
                 fd.close()
                 fcntl.lockf(lfd,fcntl.LOCK_UN)
                 lfd.close()
-                os.chmod('/home/dennis/public_html/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),0644)
+                os.chmod('/var/www/bots.ubuntulinux.nl/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),0644)
                 return False
         if timeout:
             for key in self.times.keys():

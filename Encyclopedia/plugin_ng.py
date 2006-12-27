@@ -20,7 +20,8 @@ apt_pkg.init()
 
 datadir = '/home/dennis/ubugtu/data/facts'
 aptdir = '/home/dennis/ubugtu/data/apt'
-distros = ('dapper','breezy','edgy','hoary','warty','dapper-commercial','dapper-seveas','breezy-seveas','dapper-imbrandon','edgy-imbrandon', 'dapper-backports','edgy-seveas')
+logdir = '/var/www/bots.ubuntulinux.nl/'
+distros = ('dapper','edgy','feisty','breezy','edgy','dapper-commercial','dapper-seveas','breezy-seveas','dapper-imbrandon','edgy-imbrandon', 'dapper-backports','edgy-seveas')
 
 # Simple wrapper class for factoids
 class Factoid:
@@ -186,19 +187,6 @@ class Encyclopedia(callbacks.Plugin):
         # Big action 1: editing factoids
         if '=~' in text:
             # Editing
-            if not capab(msg.prefix, 'editfactoids'):
-                irc.reply("Your edit request has been forwarded to %s. Thank you for your attention to detail"%self.registryValue('relaychannel'),private=True)
-                irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel'), "In %s, %s said: %s" % (msg.args[0], msg.nick, msg.args[1])))
-                lfd = open('/home/dennis/public_html/botlogs/lock','a')
-                fcntl.lockf(lfd, fcntl.LOCK_EX)
-                fd = open('/home/dennis/public_html/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),'a')
-                fd.write("%s  %-20s %-16s  %s\n" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), channel, msg.nick, msg.args[1]))
-                fd.close()
-                fcntl.lockf(lfd,fcntl.LOCK_UN)
-                lfd.close()
-                os.chmod('/home/dennis/public_html/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),0644)
-                return
-            # All clear!
             # Find factoid
             p = text.find('=~')
             name, value = text[:p].strip(), text[p+2:].strip()
@@ -206,6 +194,22 @@ class Encyclopedia(callbacks.Plugin):
             if value.startswith('also '):
                 name += '-also'
                 value = value[5:].strip()
+            if len(name) > 20:
+                irc.error("I am only a bot, please don't think I'm intelligent :)")
+                return
+            if not capab(msg.prefix, 'editfactoids'):
+                irc.reply("Your edit request has been forwarded to %s. Thank you for your attention to detail"%self.registryValue('relaychannel'),private=True)
+                irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel'), "In %s, %s said: %s" % (msg.args[0], msg.nick, msg.args[1])))
+                lfd = open(logdir + '/botlogs/lock','a')
+                fcntl.lockf(lfd, fcntl.LOCK_EX)
+                fd = open(logdir + '/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),'a')
+                fd.write("%s  %-20s %-16s  %s\n" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), channel, msg.nick, msg.args[1]))
+                fd.close()
+                fcntl.lockf(lfd,fcntl.LOCK_UN)
+                lfd.close()
+                os.chmod(logdir + '/botlogs/%s.log' % datetime.date.today().strftime('%Y-%m-%d'),0644)
+                return
+            # All clear!
             #irc.reply(str((name, value)))
             ####
             # Find existing factoid
@@ -281,6 +285,7 @@ class Encyclopedia(callbacks.Plugin):
                     irc.error("Unresolvable alias: %s" % alias)
                     return
             # Finally, save
+            log("(%s) UPDATE facts SET value = %s WHERE name = %s" % (msg.prefix, f.value, f.name))
             cur.execute("UPDATE facts SET value = %s WHERE name = %s", (f.value, f.name))
             db.commit()
             irc.reply("I'll remember that, %s" % msg.nick)
@@ -339,8 +344,14 @@ class Encyclopedia(callbacks.Plugin):
                         if not i.startswith('Package'):
                             queue(irc, target, i)
                         else:
+                            if len(text) > 16:
+                                irc.error("I am only a bot, please don't think I'm intelligent :)")
+                                return
                             irc.reply(self.registryValue('notfoundmsg') % text)
                     else:
+                        if len(text) > 16:
+                            irc.error("I am only a bot, please don't think I'm intelligent :)")
+                            return
                         irc.reply(self.registryValue('notfoundmsg') % text)
             for key in ('channel_secondary', 'global_secondary'):
                 if getattr(factoids, key):
@@ -364,6 +375,8 @@ def send(irc, to, msg):
 def addressed(recipients, text, irc):
     if recipients[0] == '#':
         text = text.strip()
+        if text.lower() == '!ubotu':
+            return 'ubotu'
         if text[0] == '!':
             text = text[1:]
             if text.lower().startswith('ubotu') and (len(text) < 5 or not text[5].isalnum()):
@@ -395,10 +408,10 @@ aptcommand = """apt-cache\\
                  %%s %%s""" % tuple([aptdir]*4)
 aptfilecommand = """apt-file -s %s/%%s.list -c %s/apt-file/%%s -l -F search %%s""" % tuple([aptdir]*2)
 def findpkg(pkg,checkdists,filelookup=True):
-    _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum or x in '.-_'])
+    _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum or x in '.-_+'])
     distro = checkdists[0]
     if len(pkg.strip().split()) > 1:
-        distro = ''.join([x for x in pkg.strip().split(None,2)[1] if x.isalnum or x in '.-_'])
+        distro = ''.join([x for x in pkg.strip().split(None,2)[1] if x.isalnum or x in '.-_+'])
     if distro not in distros:
         distro = checkdists[0]
     pkg = _pkg
@@ -420,10 +433,10 @@ def findpkg(pkg,checkdists,filelookup=True):
         return "Found: %s" % ', '.join(pkgs[:5])
 
 def pkginfo(pkg,checkdists):
-    _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum() or x in '.-_'])
+    _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum() or x in '.-_+'])
     distro = None
     if len(pkg.strip().split()) > 1:
-        distro = ''.join([x for x in pkg.strip().split(None,2)[1] if x.isalnum() or x in '-._'])
+        distro = ''.join([x for x in pkg.strip().split(None,2)[1] if x.isalnum() or x in '-._+'])
     if distro:
         if distro not in distros:
             checkdists = [checkdists[0]]
@@ -554,4 +567,8 @@ def capab(prefix, capability):
     except:
         pass
     return False
+def log(msg):
+    fd = open('/home/dennis/editlog','a')
+    fd.write('%s\n' % msg)
+    fd.close()
 Class = Encyclopedia

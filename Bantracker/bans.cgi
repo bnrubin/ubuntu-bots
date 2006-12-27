@@ -14,7 +14,7 @@
 ###
 
 import sys
-sys.path.append('/home/dennis/public_html')
+sys.path.append('/var/www/bots.ubuntulinux.nl')
 from commoncgi import *
 import lp_auth
 import sha
@@ -30,6 +30,10 @@ cur = con.cursor()
 # Login check
 person   = None
 error    = ''
+anonymous = form.has_key('anonymous')
+anonlink =  ''
+if anonymous:
+    anonlink = '&anonymous=1';
 
 # Delete old sessions
 cur.execute("""DELETE FROM sessions WHERE time < %d""", int(time.time()) - 2592000 * 3)
@@ -127,12 +131,10 @@ if not person and form.has_key('user') and form.has_key('pw'):
                 error = "You are not in the '%s' group on launchpad" % lp_group
 
 # Not authenticated.
-if not person or not person.authenticated:
+if not (person and person.authenticated) and not anonymous:
     if error:
          print """<span style="color:red">%s</span>""" % error
     print """<form action="/bans.cgi" method="post">
-             <b>The old launchpad based authentication system has been
-             disabled!</b><br /><br />
              Login:<br />
              <input class="input" type="text" name="user" /><br />
              Password:<br />
@@ -148,6 +150,7 @@ if not person or not person.authenticated:
              <input class="input" type="text" name="lpmail" /><br /><br />
              <input class="submit" type="submit" value="Request password" />
            </form>
+           <a href="/bans.cgi?anonymous=1">Browse the bantracker anonymously</a>
               """
     send_page('bans.tmpl')
 
@@ -161,7 +164,7 @@ if form.has_key('log'):
 
 # Main page
 # Process comments
-if form.has_key('comment') and form.has_key('comment_id'):
+if form.has_key('comment') and form.has_key('comment_id') and not anonymous:
     cur.execute("""SELECT ban_id FROM comments WHERE ban_id=%s and comment=%s""", (form['comment_id'].value, form['comment'].value))
     comm = cur.fetchall()
     if not len(comm):
@@ -171,9 +174,14 @@ if form.has_key('comment') and form.has_key('comment_id'):
 
 # Write the page
 print '<form action="bans.cgi" method="POST">'
+if anonymous:
+    print '<input type="hidden" name="anonymous" value="1" />'
 
 # Personal data
-print '<div class="pdata"> Logged in as: %s <br /> Timezone: ' % person.name
+print '<div class="pdata">'
+if not anonymous:
+    print 'Logged in as: %s <br /> ' % person.name
+print 'Timezone: '
 if form.has_key('tz') and form['tz'].value in pytz.common_timezones:
     tz = form['tz'].value
 elif cookie.has_key('tz') and cookie['tz'].value in pytz.common_timezones:
@@ -188,28 +196,32 @@ for zone in pytz.common_timezones:
         print ' selected="selected"'
     print ">%s</option>" % zone
 print '</select><input class="submit" type="submit" value="change" /></form><br />'
-if form.has_key('pw1') and form.has_key('pw2'):
-    pw1 = form['pw1'].value; pw2 = form['pw2'].value
-    if pw1 and pw2:
-        if pw1 != pw2:
-            print "Passwords don't match!<br />"
-        else:
-            cur.execute("SELECT salt FROM users WHERE username = %s", person.nick)
-            salt = cur.fetchall()[0][0]
-            cur.execute("UPDATE USERS SET password = %s WHERE username = %s",
-                         (sha.new(salt + sha.new(pw1 + salt).hexdigest().lower()).hexdigest().lower(), person.nick))
-            con.commit()
-print '<form action="bans.cgi" method="POST">'
-print 'Password: '
-print '<input class="input" type="password" name="pw1" size="10"/>'
-print '<input class="input" type="password" name="pw2" size="10"/>'
-print '<input class="submit" type="submit" value="change" /></form></div>'
+if not anonymous:
+    if form.has_key('pw1') and form.has_key('pw2'):
+        pw1 = form['pw1'].value; pw2 = form['pw2'].value
+        if pw1 and pw2:
+            if pw1 != pw2:
+                print "Passwords don't match!<br />"
+            else:
+                cur.execute("SELECT salt FROM users WHERE username = %s", person.nick)
+                salt = cur.fetchall()[0][0]
+                cur.execute("UPDATE USERS SET password = %s WHERE username = %s",
+                             (sha.new(salt + sha.new(pw1 + salt).hexdigest().lower()).hexdigest().lower(), person.nick))
+                con.commit()
+    print '<form action="bans.cgi" method="POST">'
+    print 'Password: '
+    print '<input class="input" type="password" name="pw1" size="10"/>'
+    print '<input class="input" type="password" name="pw2" size="10"/>'
+    print '<input class="submit" type="submit" value="change" /></form>'
+print '</div>'
 
 tz = pytz.timezone(tz)
 
 # Search form
 print '<div class="search">'
 print '<form action="/bans.cgi" method="GET">'
+if anonymous:
+    print '<input type="hidden" name="anonymous" value="1" />'
 print '<input class="input" type="text" name="query"'
 if form.has_key('query'):
    print 'value="%s" ' % form['query'].value
@@ -254,7 +266,7 @@ if not form.has_key('query'):
     cur.execute('SELECT COUNT(id) FROM bans')
     nump = math.ceil(int(cur.fetchall()[0][0]) / float(num_per_page))
     for i in range(nump):
-        print '<a href="bans.cgi?page=%d%s">%d</a> &middot;' % (i, sort, i+1)
+        print '<a href="bans.cgi?page=%d%s%s">%d</a> &middot;' % (i, sort, anonlink, i+1)
     print '</div>'
 
 # Empty log div, will be filled with AJAX
@@ -270,7 +282,7 @@ for h in [['Channel',0], ['Nick/Mask',1], ['Operator',2], ['Time',6]]:
         if v < 10: h[1] += 10
     except:
         pass
-    print '<th><a href="bans.cgi?sort=%s">%s</a></th>' % (h[1],h[0])
+    print '<th><a href="bans.cgi?sort=%s%s">%s</a></th>' % (h[1],anonlink,h[0])
 print '<th>Log</th></tr>'
 
 # Select and filter bans
@@ -373,11 +385,12 @@ for b in bans[start:end]:
             print q(c[1])
             print u' <span class="removal"><br />%s, %s</span><br />' % \
                 (c[0],pickle.loads(c[2]).astimezone(tz).strftime("%b %d %Y %H:%M:%S"))
-    print """<span class="pseudolink" onclick="toggle('%s','comment')">Add comment</span>""" % b[6]
-    print """<div class="invisible" id="comment_%s"><br />""" % b[6]
-    print """<form action="bans.cgi" method="POST"><textarea cols="50" rows="5" class="input" name="comment"></textarea><br />"""
-    print """<input type="hidden" name="comment_id" value="%s" />""" % b[6]
-    print """<input class="submit" type="submit" value="Send" /></form>"""
+    if not anonymous:
+        print """<span class="pseudolink" onclick="toggle('%s','comment')">Add comment</span>""" % b[6]
+        print """<div class="invisible" id="comment_%s"><br />""" % b[6]
+        print """<form action="bans.cgi" method="POST"><textarea cols="50" rows="5" class="input" name="comment"></textarea><br />"""
+        print """<input type="hidden" name="comment_id" value="%s" />""" % b[6]
+        print """<input class="submit" type="submit" value="Send" /></form>"""
     print '</td></tr>'
 
 print '</table>'

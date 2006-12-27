@@ -21,3 +21,5 @@ def configure(advanced):
 Bantracker = conf.registerPlugin('Bantracker')
 conf.registerChannelValue(conf.supybot.plugins.BanTracker, 'enabled',
         registry.Boolean(False, """Enable the bantracker"""))
+conf.registerChannelValue(conf.supybot.plugins.BanTracker, 'stats',
+        registry.Boolean(False, """Enable join/part stats"""))

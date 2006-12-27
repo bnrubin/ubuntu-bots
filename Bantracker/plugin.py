@@ -50,6 +50,7 @@ import supybot.ircutils as ircutils
 import supybot.callbacks as callbacks
 import supybot.ircmsgs as ircmsgs
 import supybot.conf as conf
+import supybot.world as world
 
 import sqlite, pytz, cPickle, datetime, time
 
@@ -84,6 +85,8 @@ class Bantracker(callbacks.Plugin):
         self.lastMsgs = {}
         self.lastStates = {}
         self.logs = {}
+        for channel in irc.state.channels:
+            self.doStatsLog(irc, channel, "START")
 
     def __call__(self, irc, msg):
         try:
@@ -115,11 +118,14 @@ class Bantracker(callbacks.Plugin):
             s = time.strftime(format) + " " + ircutils.stripFormatting(s)
         self.logs[channel] = self.logs[channel][-199:] + [s.strip()]
 
-    def doStatsLog(self, irc, msg, type):
-        #format = conf.supybot.log.timestampFormat()
-        #print "%15s %s %s %s %s" % (msg.args[0], time.strftime(format), type,
-        #                            msg.prefix, len(irc.state.channels[msg.args[0]].users))
-        pass
+    def doStatsLog(self, irc, chan, type):
+        if not self.registryValue('stats', chan):
+            return
+        num = len(irc.state.channels[chan].users)
+        format = conf.supybot.log.timestampFormat()
+        statslog = open('/home/dennis/ubugtu/data/statslog','a')
+        statslog.write("%-20s %f %s %-6s %d\n" % (chan, time.time(), time.strftime(format), type, num))
+        statslog.close()
         
     def doKickban(self, irc, channel, nick, target, kickmsg = None):
         if not self.registryValue('enabled', channel):
@@ -165,7 +171,8 @@ class Bantracker(callbacks.Plugin):
         for channel in msg.args[0].split(','):
             self.doLog(irc, channel,
                        '*** %s has joined %s\n' % (msg.nick or msg.prefix, channel))
-        self.doStatsLog(irc, msg, "JOIN")
+        if irc.prefix != msg.prefix:
+            self.doStatsLog(irc, msg.args[0], "JOIN")
 
     def doKick(self, irc, msg):
         if len(msg.args) == 3:
@@ -180,7 +187,7 @@ class Bantracker(callbacks.Plugin):
             self.doLog(irc, channel,
                        '*** %s was kicked by %s\n' % (target, msg.nick))
         self.doKickban(irc, channel, msg.nick, target, kickmsg)
-        self.doStatsLog(irc, msg, "KICK")
+        self.doStatsLog(irc, msg.args[0], "KICK")
 
     def doPart(self, irc, msg):
         for channel in msg.args[0].split(','):
@@ -188,7 +195,8 @@ class Bantracker(callbacks.Plugin):
             if msg.args[1].startswith('requested by'):
                 args = msg.args[1].split()
                 self.doKickban(irc, channel, args[2].replace(':',''), msg.nick, ' '.join(args[3:])[1:-1].strip())
-        self.doStatsLog(irc, msg, "PART")
+        if irc.prefix != msg.prefix:
+            self.doStatsLog(irc, msg.args[0], "PART")
 
     def doMode(self, irc, msg):
         channel = msg.args[0]
@@ -224,7 +232,7 @@ class Bantracker(callbacks.Plugin):
         for (channel, chan) in self.lastStates[irc].channels.iteritems():
             if msg.nick in chan.users:
                 self.doLog(irc, channel, '*** %s has quit IRC (%s)\n' % (msg.nick, msg.args[0]))
-        self.doStatsLog(irc, msg, "QUIT")
+                self.doStatsLog(irc, channel, "QUIT")
 
     def outFilter(self, irc, msg):
         # Gotta catch my own messages *somehow* :)
@@ -234,5 +242,8 @@ class Bantracker(callbacks.Plugin):
             m = ircmsgs.IrcMsg(msg=msg, prefix=irc.prefix)
             self(irc, m)
         return msg
+        
+    def do366(self, irc, msg):
+        self.doStatsLog(irc, msg.args[1], "START")
 
 Class = Bantracker
