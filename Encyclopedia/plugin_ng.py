@@ -194,10 +194,10 @@ class Encyclopedia(callbacks.Plugin):
             if value.startswith('also '):
                 name += '-also'
                 value = value[5:].strip()
-            if len(name) > 20:
-                irc.error("I am only a bot, please don't think I'm intelligent :)")
-                return
             if not capab(msg.prefix, 'editfactoids'):
+                if len(name) > 20:
+                    irc.error("I am only a bot, please don't think I'm intelligent :)")
+                    return
                 irc.reply("Your edit request has been forwarded to %s. Thank you for your attention to detail"%self.registryValue('relaychannel'),private=True)
                 irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel'), "In %s, %s said: %s" % (msg.args[0], msg.nick, msg.args[1])))
                 lfd = open(logdir + '/botlogs/lock','a')

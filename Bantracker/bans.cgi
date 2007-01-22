@@ -367,7 +367,7 @@ for b in bans[start:end]:
         print '<br /><span class="removal">%s</span>' % pickle.loads(b[4]).astimezone(tz).strftime("%b %d %Y %H:%M:%S")
     print '</td>'
     # Log link
-    print """<td><span class="pseudolink" onclick="showlog('%s')">Show/Hide log</span></td>""" % b[6]
+    print """<td><span class="pseudolink" onclick="showlog('%s')">Show log</span></td>""" % b[6]
     print '</tr>'
     
     # Comments

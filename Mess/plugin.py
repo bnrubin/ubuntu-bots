@@ -273,11 +273,13 @@ class Mess(callbacks.PluginRegexp):
         irc.reply(data.replace("\r\n",' ').replace("\r",' ').replace("\n",' '))
     southpark = wrap(southpark)
 
-    def pony(self, irc, msg, args):
+    def pony(self, irc, msg, args, text):
         """ NO! """
         if not self.ok(msg.args[0]): return
-        irc.reply("No you can't have a pony, %s!" % msg.nick)
-    pony = wrap(pony)
+        if not text:
+            text = 'you'
+        irc.reply("No %s can't have a pony, %s!" % (text, msg.nick))
+    pony = wrap(pony, [additional('text')])
 
     def _bauer(self,count=0):
 #        if self.i % 2 == 0:

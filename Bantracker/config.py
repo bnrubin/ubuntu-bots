@@ -19,7 +19,9 @@ def configure(advanced):
     conf.registerPlugin('Bantracker', True)
 
 Bantracker = conf.registerPlugin('Bantracker')
-conf.registerChannelValue(conf.supybot.plugins.BanTracker, 'enabled',
+conf.registerChannelValue(conf.supybot.plugins.Bantracker, 'enabled',
         registry.Boolean(False, """Enable the bantracker"""))
-conf.registerChannelValue(conf.supybot.plugins.BanTracker, 'stats',
+conf.registerChannelValue(conf.supybot.plugins.Bantracker, 'stats',
         registry.Boolean(False, """Enable join/part stats"""))
+conf.registerGlobalValue(conf.supybot.plugins.Bantracker, 'database',
+        registry.String('', "Filename of the bans database"))

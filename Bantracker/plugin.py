@@ -11,7 +11,6 @@
 # GNU General Public License for more details.
 #
 ###
-#
 # Based on the standard supybot logging plugin, which has the following
 # copyright:
 #
@@ -43,37 +42,17 @@
 # POSSIBILITY OF SUCH DAMAGE.
 ###
 
-import supybot.utils as utils
 from supybot.commands import *
-import supybot.plugins as plugins
 import supybot.ircutils as ircutils
 import supybot.callbacks as callbacks
 import supybot.ircmsgs as ircmsgs
 import supybot.conf as conf
-import supybot.world as world
-
 import sqlite, pytz, cPickle, datetime, time
 
-db = '/home/dennis/ubugtu/data/bans.db'
 tz = 'Europe/Amsterdam'
 
 def now():
     return cPickle.dumps(datetime.datetime.now(pytz.timezone(tz)))
-
-def db_run(query, parms, expect_result = False, expect_id = False):
-    con = sqlite.connect(db)
-    cur = con.cursor()
-    try:
-        cur.execute(query, parms)
-    except:
-        con.close()
-        raise
-    data = None
-    if expect_result: data = cur.fetchall()
-    if expect_id: data = con.insert_id()
-    con.commit()
-    con.close()
-    return data
 
 class Bantracker(callbacks.Plugin):
     """This plugin has no commands"""
@@ -88,19 +67,30 @@ class Bantracker(callbacks.Plugin):
         for channel in irc.state.channels:
             self.doStatsLog(irc, channel, "START")
 
+        db = self.registryValue('database')
+        if db:
+            self.db = sqlite.connect(db)
+        else:
+            self.db = None
+
     def __call__(self, irc, msg):
         try:
-            # I don't know why I put this in, but it doesn't work, because it
-            # doesn't call doNick or doQuit.
-            # if msg.args and irc.isChannel(msg.args[0]):
             super(self.__class__, self).__call__(irc, msg)
             if irc in self.lastMsgs:
                 if irc not in self.lastStates:
                     self.lastStates[irc] = irc.state.copy()
                 self.lastStates[irc].addMsg(irc, self.lastMsgs[irc])
         finally:
-            # We must make sure this always gets updated.
             self.lastMsgs[irc] = msg
+
+    def db_run(self, query, parms, expect_result = False, expect_id = False):
+        cur = self.db.cursor()
+        cur.execute(query, parms)
+        data = None
+        if expect_result: data = cur.fetchall()
+        if expect_id: data = con.insert_id()
+        self.db.commit()
+        return data
 
     def reset(self):
         self.logs.clear()

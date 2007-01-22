@@ -30,15 +30,10 @@
         }
     
       }
+      
+
       function showlog(item) {
-        var c  = new getObj('log');
-        if ( c.style.display == 'block' ) {
-          c.style.display = 'none';
-        }
-        else {
-          loadlog(item);
-        }
-    
+        loadlog(item);
       }
       var r;
       function loadlog(id) {
