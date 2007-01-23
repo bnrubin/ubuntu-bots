@@ -2,7 +2,7 @@
 This plugin can store all kick/ban/remove/mute actions
 """
 ###
-# Copyright (c) 2005,2006 Dennis Kaarsemaker
+# Copyright (c) 2005-2007 Dennis Kaarsemaker
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -18,7 +18,7 @@ This plugin can store all kick/ban/remove/mute actions
 import supybot
 import supybot.world as world
 
-__version__ = "0.2"
+__version__ = "0.3"
 __author__ = supybot.Author("Dennis Kaarsemaker","Seveas","dennis@kaarsemaker.net")
 __contributors__ = {}
 __url__ = 'https://bots.ubuntulinux.nl'

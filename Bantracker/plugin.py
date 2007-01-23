@@ -1,5 +1,5 @@
 ###
-# Copyright (c) 2006 Dennis Kaarsemaker
+# Copyright (c) 2006,2007 Dennis Kaarsemaker
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -73,6 +73,12 @@ class Bantracker(callbacks.Plugin):
         else:
             self.db = None
 
+    def die(self):
+        self.db.close()
+
+    def reset(self):
+        self.db.close()
+
     def __call__(self, irc, msg):
         try:
             super(self.__class__, self).__call__(irc, msg)
@@ -88,7 +94,7 @@ class Bantracker(callbacks.Plugin):
         cur.execute(query, parms)
         data = None
         if expect_result: data = cur.fetchall()
-        if expect_id: data = con.insert_id()
+        if expect_id: data = self.db.insert_id()
         self.db.commit()
         return data
 
@@ -121,17 +127,17 @@ class Bantracker(callbacks.Plugin):
         if not self.registryValue('enabled', channel):
             return
         n = now()
-        id = db_run("INSERT INTO bans (channel, mask, operator, time, log) values(%s, %s, %s, %s, %s)", 
+        id = self.db_run("INSERT INTO bans (channel, mask, operator, time, log) values(%s, %s, %s, %s, %s)", 
                           (channel, target, nick, n, '\n'.join(self.logs[channel])), expect_id=True)
         if kickmsg and id and not (kickmsg == nick):
-            db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, kickmsg, n))
+            self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, kickmsg, n))
 
     def doUnban(self, irc, channel, nick, mask):
         if not self.registryValue('enabled', channel):
             return
-        data = db_run("SELECT MAX(id) FROM bans where channel=%s and mask=%s", (channel, mask), expect_result=True)
+        data = self.db_run("SELECT MAX(id) FROM bans where channel=%s and mask=%s", (channel, mask), expect_result=True)
         if len(data) and not (data[0][0] == None):
-            db_run("UPDATE bans SET removal=%s , removal_op=%s WHERE id=%s", (now(), nick, int(data[0][0])))
+            self.db_run("UPDATE bans SET removal=%s , removal_op=%s WHERE id=%s", (now(), nick, int(data[0][0])))
 
     def doPrivmsg(self, irc, msg):
         (recipients, text) = msg.args
