@@ -1,5 +1,5 @@
 ###
-# Copyright (c) 2005,2006 Dennis Kaarsemaker
+# Copyright (c) 2005-2007 Dennis Kaarsemaker
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -162,6 +162,16 @@ class Webcal(callbacks.Plugin):
             if tz[pos+1:] == ud:
                 return True
             pos = tz.find('/',pos+1)
+        # Repeat, with spaces replaced by underscores
+        ud = ud.replace(' ','_')
+        if tz == ud:
+            return True
+        pos = tz.find('/')
+        while not (pos == -1):
+            if tz[pos+1:] == ud:
+                return True
+            pos = tz.find('/',pos+1)
+        
         return False
 
     def schedule(self, irc, msg, args, tz):

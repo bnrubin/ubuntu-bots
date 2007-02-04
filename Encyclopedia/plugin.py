@@ -113,7 +113,7 @@ class Encyclopedia(callbacks.Plugin):
             text = ' ' + text
 
         if '>' in text:
-            target = text[text.rfind('>')+1:].strip()
+            target = text[text.rfind('>')+1:].strip().split()[0]
             text = text[:text.rfind('>')].strip()
             retmsg = "%s wants you to know: " % nick
 
