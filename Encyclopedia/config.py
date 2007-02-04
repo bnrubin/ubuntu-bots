@@ -1,7 +1,14 @@
 ###
-# Copyright (c) 2006, Dennis Kaarsemaker
-# All rights reserved.
+# Copyright (c) 2006-2007 Dennis Kaarsemaker
 #
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of version 2 of the GNU General Public License as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
 ###
 
@@ -9,32 +16,25 @@ import supybot.conf as conf
 import supybot.registry as registry
 
 def configure(advanced):
-    # This will be called by supybot to configure this module.  advanced is
-    # a bool that specifies whether the user identified himself as an advanced
-    # user or not.  You should effect your configuration by manipulating the
-    # registry as appropriate.
     from supybot.questions import expect, anything, something, yn
     conf.registerPlugin('Encyclopedia', True)
 
-
 Encyclopedia = conf.registerPlugin('Encyclopedia')
-# This is where your configuration variables (if any) should go.  For example:
-# conf.registerGlobalValue(Factoid, 'someConfigVariableName',
-#     registry.Boolean(False, """Help for someConfigVariableName."""))
 conf.registerChannelValue(Encyclopedia, 'database',
     registry.String('', 'Name of database to use'))
 conf.registerGlobalValue(Encyclopedia, 'packagelookup',
     registry.Boolean(True, "Whether to look up packages"))
-conf.registerChannelValue(Encyclopedia, 'fallbackdb',
-    registry.String('ubuntu', 'Fallback database'))
-conf.registerGlobalValue(Encyclopedia, 'fallbackchannel',
-    registry.String('#ubuntu', 'Fallback channel'))
 conf.registerGlobalValue(Encyclopedia, 'relaychannel',
     registry.String('#ubuntu-ops', 'Relay channel for unauthorized edits'))
 conf.registerGlobalValue(Encyclopedia, 'notfoundmsg',
     registry.String('Factoid %s not found', 'Reply when factoid isn\'t found'))
+conf.registerGlobalValue(Encyclopedia,'prefixchar',
+    registry.String('!','Prefix character for factoid display/editing'))
+    
 conf.registerChannelValue(Encyclopedia, 'searchorder',
     registry.String('','Distro search order'))
 
-
-# vim:set shiftwidth=4 tabstop=4 expandtab textwidth=79:
+conf.registerGlobalValue(Encyclopedia, 'datadir',
+    registry.String('', 'Path to dir containing factoid databases'))
+conf.registerGlobalValue(Encyclopedia, 'aptdir',
+    registry.String('', 'Path to apt cache directory'))

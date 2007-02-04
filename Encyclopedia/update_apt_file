@@ -1,0 +1,14 @@
+#!/bin/bash
+
+DIR=/home/dennis/ubugtu/data/apt
+
+for DIST in "$DIR"/*.list; do
+    DIST=${DIST:${#DIR}}
+    DIST=${DIST/.list}
+    mkdir -p "$DIR/apt-file/$DIST"
+    apt-file -l -c "$DIR/apt-file/$DIST" -s "$DIR/$DIST.list" update >/dev/null 2>&1
+    RET=$?
+    if [ ! $RET ]; then
+        echo "apt-file failed for $DIST!"
+    fi
+done

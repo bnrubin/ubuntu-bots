@@ -1,0 +1,14 @@
+#!/bin/bash
+
+DIR=/home/dennis/ubugtu/data/apt
+
+for DIST in "$DIR"/*.list; do
+    DIST=${DIST:${#DIR}}
+    DIST=${DIST/.list}
+    touch "$DIR/$DIST.status"
+    mkdir -p "$DIR/$DIST"
+    apt-get -qq -o "Dir::State::Lists=$DIR/$DIST" \
+                -o "Dir::etc::sourcelist=$DIR/$DIST.list" \
+                -o "Dir::State::status=$DIR/$DIST.status" \
+                -o "Dir::Cache=$DIR/cache" update
+done

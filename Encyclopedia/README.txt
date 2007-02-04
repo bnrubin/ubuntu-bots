@@ -1,2 +1,71 @@
-This plugin is developed as factoid and package info plugin but has grown a few
-extra functions that are a bit out of place.
+Copyright (c) 2006-2007, Dennis Kaarsemaker
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of version 2 of the GNU General Public License as
+published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+This plugin is a rather intricate combination of a factoid plugin and package
+info lookup via apt. Here's how to set it up:
+
+Pick a name for your database. A lowercase-only name without spaces is probably
+best, this example wil use myfactoids as name. Then create a directory to store
+your databases in (somewere in $botdir/data would be best). In the new directory
+create an sqlite database with the following command:
+
+sqlite myfactoids.db
+
+CREATE TABLE facts (
+        id INTEGER PRIMARY KEY,
+        author VARCHAR(100) NOT NULL,
+        name VARCHAR(20) NOT NULL,
+        added DATETIME,
+        value VARCHAR(200) NOT NULL,    
+        popularity INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE log (
+        id INTEGER PRIMARY KEY,
+        author VARCHAR(100) NOT NULL,
+        name VARCHAR(20) NOT NULL,
+        added DATETIME,
+        oldvalue VARCHAR(200) NOT NULL
+);
+
+If you want to create more databases, repeat these last two steps.
+
+When the databases exist, you need to configure the bots to actually use them.
+To do that, set the global value supybot.plugins.encyclopedia.datadir to the new
+dirand the channel value supybot.plugins.encyclopedia.database to the name of
+the database (without the .db suffix).
+
+Documentation on adding/editing factoids can be found on
+https://wiki.ubuntu.com/UbuntuBots To give people edit access, let them register
+with your bot and use: %addeditor nickname_here (replace % with your prefix
+char). Similarly you can use removeeditor :).
+
+The web interface is a simple cgi script with some templates, css and the
+commoncgi.py file from the bzr tree. Make sure you set the variables datadir and
+database in factoids.cgi to the correct values. Also set default_db to the one
+you want to show by default.
+
+To get package lookup working, you need to set the variable
+supybot.plugins.encyclopedia.aptdir to the name of a new, empty directory. In
+this directory, you creae sources.list files for every distrorelease you want to
+search. The name of the file is important, since the filename (without the .list
+suffix) is the name that is used to refer to the distrorelease.
+
+Whenever you create a new .list file, it is important to run the update_apt
+and update_apt_file scripts that comes with this plugin. Before you run these,
+you have to edit them to point to your apt dir. It's also useful to run them
+periodically from cron (say, once per week for update_apt and once per moth for
+update_apt_file). You also need to reload the plugin to make it pick up the new
+releases.
+
+It is very useful to set the supybot.plugins.encyclopedia.searchorder value to a
+space separated list of release names. That way you can limit the (expensive)
+searching for packages to a small set of releases.
