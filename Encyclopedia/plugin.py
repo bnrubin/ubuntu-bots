@@ -151,7 +151,7 @@ class Encyclopedia(callbacks.Plugin):
             text = text.strip()
             if text.lower() == self.registryValue('prefixchar') + irc.nick.lower():
                 return irc.nick.lower()
-            if text[0] == self.registryValue('prefixchar'):
+            if len(text) and text[0] == self.registryValue('prefixchar'):
                 text = text[1:]
                 if text.lower().startswith(irc.nick.lower()) and (len(text) < 5 or not text[5].isalnum()):
                     t2 = text[5:].strip()
@@ -201,20 +201,17 @@ class Encyclopedia(callbacks.Plugin):
         factoids = cur.fetchall()
         if len(factoids):
             f = factoids[0]
-            n = f[0]
-            if '-#' in n:
-                n = n[:n.find('-#')]
-            return Factoid(n,f[1],f[2],f[3],f[4])
+            return Factoid(f[0],f[1],f[2],f[3],f[4])
 
     def resolve_alias(self, channel, factoid, loop=0):
         if loop >= 10:
-            return Factoid('','Error: infinite <alias> loop detected','','',0)
+            return Factoid('','<reply> Error: infinite <alias> loop detected','','',0)
         if factoid and factoid.value.lower().startswith('<alias>'):
             new_factoids = self.get_factoids(factoid.value[7:].lower().strip(), channel, False)
             for x in ['channel_primary', 'global_primary']:
                 if getattr(new_factoids, x):
                     return self.resolve_alias(channel, getattr(new_factoids, x), loop+1)
-            return Factoid('','Error: unresolvable <alias>','','',0)
+            return Factoid('','<reply> Error: unresolvable <alias> to %s' % factoid.value[7:].lower().strip(),'','',0)
         else:
             return factoid
 
@@ -301,9 +298,9 @@ class Encyclopedia(callbacks.Plugin):
                                                  (msg.args[0], msg.nick, msg.args[1])))
                     return
                 ret = self.factoid_edit(text, channel, msg.prefix)
-            elif ' is ' in text and ('|' not in text or text.find(' is ') > text.find('|')):
+            elif ' is ' in text and '|' not in text:
                 if not capab(msg.prefix, 'editfactoids'):
-                    if len(text[:text.find('is')]) > 20:
+                    if len(text[:text.find('is')]) > 15:
                         irc.error("I am only a bot, please don't think I'm intelligent :)")
                     else:
                         irc.reply("Your edit request has been forwarded to %s.  Thank you for your attention to detail" %
@@ -329,6 +326,9 @@ class Encyclopedia(callbacks.Plugin):
                     ret = None
 
         if not ret:
+            if len(text) > 15:
+                irc.error("I am only a bot, please don't think I'm intelligent :)")
+                return
             retmsg = ''
             ret = self.registryValue('notfoundmsg')
             if ret.count('%') == ret.count('%s') == 1:
@@ -418,6 +418,7 @@ class Encyclopedia(callbacks.Plugin):
         ret = self.check_aliases(channel, factoid)
         if ret:
             return ret
+        print("UPDATE facts SET value=%s where name=%s", (factoid.value,factoid.name))
         cs.execute("UPDATE facts SET value=%s where name=%s", (factoid.value,factoid.name))
         db.commit()
         return retmsg
@@ -465,9 +466,12 @@ class Encyclopedia(callbacks.Plugin):
                     elif order == 'secondary':
                         ret.append(factoid.value.strip().replace('$chan',channel))
                     else:
-                         ret.append('%s is %s' % (factoid.name, factoid.value.replace('$chan',channel)))
+                        n = factoid.name
+                        if '-#' in n:
+                            n = n[:n.find('-#')]
+                        ret.append('%s is %s' % (n, factoid.value.replace('$chan',channel)))
                     if not display_info:
-                         break
+                        break
         return ret
 
     def search_factoid(self, factoid, channel):

@@ -1,109 +1,124 @@
 #!/usr/bin/python
+###
+# Copyright (c) 2006,2007 Dennis Kaarsemaker
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of version 2 of the GNU General Public License as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+###
 
-import sqlite 
-import datetime
-import cgi, cgitb
-from math import ceil
-import re
-cgitb.enable
+import sys
+sys.path.append('/var/www/bots.ubuntulinux.nl')
+from commoncgi import *
 
+### Variables
 NUM_PER_PAGE=50.0
+datadir = '/home/dennis/ubugtu/data/facts'
+default_database = 'ubuntu'
 
-buf = ''
-def out(txt):
-    global buf
-    buf += str(txt)
+databases = [x for x in os.listdir(datadir)]
 
+# Initialize
+database = default_database
+order_by = 'popularity DESC'
+page = 0
+search = ''
+factoids = []
+total = 0
+
+# Read POST
+if 'db' in form:
+    database = form['db'].value
+if database not in database:
+    database = default_database
+con = sqlite.connect(os.path.join(datadir, database + '.db'))
+cur = con.cursor()
+
+try: page = int(form['page'].value)
+except: pass
+    
+if 'order' in form:
+    if form['order'].value in ('added DESC', 'added ASC', 'name DESC', 'name ASC', 'popularity DESC','popularity ASC'):
+        order_by = form['order'].value
+if 'search' in form:
+    search = form['search'].value
+    
+# Select factoids
+if search:
+    keys = [x.strip() for x in search.split() if len(x.strip()) >2][:5]
+    query1 = "SELECT name, value, author, added, popularity FROM facts WHERE name NOT LIKE '%-also' AND ("
+    query2 = "SELECT COUNT(name) FROM facts WHERE "
+    bogus = False
+    for k in keys:
+        k = k.replace("'","\'")
+        if bogus:
+            query1 += ' OR '
+            query2 += ' OR '
+        query1 += "name LIKE '%%%s%%' OR VAlUE LIKE '%%%s%%'" % (k, k)
+        query2 += "name LIKE '%%%s%%' OR VAlUE LIKE '%%%s%%'" % (k, k)
+        bogus=True
+
+    query1 += ') ORDER BY %s LIMIT %d, %d' % (order_by, NUM_PER_PAGE*page, NUM_PER_PAGE)
+    cur.execute(query1)
+    factoids = cur.fetchall()
+    cur.execute(query2)
+    total = cur.fetchall()[0][0]
+else:
+    cur.execute("SELECT name, value, author, added, popularity FROM facts WHERE value NOT LIKE '<alias>%%' AND name NOT LIKE '%%-also' ORDER BY %s LIMIT %d, %d" % (order_by, page*NUM_PER_PAGE, NUM_PER_PAGE))
+    factoids = cur.fetchall()
+    cur.execute("""SELECT COUNT(*) FROM facts WHERE value NOT LIKE '<alias>%%'""")
+    total = cur.fetchall()[0][0]
+
+# Pagination links
+npages = int(math.ceil(total / float(NUM_PER_PAGE)))
+print '&middot;'
+for i in range(npages):
+    print '<a href="factoids.cgi?db=%s&search=%s&order=%s&page=%s">%d</a> &middot;' % (database, search, order_by, i, i+1)
+    
+print '<br />Order by<br />&middot;';
+print ' <a href="factoids.cgi?db=%s&search=%s&order=%s&page=0">%s</a> &middot;' % (database, search, 'name ASC', 'Name +')
+print ' <a href="factoids.cgi?db=%s&search=%s&order=%s&page=0">%s</a> &middot;' % (database, search, 'name DESC', 'Name -')
+print ' <a href="factoids.cgi?db=%s&search=%s&order=%s&page=0">%s</a> &middot;' % (database, search, 'popularity ASC', 'Popularity +')
+print ' <a href="factoids.cgi?db=%s&search=%s&order=%s&page=0">%s</a> &middot;' % (database, search, 'popularity DESC', 'Popularity -')
+print ' <a href="factoids.cgi?db=%s&search=%s&order=%s&page=0">%s</a> &middot;' % (database, search, 'added ASC', 'Date added +')
+print ' <a href="factoids.cgi?db=%s&search=%s&order=%s&page=0">%s</a> &middot;' % (database, search, 'added DESC', 'Date added -')
+
+print '<table cellspacing="0"><tr><th>Factoid</th><th>Value</th><th>Author</th></tr>'
+
+url_re = re.compile('(?P<url>(https?://\S+|www\S+))')
+def q(x):
+    x = str(x).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('\n','<br />')
+    return url_re.sub(link, x)
 def link(match):
     url = match.group('url')
     txt = url
     if len(txt) > 30:
         txt = txt[:20] + '&hellip;' + txt[-10:]
     return '<a href="%s">%s</a>' % (url, txt)
-    
-def q(txt):
-    txt = str(txt).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace('\n','<br />').replace('$hr$','<hr />')
-    # linkify
-    rx = re.compile('(?P<url>(https?://\S+|www\S+))')
-    return rx.sub(link, txt)
 
-database = 'ubuntu'
-
-form = cgi.FieldStorage()
-if 'db' in form:
-    database = form['db'].value
-try:
-    page = int(form['page'].value)
-except:
-    page = 0
-order_by = 'added DESC'
-try:
-    order_by = form['order'].value
-    if order_by not in ('added DESC', 'added ASC', 'name DESC', 'name ASC', 'popularity DESC','popularity ASC'):
-        order_by = 'added DESC'
-except:
-    order_by = 'added DESC'
-    
-con = sqlite.connect('/home/dennis/ubugtu/data/facts/%s.db' % database)
-cur = con.cursor()
-
-if 'search' not in form:
-    cur.execute("""SELECT COUNT(*) FROM facts WHERE value NOT LIKE '<alias>%%'""")
-    num = cur.fetchall()[0][0]
-    npages = int(ceil(num / float(NUM_PER_PAGE)))
-    out('&middot;')
-    for i in range(npages):
-        out(' <a href="factoids.cgi?db=%s&order=%s&page=%s">%d</a> &middot;' % (database, order_by, i, i+1))
-    out('<br />Order by<br />&middot;')
-    out(' <a href="factoids.cgi?db=%s&order=%s&page=%d">%s</a> &middot;' % (database, 'name ASC', page, 'Name +'))
-    out(' <a href="factoids.cgi?db=%s&order=%s&page=%d">%s</a> &middot;' % (database, 'name DESC', page, 'Name -'))
-    out(' <a href="factoids.cgi?db=%s&order=%s&page=%d">%s</a> &middot;' % (database, 'popularity ASC', page, 'Popularity +'))
-    out(' <a href="factoids.cgi?db=%s&order=%s&page=%d">%s</a> &middot;' % (database, 'popularity DESC', page, 'Popularity -'))
-    out(' <a href="factoids.cgi?db=%s&order=%s&page=%d">%s</a> &middot;' % (database, 'added ASC', page, 'Date added +'))
-    out(' <a href="factoids.cgi?db=%s&order=%s&page=%d">%s</a> &middot;' % (database, 'added DESC', page, 'Date added -'))
-
-out('<table cellspacing="0"><tr><th>Factoid</th><th>Value</th><th>Author</th></tr>')
-
-if 'search' in form:
-    keys = form['search'].value.split()[:5]
-    ret = {}
-    for k in keys:
-        k = k.replace("'","\'")
-        cur.execute("SELECT name, value, author, added, popularity FROM facts WHERE name LIKE '%%%s%%' OR VAlUE LIKE '%%%s%%'" % (k, k))
-        res = cur.fetchall()
-        for r in res:
-            r0 = r[0]
-            try:
-                ret[r][1] += 1
-            except:
-                ret[r0] = (r, 1)
-    keys = sorted(ret.keys(), lambda x, y: cmp(ret[x][1], ret[y][1]))
-    factoids = []
-    for k in keys[:50]:
-        factoids.append(ret[k][0])
-else:
-    cur.execute("SELECT name, value, author, added, popularity FROM facts WHERE value NOT LIKE '<alias>%%' AND name NOT LIKE '%%-also' ORDER BY %s LIMIT %d, %d" % (order_by, page*NUM_PER_PAGE, NUM_PER_PAGE))
-    factoids = cur.fetchall()
 i = 0
 for f in factoids:
     f = list(f)
+    f[2] = f[2][:30]
+    if '.' in f[3]:
+        f[3] = f[3][:f[3].find('.')]
     cur.execute("SELECT value FROM facts WHERE name = %s", f[0] + '-also')
     more = cur.fetchall()
     if len(more):
         f[1] += ' $hr$' + ' $hr$'.join([x[0] for x in more])
     cur.execute("SELECT name FROM facts WHERE value LIKE %s", '<alias> ' + f[0])
     f[0] += ' \n' + ' \n'.join([x[0] for x in cur.fetchall()])
-    out('<tr')
-    if i % 2: out(' class="bg2"')
+    print '<tr'
+    if i % 2: print ' class="bg2"'
     i += 1
-    out('><td>%s</td><td>%s</td><td>%s<br />Added on: %s<br />Requested %s times</td>' % tuple([q(x) for x in f]))
+    print '><td>%s</td><td>%s</td><td>%s<br />Added on: %s<br />Requested %s times</td>' % tuple([q(x) for x in f])
 
-out('</table>')
+print '</table>'
 
-print "Content-Type: text/html; charset=UTF-8"
-print ""
-
-fd = open('factoids.tmpl')
-tmpl = fd.read()
-fd.close()
-print tmpl % (buf)
+send_page('factoids.tmpl')

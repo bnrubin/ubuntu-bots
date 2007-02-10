@@ -55,7 +55,7 @@ you want to show by default.
 
 To get package lookup working, you need to set the variable
 supybot.plugins.encyclopedia.aptdir to the name of a new, empty directory. In
-this directory, you creae sources.list files for every distrorelease you want to
+this directory, you create sources.list files for every distrorelease you want to
 search. The name of the file is important, since the filename (without the .list
 suffix) is the name that is used to refer to the distrorelease.
 

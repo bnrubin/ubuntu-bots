@@ -6,7 +6,7 @@ for DIST in "$DIR"/*.list; do
     DIST=${DIST:${#DIR}}
     DIST=${DIST/.list}
     touch "$DIR/$DIST.status"
-    mkdir -p "$DIR/$DIST"
+    mkdir -p "$DIR/$DIST/partial"
     apt-get -qq -o "Dir::State::Lists=$DIR/$DIST" \
                 -o "Dir::etc::sourcelist=$DIR/$DIST.list" \
                 -o "Dir::State::status=$DIR/$DIST.status" \
