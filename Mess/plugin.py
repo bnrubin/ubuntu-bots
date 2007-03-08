@@ -20,145 +20,164 @@ import supybot.callbacks as callbacks
 import random, re, time, commands, urllib2
 import supybot.ircmsgs as ircmsgs
 
-_bofhfile = '/home/dennis/ubugtu/plugins/Mess/bofh.txt'
-_bofhdata = [x.strip() for x in open(_bofhfile).readlines()]
-_42file = '/home/dennis/ubugtu/plugins/Mess/42.txt'
-_42data = [x.strip() for x in open(_42file).readlines()]
-_ballfile = '/home/dennis/ubugtu/plugins/Mess/ball.txt'
-_balldata = [x.strip() for x in open(_ballfile).readlines()]
-_ferengifile = '/home/dennis/ubugtu/plugins/Mess/ferengi.txt'
-_ferengidata = [x.rstrip() for x in open(_ferengifile).readlines()]
+mess = {
+    't':           ('http://4q.cc/?pid=fact&person=mrt',               r'</h1>.*?<p>(?P<fact>.*?)</p>',      False),
+    'chuck':       ('http://4q.cc/?pid=fact&person=chuck',             r'</h1>.*?<p>(?P<fact>.*?)</p>',      False),
+    'vin':         ('http://4q.cc/?pid=fact&person=vin',               r'</h1>.*?<p>(?P<fact>.*?)</p>',      False),
+    'bauer':       ('http://www.notrly.com/jackbauer/',                r'<p class="fact">(?P<fact>.*?)</p>', False),
+    'bruce':       ('http://geekz.co.uk/schneierfacts/',               r'p class="fact">(?P<fact>.*?)</p',   False),
+    'esr':         ('http://geekz.co.uk/esrfacts/',                    r'p class="fact">(?P<fact>.*?)</p',   False),
+    'mcgyver':     ('http://www.macgyver.co.za/',                      r'wishtable">(?P<fact>.*?)<div',      False),
+    'macgyver':    ('http://www.macgyver.co.za/',                      r'wishtable">(?P<fact>.*?)<div',      False),
+    'hamster':     ('http://hamsterrepublic.com/dyn/bobsez',           r'<font.*?<b>(?P<fact>.*?)</font>',   False),
+    'yourmom':     ('http://pfa.php1h.com',                            r'<p>(?P<fact>.*?)</p>',              True),
+    'bush':        ('http://www.dubyaspeak.com/random.phtml',          r'(?P<fact><font.*</font>)',          True),
+    'southpark':   ('http://www.southparkquotes.com/random.php?num=1', r'<p>(?P<fact>.*)</p>',               True),
+    'mjg':         ('http://www.angryfacts.com',                       r'</p><h1>(?P<fact>.*?)</h1>',        False),
+    'mjg59':       ('http://www.angryfacts.com',                       r'</p><h1>(?P<fact>.*?)</h1>',        False),
+    'vmjg':        ('http://www.rjek.com/vmjg59.cgi',                  r'<body>(?P<fact>.*?)<p>',            True),
+    'vmjg59':      ('http://www.rjek.com/vmjg59.cgi',                  r'<body>(?P<fact>.*?)<p>',            True),
+    'bofh':        ('/home/dennis/ubugtu/plugins/Mess/bofh.txt',       'BOFH Excuse #%d: ',                  False),
+    '42':          ('/home/dennis/ubugtu/plugins/Mess/42.txt',         '',                                   False),
+    'magic8ball':  ('/home/dennis/ubugtu/plugins/Mess/ball.txt',       '',                                   False),
+    'ferengi':     ('/home/dennis/ubugtu/plugins/Mess/ferengi.txt',    'Ferengi rule of acquisition ',       False)
+}
+data = {}
+for m in mess.keys():
+    if mess[m][0].startswith('http'):
+        mess[m] = (mess[m][0],re.compile(mess[m][1], re.I|re.DOTALL), mess[m][2])
+    else:
+        fd = open(mess[m][0])
+        data[mess[m][0]] = [x.strip() for x in fd.readlines()]
+        fd.close()
+
+badwords = ['sex','masturbate','fuck','rape','dick','pussy','prostitute','hooker',
+            'orgasm','sperm','cunt','penis','shit','piss','urin','bitch','semen','cock']
+tagre = re.compile(r'<.*?>')
+def filter(txt,off):
+    _txt = txt.lower()
+    if not off:
+        for b in badwords:
+            if b in _txt:
+                return None
+    txt = txt.replace('<br />','').replace('\n','').replace('\r','')
+    txt = txt.replace('<i>','/').replace('</i>','/').replace('<b>','*').replace('</b>','*')
+    txt = txt.replace('&quot;','"').replace('&lt;','<').replace('&gt;','>')
+    txt = tagre.sub('',txt)
+    return txt
+
+times = {}
+
+def ok(func):
+    func.offensive = False
+    def newfunc(*args, **kwargs):
+        global time
+        plugin = args[0]
+        channel = args[2].args[0]
+        if not channel.startswith('#'):
+            delay = 5
+        else:
+            if not plugin.registryValue('enabled', channel):
+                return
+            delay = plugin.registryValue('delay', channel)
+        if channel not in times.keys():
+            times[channel] = time.time()
+        elif times[channel] < time.time() - delay:
+            times[channel] = time.time()
+        else:
+            return
+        i=0
+        func(*args, **kwargs)
+    newfunc.__doc__ = func.__doc__
+    return newfunc
 
 class Mess(callbacks.PluginRegexp):
     """Random Mess plugin"""
     threaded = True
-    regexps = ['hugme','r42','ball']
+    regexps = ['hugme']
     hugs = ["hugs %s","gives %s a big hug","gives %s a sloppy wet kiss",
             "huggles %s","squeezes %s","humps %s"]
-    regex = re.compile('</h1>.*?<p>(.*?)</p>', re.DOTALL)
-    entre = re.compile('&(\S*?);')
-    jre1 = ('http://www.jackbauerfacts.com/index.php?rate_twenty_four',
-            re.compile('current-rating.*?width.*?<td>(.*?)</td>', re.DOTALL))
-    jre2 = ('http://www.notrly.com/jackbauer/',
-             re.compile('<p class="fact">(.*?)</p>', re.DOTALL))
-    mgurl = ('http://www.macgyver.co.za/',
-             re.compile(r'wishtable">(.*?)<div', re.DOTALL))
-    bsurl = ('http://geekz.co.uk/schneierfacts/',
-             re.compile(r'"fact">(.*?)</p', re.DOTALL))
-    badwords = ['sex','masturbate','fuck','rape','dick','pussy','prostitute','hooker',
-                'orgasm','sperm','cunt','penis','shit','piss','urin','bitch','semen']
-    i = 0
-    time = {}
+
+
+    def isCommandMethod(self, name):
+        if not callbacks.PluginRegexp.isCommandMethod(self, name):
+            if name in mess:
+                return True
+            else:
+                return False
+        else:
+            return True
+
+    def listCommands(self):
+        commands = callbacks.PluginRegexp.listCommands(self)
+        #commands.extend(mes.keys())
+        commands.sort()
+        return commands
+
+    def getCommandMethod(self, command):
+        try:
+            return callbacks.PluginRegexp.getCommandMethod(self, command)
+        except AttributeError:
+            return self.messcb
+    
+    @ok
+    def messcb(self, irc, msg, args):
+        """General mess"""
+        global data
+        cmd = msg.args[1][1:]
+        (loc, tx, off) = mess[cmd]
+        if off and not self.registryValue('offensive', msg.args[0]):
+            return
+        if loc.startswith('http'):
+            i = 0
+            while i < 5:
+                inp = utils.web.getUrl(loc)
+                fact = tx.search(inp).group('fact')
+                fact = filter(fact,off)
+                if fact:
+                    irc.reply(fact)
+                    return
+                i += 1
+        else:
+            i = random.randint(0,len(data[loc])-1)
+            if '%d' in tx:
+                tx = tx % i
+            irc.reply(tx + data[loc][i])
+    messcb = wrap(messcb)
 
     # WARNING: depends on an alteration in supybot/callbacks.py - don't do
     # str(s) if s is unicode!
+    @ok
     def dice(self, irc, msg, args, count):
-        if not self.ok(msg.args[0]): return
         if not count: count = 1 
-        if count > 5: count = 5
-        if count < 1: count = 1
+        elif count > 5: count = 5
+        elif count < 1: count = 1
         t = u' '.join([x.__call__([u"\u2680",u"\u2681",u"\u2682",u"\u2683",u"\u2684",u"\u2685"]) for x in [random.choice]*count])
         irc.reply(t)
     dice = wrap(dice, [additional('int')])
 
+    @ok
     def hugme(self, irc, msg, match):
         r""".*hug.*ubugtu"""
         irc.queueMsg(ircmsgs.action(msg.args[0], self.hugs[random.randint(0,len(self.hugs)-1)] % msg.nick))
 
-
-    def ok(self, channel, offensive = False):
-        if not channel.startswith('#'):
-            delay = 5
-        else:
-            if not self.registryValue('enabled', channel):
-                return False
-            if offensive and not self.registryValue('offensive', channel):
-                return False
-            delay = self.registryValue('delay', channel)
-        if channel not in self.time.keys():
-            self.time[channel] = time.time()
-            return True
-        if self.time[channel] < time.time() - delay:
-            self.time[channel] = time.time()
-            return True
-        return False
-
-    def fact(self,who,count=0):
-        # The website is buggy, mysql errors rear their ugly head a lot. So we
-        # retry up to 5 times :)
-        if count > 5:
-            return
-        try:
-            fact = utils.web.getUrl('http://4q.cc/index.php?pid=fact&person=%s' % who)
-            reo = self.regex.search(fact)
-            val = reo.group(1)
-            while self.entre.search(val):
-                entity = self.entre.search(val).group(1)
-                if entity in entities:
-                    val = self.entre.sub(entities[entity], val)
-                else:
-                    val = self.entre.sub('?', val)
-            val = val.replace('<br />','').replace('\n','').replace('\r','')
-            _val = val.lower()
-            for word in self.badwords:
-                if word in _val:
-                    raise RuntimeError
-            return val
-        except:
-            time.sleep(1)
-            return self.fact(who,count+1)
-            
-
-    def t(self, irc, msg, args):
-        """ Display a mr T. fact """
-        if not self.ok(msg.args[0]): return
-        f = self.fact('mrt')
-        if f: irc.reply(f)
-    t = wrap(t)
-    
-    def chuck(self, irc, msg, args):
-        """ Display a Chuck Norris fact """
-        if not self.ok(msg.args[0]): return
-        f = self.fact('chuck')
-        if f: irc.reply(f)
-    chuck = wrap(chuck)
-    
-    def vin(self, irc, msg, args):
-        """ Display a Vin Diesel fact """
-        if not self.ok(msg.args[0]): return
-        f = self.fact('vin')
-        if f: irc.reply(f)
-    vin = wrap(vin)
-
-    hre  = re.compile('<font.*?<b>(.*?)</font>',re.DOTALL)
-    hre2 = re.compile('<.*?>')
-    def hamster(self, irc, msg, args):
-        """ Bob sez! """
-        if not self.ok(msg.args[0]): return
-        try:
-            data = utils.web.getUrl("http://hamsterrepublic.com/dyn/bobsez")
-        except:
-            return
-        # Find correct data
-        data = self.hre.search(data).group(1)
-        data = self.hre2.sub('',data)
-        irc.reply(data.strip())
-    hamster = wrap(hamster)
-
+    @ok
     def fortune(self, irc, msg, args):
         """ Display a fortune cookie """
-        if not self.ok(msg.args[0]): return
-        f = commands.getoutput('fortune -s')
+        f = commands.getoutput('/usr/games/fortune -s')
         f.replace('\t','    ')
         f = f.split('\n')
         for l in f:
             if l:
                 irc.reply(l)
     fortune = wrap(fortune)
+
+    @ok
     def ofortune(self, irc, msg, args):
         """ Display a possibly offensive fortune cookie """
-        if not self.ok(msg.args[0], True): return
-        f = commands.getoutput('fortune -so')
+        if not self.registryValue('offensive', msg.args[0]):
+            return
+        f = commands.getoutput('/usr/games/fortune -so')
         f.replace('\t','    ')
         f = f.split('\n')
         for l in f:
@@ -166,209 +185,20 @@ class Mess(callbacks.PluginRegexp):
                 irc.reply(l)
     ofortune = wrap(ofortune)
 
-    #def bash(self, irc, msg, args):
-    #    """ Display a bash.org quote """
-    #    if not self.ok(msg.args[0], True): return
-    #    b = utils.web.getUrl('http://bash.org?random1')
-    #    r = []
-    #    infirst = False
-    #    for line in b.split('\n'):
-    #        if '#' in line and 'X' in line:
-    #            if infirst:
-    #                if len(r) < 6:
-    #                    bw = False
-    #                    for w in self.badwords:
-    #                        if w in ''.join(r):
-    #                            bw = True
-    #                            break
-    #                    if not bw:
-    #                        for l in r:
-    #                            if l:
-    #                                 irc.reply(l)
-    #                    return
-    #            r = []
-    #            infirst = True
-    #        elif infirst:
-    #            r.append(line.strip())
-    #    irc.reply('hmm, weird')
-    #bash = wrap(bash)
-
-    def bofh(self, irc, msg, args, num):
-        """ Display a BOFH excuse """
-        if not self.ok(msg.args[0]): return
-        if num and num >= 1 and num <= len(_bofhdata):
-            i = num
-        else:
-            i = random.randint(0,len(_bofhdata)-1)
-        irc.reply("BOFH excuse #%d: %s" % (i, _bofhdata[i]))
-    bofh = wrap(bofh, [additional('int')])
-    
-    def r42(self, irc, msg, match):
-        """^@42$"""
-        if not self.ok(msg.args[0]): return
-        #if num and num >= 1 and num <= len(_bofhdata):
-        #    i = num
-        #else:
-        i = random.randint(0,len(_42data)-1)
-        irc.reply(_42data[i])
-        
-    def ferengi(self, irc, msg, match):
-        if not self.ok(msg.args[0]): return
-        #if num and num >= 1 and num <= len(_bofhdata):
-        #    i = num
-        #else:
-        i = random.randint(0,len(_ferengidata)-1)
-        irc.reply("Ferengi rule of acquisition" + _ferengidata[i])
-    ferengi = wrap(ferengi)
-
-    def ball(self, irc, msg, match):
-        """^magic 8ball.*\?$"""
-        if not self.ok(msg.args[0]): return
-        i = random.randint(0,len(_balldata)-1)
-        irc.reply(_balldata[i])
-
-    def bauer(self, irc, msg, args, count=0):
-        """ Display a Jack Bauer fact """
-        if not self.ok(msg.args[0]): return
-        f = self._bauer()
-        if f:
-            irc.reply(f)
-    bauer = wrap(bauer)
-
-    def macgyver(self, irc, msg, args, count=0):
-        """ Display a macgyver fact """
-        if not self.ok(msg.args[0]): return
-        f = self._macgyver()
-        if f:
-            irc.reply(f)
-    macgyver = wrap(macgyver)
-    mcgyver = macgyver
-    
-    def bruce(self, irc, msg, args, count=0):
-        """ Display a bruce fact """
-        if not self.ok(msg.args[0]): return
-        f = self._bruce()
-        if f:
-            irc.reply(f)
-    bruce = wrap(bruce)
-
+    @ok
     def futurama(self, irc, msg, args):
         """ Display a futurama quote """
-        if not self.ok(msg.args[0]): return
         u = urllib2.urlopen('http://slashdot.org')
         h = [x for x in u.headers.headers if x.startswith('X') and not x.startswith('X-Powered-By')][0]
         irc.reply(h[2:-2].replace(' ',' "',1) + '"')
     futurama = wrap(futurama)
 
-    def yourmom(self, irc, msg, args):
-        """ Your mom hates IRC """
-        if not self.ok(msg.args[0], True): return
-        data = utils.web.getUrl('http://pfa.php1h.com/')
-        irc.reply(data[data.find('<p>')+3:data.find('</p>')].strip())
-    yourmom = wrap(yourmom)
-
-    def bush(self, irc,msg,args):
-        """Yes, bush needs help...."""
-        if not self.ok(msg.args[0], True): return
-        data = utils.web.getUrl('http://www.dubyaspeak.com/random.phtml')
-        data = data[data.find('<font'):data.find('</font')]
-        while '<' in data:
-            data = data[:data.find('<')] + data[data.find('>')+1:]
-        irc.reply(data.replace("\r\n",' ').replace("\r",' ').replace("\n",' '))
-    bush = wrap(bush)
-
-    def southpark(self, irc, msg, args):
-        """TIMMEHH!!"""
-        if not self.ok(msg.args[0], True): return
-        data = utils.web.getUrl('http://www.southparkquotes.com/random.php?num=1')
-        data = data[data.find('<p>')+3:data.find('</p>')]
-        while '<' in data:
-            data = data[:data.find('<')] + data[data.find('>')+1:]
-        irc.reply(data.replace("\r\n",' ').replace("\r",' ').replace("\n",' '))
-    southpark = wrap(southpark)
-
+    @ok
     def pony(self, irc, msg, args, text):
         """ NO! """
-        if not self.ok(msg.args[0]): return
         if not text:
             text = 'you'
         irc.reply("No %s can't have a pony, %s!" % (text, msg.nick))
     pony = wrap(pony, [additional('text')])
-
-    def _bauer(self,count=0):
-#        if self.i % 2 == 0:
-#            (url, re) = self.jre1
-#        else:
-#            (url, re) = self.jre2
-#        self.i += 1
-        (url, re) = self.jre2
-        if count > 5:
-            return
-        try:
-            fact = utils.web.getUrl(url)
-            reo = re.search(fact)
-            val = reo.group(1)
-            while self.entre.search(val):
-                entity = self.entre.search(val).group(1)
-                if entity in entities:
-                    val = self.entre.sub(entities[entity], val)
-                else:
-                    val = self.entre.sub('?', val)
-            _val = val.lower()
-            for word in self.badwords:
-                if word in _val:
-                    raise RuntimeError
-            return val
-        except:
-            time.sleep(1)
-            return self._bauer(count+1)
-            
-    def _macgyver(self,count=0):
-        (url, rx) = self.mgurl
-        if count > 5:
-            return
-        try:
-            fact = utils.web.getUrl(url)
-            reo = rx.search(fact)
-            val = reo.group(1).replace('<p>','').replace('</p>','').replace('&quot;','"').replace('&nbsp;',' ')
-            val = re.sub(r'\s+', ' ', val).strip()
-            while self.entre.search(val):
-                entity = self.entre.search(val).group(1)
-                if entity in entities:
-                    val = self.entre.sub(entities[entity], val)
-                else:
-                    val = self.entre.sub('?', val)
-            _val = val.lower()
-            for word in self.badwords:
-                if word in _val:
-                    raise RuntimeError
-            return val
-        except:
-            time.sleep(1)
-            return self._macgyver(count+1)
-            
-    def _bruce(self,count=0):
-        (url, rx) = self.bsurl
-        if count > 5:
-            return
-        try:
-            fact = utils.web.getUrl(url)
-            reo = rx.search(fact)
-            val = reo.group(1).replace('<p>','').replace('</p>','').replace('&quot;','"').replace('&nbsp;',' ')
-            val = re.sub(r'\s+', ' ', val).strip()
-            while self.entre.search(val):
-                entity = self.entre.search(val).group(1)
-                if entity in entities:
-                    val = self.entre.sub(entities[entity], val)
-                else:
-                    val = self.entre.sub('?', val)
-            _val = val.lower()
-            for word in self.badwords:
-                if word in _val:
-                    raise RuntimeError
-            return val
-        except:
-            time.sleep(1)
-            return self._bruce(count+1)
 
 Class = Mess
