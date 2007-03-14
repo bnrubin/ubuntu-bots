@@ -33,6 +33,7 @@ import re
 from supybot.commands import *
 import supybot.plugins as plugins
 import supybot.ircutils as ircutils
+import random
 
 class Lart(plugins.ChannelIdDatabasePlugin):
     _meRe = re.compile(r'\bme\b', re.I)
@@ -74,7 +75,8 @@ class Lart(plugins.ChannelIdDatabasePlugin):
         text = self._replaceFirstPerson(lart.text, msg.nick)
         if ircutils.strEqual(target, irc.nick) or \
            'ubotu' in target.lower() or 'ubugtu' in target.lower() or \
-           'seveas' in target.lower():
+           'seveas' in target.lower() or \
+           ((not msg.prefix.endswith('seveas')) and random.uniform(0,100) < 25):
             target = msg.nick
             reason = ''
         else:

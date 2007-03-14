@@ -141,17 +141,23 @@ class Encyclopedia(callbacks.Plugin):
 
     def get_db(self, channel):
         db = self.registryValue('database',channel)
+        if channel in self.databases:
+            if self.databases[channel].time < time.time - 3600:
+                self.databases[channel].close()
+                self.databases.pop(channel)
         if channel not in self.databases:
             self.databases[channel] = sqlite.connect(os.path.join(self.registryValue('datadir'), '%s.db' % db))
             self.databases[channel].name = db
+            self.databases[channel].time = time.time()
         return self.databases[channel]
 
     def addressed(self, recipients, text, irc):
         if recipients[0] == '#':
             text = text.strip()
-            if text.lower() == self.registryValue('prefixchar') + irc.nick.lower():
+            if text.lower() == self.registryValue('prefixchar', channel=recipients) + irc.nick.lower():
                 return irc.nick.lower()
-            if len(text) and text[0] == self.registryValue('prefixchar'):
+            if len(text) and text[0] ==
+            self.registryValue('prefixchar',channel=recipients):
                 text = text[1:]
                 if text.lower().startswith(irc.nick.lower()) and (len(text) < 5 or not text[5].isalnum()):
                     t2 = text[5:].strip()
@@ -168,7 +174,7 @@ class Encyclopedia(callbacks.Plugin):
                 comm = text.split()[0]
                 if c.isCommandMethod(comm) and not c.isDisabled(comm):
                     return False
-            if text[0] == self.registryValue('prefixchar'):
+            if text[0] == self.registryValue('prefixchar',channel=recipients):
                 return text[1:]
             return text
             

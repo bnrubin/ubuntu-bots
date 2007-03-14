@@ -52,7 +52,8 @@ for m in mess.keys():
         fd.close()
 
 badwords = ['sex','masturbate','fuck','rape','dick','pussy','prostitute','hooker',
-            'orgasm','sperm','cunt','penis','shit','piss','urin','bitch','semen','cock']
+            'orgasm','sperm','cunt','penis','shit','piss','urin','bitch','semen','cock',
+            'retarded']
 tagre = re.compile(r'<.*?>')
 def filter(txt,off):
     _txt = txt.lower()
@@ -69,7 +70,6 @@ def filter(txt,off):
 times = {}
 
 def ok(func):
-    func.offensive = False
     def newfunc(*args, **kwargs):
         global time
         plugin = args[0]
@@ -124,8 +124,12 @@ class Mess(callbacks.PluginRegexp):
     def messcb(self, irc, msg, args):
         """General mess"""
         global data
-        cmd = msg.args[1][1:]
-        (loc, tx, off) = mess[cmd]
+        cmd = msg.args[1].split()[-1]
+        try:
+            (loc, tx, off) = mess[cmd]
+        except:
+            cmd = cmd[1:]
+            (loc, tx, off) = mess[cmd]
         if off and not self.registryValue('offensive', msg.args[0]):
             return
         if loc.startswith('http'):
