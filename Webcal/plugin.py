@@ -108,23 +108,29 @@ class Webcal(callbacks.Plugin):
             newtopic = template % str(newtopic)
         return preamble + newtopic
 
-    def _meeting_in_progress(self, url):
+    def _meeting_in_progress(self, url, channel):
+        return False
         if url not in self.cache.keys():
             self._refresh_cache(url)
         now = datetime.datetime.now(pytz.UTC)
         events = filter(lambda x: self._filter(x,channel,now),self.cache[url])[:1]
         if len(events):
-            if len(events) > 1 and events[1].startDate < now:
+            if len(events) and events[0].endDate < now:
                     events = events[1:]
+            if not events:
+                return False
             ev0 = events[0]
+            print now, ev0.startDate, ev0.endDate
             delta = abs(ev0.startDate - now)
-            if ev0.startDate < now or (delta.days == 0 and delta.seconds < 10 * 60):
+            if ev0.startDate < now and delta.seconds > 10 * 5:
                 return True
         return False
         
     def _autotopics(self):
         for c in self.irc.state.channels:
             url = self.registryValue('url', c)
+            if self._meeting_in_progress(url, c):
+                continue
             if url and self.registryValue('doTopic', c):
                 newtopic = self._gettopic(url, c)
                 if newtopic and not (newtopic.strip() == self.irc.state.getTopic(c).strip()):
@@ -145,9 +151,12 @@ class Webcal(callbacks.Plugin):
 
     def topic(self, irc, msg, args):
         url = self.registryValue('url', msg.args[0])
-        if not url or not self.registryValue('doTopic'):
+        if not url or not self.registryValue('doTopic',channel=msg.args[0]):
             return
         self._refresh_cache(url)
+        if self._meeting_in_progress(url, msg.args[0]):
+            irc.error("Can't update topic while a meeting is in progress")
+            return
         newtopic = self._gettopic(url, msg.args[0])
         # Only change topic if it actually is different!
         if not (newtopic.strip() == irc.state.getTopic(msg.args[0]).strip()):
@@ -191,7 +200,11 @@ class Webcal(callbacks.Plugin):
         if not tzs or 'gmt' in tz.lower():
             irc.error('Unknown timezone: %s - Full list: http://bugbot.ubuntulinux.nl/timezones.html' % tz)
         else:
-            irc.reply('Schedule for %s: %s' % (tzs[0],self._gettopic(url, c, timezone=tzs[0], no_topic=True)))
+            if self._meeting_in_progress(url, c):
+                irc.error('Please don\'t use @schedule during a meeting')
+                irc.reply('Schedule for %s: %s' % (tzs[0],self._gettopic(url, c, timezone=tzs[0], no_topic=True)), private=True)
+            else:
+                irc.reply('Schedule for %s: %s' % (tzs[0],self._gettopic(url, c, timezone=tzs[0], no_topic=True)))
     schedule = wrap(schedule, [additional('text')])
 
     def now(self, irc, msg, args, tz):
