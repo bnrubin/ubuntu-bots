@@ -37,10 +37,10 @@ mess = {
     'mjg59':       ('http://www.angryfacts.com',                       r'</p><h1>(?P<fact>.*?)</h1>',        False),
     'vmjg':        ('http://www.rjek.com/vmjg59.cgi',                  r'<body>(?P<fact>.*?)<p>',            True),
     'vmjg59':      ('http://www.rjek.com/vmjg59.cgi',                  r'<body>(?P<fact>.*?)<p>',            True),
-    'bofh':        ('/home/dennis/ubugtu/plugins/Mess/bofh.txt',       'BOFH Excuse #%d: ',                  False),
-    '42':          ('/home/dennis/ubugtu/plugins/Mess/42.txt',         '',                                   False),
-    'magic8ball':  ('/home/dennis/ubugtu/plugins/Mess/ball.txt',       '',                                   False),
-    'ferengi':     ('/home/dennis/ubugtu/plugins/Mess/ferengi.txt',    'Ferengi rule of acquisition ',       False)
+    'bofh':        ('/home/dennis/ubotu/plugins/Mess/bofh.txt',       'BOFH Excuse #%d: ',                  False),
+    '42':          ('/home/dennis/ubotu/plugins/Mess/42.txt',         '',                                   False),
+    'magic8ball':  ('/home/dennis/ubotu/plugins/Mess/ball.txt',       '',                                   False),
+    'ferengi':     ('/home/dennis/ubotu/plugins/Mess/ferengi.txt',    'Ferengi rule of acquisition ',       False)
 }
 data = {}
 for m in mess.keys():
@@ -162,7 +162,7 @@ class Mess(callbacks.PluginRegexp):
 
     @ok
     def hugme(self, irc, msg, match):
-        r""".*hug.*ubugtu"""
+        r""".*hug.*ubotu"""
         irc.queueMsg(ircmsgs.action(msg.args[0], self.hugs[random.randint(0,len(self.hugs)-1)] % msg.nick))
 
     @ok

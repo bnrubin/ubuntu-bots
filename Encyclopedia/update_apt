@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DIR=/home/dennis/ubugtu/data/apt
+DIR=/home/dennis/ubotu/data/apt
 
 for DIST in "$DIR"/*.list; do
     DIST=${DIST:${#DIR}}

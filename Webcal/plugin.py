@@ -57,7 +57,7 @@ class Webcal(callbacks.Plugin):
         schedule.addPeriodicEvent(self._refresh_cache,  60 * 20, name=self.name())
         schedule.addPeriodicEvent(self._autotopics,     60, name=self.name() + 'b')
         self.cache = {}
-        self.subs = shelve.open('/home/dennis/ubugtu/data/subscriptions.db')
+        self.subs = shelve.open('/home/dennis/ubotu/data/subscriptions.db')
 
     def die(self):
         schedule.removeEvent(self.name())

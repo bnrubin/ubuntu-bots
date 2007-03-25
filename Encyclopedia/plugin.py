@@ -142,7 +142,7 @@ class Encyclopedia(callbacks.Plugin):
     def get_db(self, channel):
         db = self.registryValue('database',channel)
         if channel in self.databases:
-            if self.databases[channel].time < time.time - 3600:
+            if self.databases[channel].time < time.time() - 3600:
                 self.databases[channel].close()
                 self.databases.pop(channel)
         if channel not in self.databases:
@@ -156,8 +156,7 @@ class Encyclopedia(callbacks.Plugin):
             text = text.strip()
             if text.lower() == self.registryValue('prefixchar', channel=recipients) + irc.nick.lower():
                 return irc.nick.lower()
-            if len(text) and text[0] ==
-            self.registryValue('prefixchar',channel=recipients):
+            if len(text) and text[0] == self.registryValue('prefixchar',channel=recipients):
                 text = text[1:]
                 if text.lower().startswith(irc.nick.lower()) and (len(text) < 5 or not text[5].isalnum()):
                     t2 = text[5:].strip()

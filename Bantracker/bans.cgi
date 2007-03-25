@@ -18,7 +18,7 @@ sys.path.append('/var/www/bots.ubuntulinux.nl')
 from commoncgi import *
 
 ### Variables
-db       = '/home/dennis/ubugtu/data/bans.db'
+db       = '/home/dennis/ubotu/data/bans.db'
 num_per_page = 100
 
 con = sqlite.connect(db)

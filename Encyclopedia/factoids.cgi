@@ -19,7 +19,7 @@ from commoncgi import *
 
 ### Variables
 NUM_PER_PAGE=50.0
-datadir = '/home/dennis/ubugtu/data/facts'
+datadir = '/home/dennis/ubotu/data/facts'
 default_database = 'ubuntu'
 
 databases = [x for x in os.listdir(datadir)]
