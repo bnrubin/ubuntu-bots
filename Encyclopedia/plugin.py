@@ -303,7 +303,7 @@ class Encyclopedia(callbacks.Plugin):
                                                  (msg.args[0], msg.nick, msg.args[1])))
                     return
                 ret = self.factoid_edit(text, channel, msg.prefix)
-            elif ' is ' in text and '|' not in text:
+            elif ' is ' in text and '|' not in text and '>' not in text:
                 if not capab(msg.prefix, 'editfactoids'):
                     if len(text[:text.find('is')]) > 15:
                         irc.error("I am only a bot, please don't think I'm intelligent :)")
@@ -316,6 +316,10 @@ class Encyclopedia(callbacks.Plugin):
                 ret = self.factoid_add(text, channel, msg.prefix)
             else:
                 text, target, retmsg = self.get_target(msg.nick, orig_text, target)
+                if text.startswith('bug ') and text != ('bug 1'):
+                    return
+                if text == self.registryValue('alert') and msg.args[0][0] == '#':
+                    msg.tag('alert')
                 ret = self.factoid_lookup(text, channel, display_info)
 
         # Fall through to package lookup
@@ -325,10 +329,10 @@ class Encyclopedia(callbacks.Plugin):
                 ret = self.Apt.info(text[5:].strip(),self.registryValue('searchorder', channel).split())
             elif text.startswith('find '):
                 ret = self.Apt.find(text[5:].strip(),self.registryValue('searchorder', channel).split())
-            else:
-                ret = self.Apt.info(text.strip(),self.registryValue('searchorder', channel).split())
-                if ret.startswith('Package'):
-                    ret = None
+            #else:
+            #    ret = self.Apt.info(text.strip(),self.registryValue('searchorder', channel).split())
+            #    if ret.startswith('Package'):
+            #        ret = None
 
         if not ret:
             if len(text) > 15:
@@ -342,6 +346,9 @@ class Encyclopedia(callbacks.Plugin):
             queue(irc, target, retmsg + ret)
         else:
             queue(irc, target, retmsg + ret[0])
+            if msg.tagged('alert'):
+                queue(irc, self.registryValue('relayChannel'), '%s called the ops in %s' % (msg.nick, msg.args[0]))
+                queue(irc, self.registryValue('relayChannel'), retmsg + ret[0])
             for r in ret[1:]:
                 queue(irc, target, r)
 
@@ -423,7 +430,6 @@ class Encyclopedia(callbacks.Plugin):
         ret = self.check_aliases(channel, factoid)
         if ret:
             return ret
-        print("UPDATE facts SET value=%s where name=%s", (factoid.value,factoid.name))
         cs.execute("UPDATE facts SET value=%s where name=%s", (factoid.value,factoid.name))
         db.commit()
         return retmsg

@@ -120,7 +120,7 @@ class Webcal(callbacks.Plugin):
             if not events:
                 return False
             ev0 = events[0]
-            print now, ev0.startDate, ev0.endDate
+            #print now, ev0.startDate, ev0.endDate
             delta = abs(ev0.startDate - now)
             if ev0.startDate < now and delta.seconds > 10 * 5:
                 return True

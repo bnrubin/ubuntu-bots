@@ -13,6 +13,7 @@ import supybot.ircmsgs as ircmsgs
 import supybot.callbacks as callbacks
 import supybot.ircdb as ircdb
 import supybot.conf as conf
+import supybot.schedule as schedule
 import random, os
 
 class LpLogin(callbacks.Plugin):
@@ -22,6 +23,14 @@ class LpLogin(callbacks.Plugin):
 
     def __init__(self, irc):
         callbacks.Plugin.__init__(self, irc)
+        try:
+            schedule.removeEvent(self.name() + '.nickreload')
+        except:
+            pass
+        # Reload every 6 hours
+        schedule.addPeriodicEvent(lambda: self.reportnewbugs(irc),  60*60*6, name=self.name() + '.nickreload')
+
+    def loadnicks(self):
         uf = self.registryValue('UserList')
         if not uf or not os.path.exists(uf):
             self.log.info('Not loading non-existant userlist')
@@ -32,7 +41,7 @@ class LpLogin(callbacks.Plugin):
         knownusers = [x.lower() for x in users.split() if x]
         self.knownusers = knownusers
         allusers = [u.name.lower() for u in ircdb.users.itervalues()]
-        print knownusers, allusers
+        #print knownusers, allusers
 
         if self.registryValue('DeleteUnknowns'):
             to_delete = [x for x in allusers if x not in knownusers and not 

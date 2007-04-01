@@ -35,6 +35,8 @@ conf.registerChannelValue(Encyclopedia, 'searchorder',
     registry.String('','Distro search order'))
 
 conf.registerGlobalValue(Encyclopedia, 'datadir',
-    registry.String('', 'Path to dir containing factoid databases'))
+    registry.String('', 'Path to dir containing factoid databases',private=True))
 conf.registerGlobalValue(Encyclopedia, 'aptdir',
-    registry.String('', 'Path to apt cache directory'))
+    registry.String('', 'Path to apt cache directory',private=True))
+conf.registerGlobalValue(Encyclopedia, 'alert',
+    registry.String('ops','factoid name used for alerts'))
