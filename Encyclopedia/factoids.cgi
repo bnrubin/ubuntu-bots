@@ -51,7 +51,7 @@ if 'search' in form:
     
 # Select factoids
 if search:
-    keys = [urllib2.unquote(x.strip()) for x in search.split() if len(x.strip()) >2][:5]
+    keys = [urllib2.unquote(x.strip()) for x in search.split() if len(x.strip()) >=2][:5]
     if not keys:
         keys = ['']
     query1 = "SELECT name, value, author, added, popularity FROM facts WHERE name NOT LIKE '%-also' AND ("
