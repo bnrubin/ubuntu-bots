@@ -12,7 +12,7 @@
 #
 ###
 
-import cgi, cgitb, re, sys, math, os, md5, sqlite, random, time, datetime, pytz, Cookie, StringIO
+import cgi, cgitb, re, sys, math, os, md5, sqlite, random, time, datetime, pytz, Cookie, StringIO, urllib2
 import cPickle as pickle
 cgitb.enable()
 

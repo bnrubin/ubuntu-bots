@@ -60,6 +60,7 @@ class Lart(plugins.ChannelIdDatabasePlugin):
             (target, reason) = map(str.strip, text.split(' for ', 1))
         else:
             (target, reason) = (text, '')
+        print target
         if id is not None:
             try:
                 lart = self.db.get(channel, id)
@@ -74,8 +75,8 @@ class Lart(plugins.ChannelIdDatabasePlugin):
                 return
         text = self._replaceFirstPerson(lart.text, msg.nick)
         if ircutils.strEqual(target, irc.nick) or \
-           'ubotu' in target.lower() or 'ubugtu' in target.lower() or \
-           'seveas' in target.lower() or \
+           'ubotu' in ircutils.stripFormatting(target).lower() or \
+           'seveas' in ircutils.stripFormatting(target).lower() or \
            ((not msg.prefix.endswith('seveas')) and random.uniform(0,100) < 25):
             target = msg.nick
             reason = ''

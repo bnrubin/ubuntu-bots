@@ -28,7 +28,7 @@ class LpLogin(callbacks.Plugin):
         except:
             pass
         # Reload every 6 hours
-        schedule.addPeriodicEvent(lambda: self.reportnewbugs(irc),  60*60*6, name=self.name() + '.nickreload')
+        #schedule.addPeriodicEvent(lambda: self.reportnewbugs(irc),  60*60*6, name=self.name() + '.nickreload')
 
     def loadnicks(self):
         uf = self.registryValue('UserList')
@@ -65,6 +65,8 @@ class LpLogin(callbacks.Plugin):
         irc.getRealIrc()._Freenode_capabed = True
 
     def do376(self, irc, msg):
+        irc.queueMsg(ircmsgs.IrcMsg('CAPAB IDENTIFY-MSG'))
+    def do422(self, irc, msg): # MOTD missing
         irc.queueMsg(ircmsgs.IrcMsg('CAPAB IDENTIFY-MSG'))
 
     def inFilter(self, irc, msg):

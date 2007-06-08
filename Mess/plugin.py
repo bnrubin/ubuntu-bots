@@ -19,6 +19,7 @@ import supybot.ircutils as ircutils
 import supybot.callbacks as callbacks
 import random, re, time, commands, urllib2
 import supybot.ircmsgs as ircmsgs
+import supybot.conf as conf
 
 mess = {
     't':           ('http://4q.cc/?pid=fact&person=mrt',               r'</h1>.*?<p>(?P<fact>.*?)</p>',      False),
@@ -37,10 +38,12 @@ mess = {
     'mjg59':       ('http://www.angryfacts.com',                       r'</p><h1>(?P<fact>.*?)</h1>',        False),
     'vmjg':        ('http://www.rjek.com/vmjg59.cgi',                  r'<body>(?P<fact>.*?)<p>',            True),
     'vmjg59':      ('http://www.rjek.com/vmjg59.cgi',                  r'<body>(?P<fact>.*?)<p>',            True),
-    'bofh':        ('/home/dennis/ubotu/plugins/Mess/bofh.txt',       'BOFH Excuse #%d: ',                  False),
-    '42':          ('/home/dennis/ubotu/plugins/Mess/42.txt',         '',                                   False),
-    'magic8ball':  ('/home/dennis/ubotu/plugins/Mess/ball.txt',       '',                                   False),
-    'ferengi':     ('/home/dennis/ubotu/plugins/Mess/ferengi.txt',    'Ferengi rule of acquisition ',       False)
+    'shakespeare': ('http://www.pangloss.com/seidel/Shaker/',          r'<font.*?>(?P<fact>.*?)</font>',     False),
+    'lugradio':    ('http://planet.lugradio.org/facts/',               r'<h2>\s*(?P<fact>.*?)</h2>',         False),
+    'bofh':        ('/home/dennis/ubotu/plugins/Mess/bofh.txt',        'BOFH Excuse #%d: ',                  False),
+    '42':          ('/home/dennis/ubotu/plugins/Mess/42.txt',          '',                                   False),
+    'magic8ball':  ('/home/dennis/ubotu/plugins/Mess/ball.txt',        '',                                   False),
+    'ferengi':     ('/home/dennis/ubotu/plugins/Mess/ferengi.txt',     'Ferengi rule of acquisition ',       False)
 }
 data = {}
 for m in mess.keys():
@@ -53,7 +56,7 @@ for m in mess.keys():
 
 badwords = ['sex','masturbate','fuck','rape','dick','pussy','prostitute','hooker',
             'orgasm','sperm','cunt','penis','shit','piss','urin','bitch','semen','cock',
-            'retarded']
+            'retard']
 tagre = re.compile(r'<.*?>')
 def filter(txt,off):
     _txt = txt.lower()
@@ -119,12 +122,25 @@ class Mess(callbacks.PluginRegexp):
             return callbacks.PluginRegexp.getCommandMethod(self, command)
         except AttributeError:
             return self.messcb
+
+    def _callCommand(self, command, irc, msg, *args, **kwargs):
+        method = self.getCommandMethod(command)
+        if command[0] in mess:
+            msg.tag('messcmd', command[0])
+        try:
+            method(irc, msg, *args, **kwargs)
+        except Exception, e:
+            self.log.exception('Uncaught exception in %s.', command)
+            if conf.supybot.reply.error.detailed():
+                irc.error(utils.exnToString(e))
+            else:
+                irc.replyError()
     
     @ok
-    def messcb(self, irc, msg, args):
+    def messcb(self, irc, msg, args, text):
         """General mess"""
         global data
-        cmd = msg.args[1].split()[-1]
+        cmd = msg.tagged('messcmd')
         try:
             (loc, tx, off) = mess[cmd]
         except:
@@ -147,7 +163,7 @@ class Mess(callbacks.PluginRegexp):
             if '%d' in tx:
                 tx = tx % i
             irc.reply(tx + data[loc][i])
-    messcb = wrap(messcb)
+    messcb = wrap(messcb, [additional('text')])
 
     # WARNING: depends on an alteration in supybot/callbacks.py - don't do
     # str(s) if s is unicode!

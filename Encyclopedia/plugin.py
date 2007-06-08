@@ -318,7 +318,7 @@ class Encyclopedia(callbacks.Plugin):
                 text, target, retmsg = self.get_target(msg.nick, orig_text, target)
                 if text.startswith('bug ') and text != ('bug 1'):
                     return
-                if text == self.registryValue('alert') and msg.args[0][0] == '#':
+                if text == self.registryValue('alert') and msg.args[0][0] == '#' and not display_info:
                     msg.tag('alert')
                 ret = self.factoid_lookup(text, channel, display_info)
 
@@ -348,7 +348,7 @@ class Encyclopedia(callbacks.Plugin):
             queue(irc, target, retmsg + ret[0])
             if msg.tagged('alert'):
                 queue(irc, self.registryValue('relayChannel'), '%s called the ops in %s' % (msg.nick, msg.args[0]))
-                queue(irc, self.registryValue('relayChannel'), retmsg + ret[0])
+                #queue(irc, self.registryValue('relayChannel'), retmsg + ret[0])
             for r in ret[1:]:
                 queue(irc, target, r)
 
