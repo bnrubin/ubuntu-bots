@@ -17,27 +17,21 @@ if options.outfile:
 else:
     outfd = sys.stdout
 
-people_re = re.compile(r"""(?:href=".*?~(?P<person>[^/]*?)".*?)
-                           #relationship.*?(href=".*?~(?P<group>.*?)".*?)*""",
-                           re.VERBOSE | re.I | re.DOTALL)
+people_re = re.compile(r'href="/~([^/"]*)"')
 nickname_re = re.compile(r'<code.*?120.*?>(.*?)</code>.*\n.*freenode',re.I)
 def get_group_members(group):
     nicks = []
-    u = urllib2.urlopen('http://launchpad.net/~%s' % urllib.quote(group))
+    u = urllib2.urlopen('http://launchpad.net/~%s/+members' % urllib.quote(group))
     html = u.read().lower()
     # Split into people and groups
-    p1 = html.find('team members')
-    p2 = html.find('relationship to other teams')
-    p3 = html.find('a member of')
+    p1 = html.find('active members')
+    p2 = html.find('pending members')
     people = people_re.findall(html[p1:p2])
-    teams = people_re.findall(html[p2:p3])
     for p in people:
         u = urllib2.urlopen('http://launchpad.net/~%s' % urllib.quote(p))
         html = u.read()
         n = nickname_re.findall(html)
         nicks += n
-    for t in teams:
-        nicks += get_group_members(t)
     return [x.lower() for x in nicks]
 
 outfd.write("\n".join(get_group_members(lp_group)))

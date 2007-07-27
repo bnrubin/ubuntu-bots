@@ -94,6 +94,7 @@ class Lart(plugins.ChannelIdDatabasePlugin):
         irc.reply(text, action=True)
     lart = wrap(lart, ['channeldb', optional('id'), 'text'])
     pity = lart
+    slander = lart
 
 Class = Lart
 
