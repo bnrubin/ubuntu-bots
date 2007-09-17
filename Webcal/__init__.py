@@ -1,5 +1,5 @@
 ###
-# Copyright (c) 2005,2006 Dennis Kaarsemaker
+# Copyright (c) 2005-2007 Dennis Kaarsemaker
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -18,15 +18,17 @@ Update the topic according to an iCal schedule
 
 import supybot
 import supybot.world as world
-__version__ = "0.2"
+__version__ = "0.3"
 __author__ = supybot.Author("Dennis Kaarsemaker","Seveas","dennis@kaarsemaker.net")
 __contributors__ = {}
-__url__ = 'http://bugbot.ubuntulinux.nl/'
+__url__ = 'http://ubotu.ubuntu-nl.org'
 
 import config
 reload(config)
 import plugin
 reload(plugin)
+import ical
+reload(ical)
 
 if world.testing:
     import test

@@ -1,5 +1,5 @@
 ###
-# Copyright (c) 2005,2006 Dennis Kaarsemaker
+# Copyright (c) 2005-2007 Dennis Kaarsemaker
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -29,4 +29,4 @@ conf.registerChannelValue(conf.supybot.plugins.Webcal, 'topic',
 conf.registerChannelValue(conf.supybot.plugins.Webcal, 'doTopic',
     registry.Boolean(False,"""Whether to manage the topic"""))
 conf.registerGlobalValue(conf.supybot.plugins.Webcal, 'defaultChannel',
-    registry.String('',"""Default channel for /msg replies"""))
+    registry.String('',"""Default channel to determine schedule for /msg replies"""))

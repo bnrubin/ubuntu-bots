@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # Slightly modified version of the iCal module found at
-# http://www.devoesquared.com/Software/iCal_Module
+# http://www.random-ideas.net/Software/iCal_Module
+# Original file doesn't come with a license but is public domain according to
+# above website
 
 import os
 import os.path
@@ -10,6 +12,8 @@ import time
 import pytz # pytz can be found on http://pytz.sourceforge.net
 
 SECONDS_PER_DAY=24*60*60
+def seconds(timediff):
+    return SECONDS_PER_DAY * timediff.days + timediff.seconds
 
 class ICalReader:
 
@@ -131,6 +135,43 @@ class ICalEvent:
 
     def startTime(self):
         return self.startDate
+
+    def schedule(self, timezone=None):
+        if not timezone:
+            return "%s UTC: %s" % (self.startDate.strftime("%d %b %H:%M"), self.summary.replace('Meeting','').strip())
+        return "%s: %s" % (self.startDate.astimezone(pytz.timezone(timezone)).strftime("%d %b %H:%M"), self.summary.replace('Meeting','').strip())
+
+    def is_on(self):
+        return self.startDate < datetime.datetime.now(pytz.UTC) and self.endDate > datetime.datetime.now(pytz.UTC)
+
+    def has_passed(self):
+        return self.endDate < datetime.datetime.now(pytz.UTC)
+
+    def seconds_to_go(self):
+        return seconds(self.startDate - datetime.datetime.now(pytz.UTC))
+
+    def seconds_ago(self):
+        return seconds(datetime.datetime.now(pytz.UTC) - self.endDate)
+
+    def time_to_go(self):
+        if self.endDate < datetime.datetime.now(pytz.UTC):
+            return False
+        delta = self.startDate - datetime.datetime.now(pytz.UTC)
+        s = ''
+        if delta.days:
+            if delta.days != 1:
+                s = 's'
+            return '%d day%s' % (delta.days, s)
+        h = ''
+        if delta.seconds > 7200:
+            s = 's'
+        if delta.seconds > 3600:
+            h = '%d hour%s ' % (int(delta.seconds/3600),s)
+        s = ''
+        minutes = (delta.seconds % 3600) / 60
+        if minutes != 1:
+            s = 's'
+        return '%s%d minute%s' % (h,minutes,s)
 
 class DateSet:
     def __init__(self, startDate, endDate, rule):
