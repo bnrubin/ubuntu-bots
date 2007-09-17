@@ -1,6 +1,5 @@
 ###
 # Copyright (c) 2007, Dennis Kaarsemaker
-# All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -14,17 +13,16 @@
 ###
 
 """
-Add a description of the plugin (to be presented to the user inside the wizard)
-here.  This should describe *what* the plugin does.
+Let nickserv-identified users log in without password
 """
 
 import supybot
 import supybot.world as world
 
-__version__ = "0.1"
+__version__ = "0.2"
 __author__ = supybot.Author("Dennis Kaarsemaker","Seveas","dennis@kaarsemaker.net")
 __contributors__ = {}
-__url__ = 'http://bots.ubuntulinux.nl/'
+__url__ = 'http://ubotu.ubuntu-nl.org/'
 
 import config
 reload(config)

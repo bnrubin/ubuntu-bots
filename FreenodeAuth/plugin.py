@@ -1,7 +1,14 @@
 ###
 # Copyright (c) 2007, Dennis Kaarsemaker
-# All rights reserved.
 #
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of version 2 of the GNU General Public License as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
 ###
 
@@ -16,19 +23,9 @@ import supybot.conf as conf
 import supybot.schedule as schedule
 import random, os
 
-class LpLogin(callbacks.Plugin):
-    """Add the help for "@plugin help LpLogin" here
-    This should describe *how* to use this plugin."""
+class FreenodeAuth(callbacks.Plugin):
+    """Use @login to login"""
     threaded = True
-
-    def __init__(self, irc):
-        callbacks.Plugin.__init__(self, irc)
-        try:
-            schedule.removeEvent(self.name() + '.nickreload')
-        except:
-            pass
-        # Reload every 6 hours
-        #schedule.addPeriodicEvent(lambda: self.reportnewbugs(irc),  60*60*6, name=self.name() + '.nickreload')
 
     def loadnicks(self):
         uf = self.registryValue('UserList')
@@ -41,13 +38,7 @@ class LpLogin(callbacks.Plugin):
         knownusers = [x.lower() for x in users.split() if x]
         self.knownusers = knownusers
         allusers = [u.name.lower() for u in ircdb.users.itervalues()]
-        #print knownusers, allusers
 
-        if self.registryValue('DeleteUnknowns'):
-            to_delete = [x for x in allusers if x not in knownusers and not 
-                         ircdb.users.getUser(x)._checkCapability('owner')]
-            for u in to_delete:
-                self.log.info("Would delete %s" % u)
         to_add = [x for x in knownusers if x not in allusers]
         for a in to_add:
             self.log.info("Adding %s" % a)
@@ -83,12 +74,13 @@ class LpLogin(callbacks.Plugin):
             try:
                 user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')])
             except:
-                irc.error(conf.supybot.replies.incorrectAuthentication())
-                return
+                self.loadnicks()
+                try:
+                    user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')])
+                except:
+                    irc.error(conf.supybot.replies.incorrectAuthentication())
+                    return
             user.addAuth(msg.prefix)
             ircdb.users.setUser(user, flush=False)
     login = wrap(login)
-Class = LpLogin
-
-
-# vim:set shiftwidth=4 tabstop=4 expandtab textwidth=79:
+Class = FreenodeAuth
