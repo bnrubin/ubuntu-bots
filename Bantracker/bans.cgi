@@ -14,7 +14,7 @@
 ###
 
 import sys
-sys.path.append('/var/www/bots.ubuntulinux.nl')
+sys.path.append('/var/www/ubotu.ubuntu-nl.org')
 from commoncgi import *
 
 ### Variables

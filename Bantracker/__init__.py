@@ -18,10 +18,10 @@ This plugin can store all kick/ban/remove/mute actions
 import supybot
 import supybot.world as world
 
-__version__ = "0.3"
+__version__ = "0.3.1"
 __author__ = supybot.Author("Dennis Kaarsemaker","Seveas","dennis@kaarsemaker.net")
 __contributors__ = {}
-__url__ = 'https://bots.ubuntulinux.nl'
+__url__ = 'https://ubotu.ubuntu-nl.org'
 
 import config
 reload(config)
