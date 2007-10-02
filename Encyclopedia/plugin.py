@@ -97,12 +97,12 @@ class Encyclopedia(callbacks.Plugin):
 
     def editors(self, irc, msg, args):
         irc.reply(', '.join([ircdb.users.getUser(u).name for u in ircdb.users.users \
-                             if 'editfactoids' in ircdb.users.getUser(u).capabilities]))
+                             if 'editfactoids' in ircdb.users.getUser(u).capabilities]), private=True)
     editors = wrap(editors)
 
     def moderators(self, irc, msg, args):
         irc.reply(', '.join([ircdb.users.getUser(u).name for u in ircdb.users.users \
-                             if 'addeditors' in ircdb.users.getUser(u).capabilities]))
+                             if 'addeditors' in ircdb.users.getUser(u).capabilities]), private=True)
     moderators = wrap(moderators)
 
     def get_target(self, nick, text, orig_target):
@@ -303,7 +303,7 @@ class Encyclopedia(callbacks.Plugin):
                                                  (msg.args[0], msg.nick, msg.args[1])))
                     return
                 ret = self.factoid_edit(text, channel, msg.prefix)
-            elif ' is ' in text and '|' not in text and '>' not in text.replace('<reply>',''):
+            elif ' is ' in text and '|' not in text and '>' not in text.replace('<reply>','').replace('<alias>',''):
                 if not capab(msg.prefix, 'editfactoids'):
                     if len(text[:text.find('is')]) > 15:
                         irc.error("I am only a bot, please don't think I'm intelligent :)")
@@ -443,7 +443,7 @@ class Encyclopedia(callbacks.Plugin):
         if not name or not value:
             return
         name = name.lower()
-        if value.startswith('also '):
+        if value.startswith('also ') or value.startswith('also:'):
             name += '-also'
             value = value[5:].strip()
             if not value:
