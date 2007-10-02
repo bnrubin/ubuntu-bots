@@ -43,6 +43,11 @@ if cookie.has_key('sess'):
         con.commit()
         pass
 
+if not user:
+    print "Sorry, bantracker has been shut down for anonymous users due to server load"
+    send_page('bans.tmpl')
+    
+
 # Log
 if form.has_key('log'):
    cur.execute("""SELECT log FROM bans WHERE id=%s""", form['log'].value)
