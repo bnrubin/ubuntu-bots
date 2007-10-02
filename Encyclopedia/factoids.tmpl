@@ -2,91 +2,8 @@
 <head>
 <title>Ubotu factoids</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-</head>
-<style type="text/css">
-body {
-  font-family: verdana, sans;
-  font-weight: bold;
-  background-color: #d9bb7a;
-  color: #980101;
-  font-size: 10px;
-}
-.submit {
-  font-size: 10px;
-  border: solid 1px #980101;
-  color: #980101;
-  font-weight: bold;
-  background-color: #fdff99;
-}
-.input {
-  font-size: 10px;
-  border: solid 1px #980101;
-  color: #980101;
-  font-weight: bold;
-  background-color: white;
-}
-th {
-  font-size: 10px;
-  border-bottom: solid 1px #980101;
-  text-align: center;
-}
-td,th {
-  font-size: 10px;
-  text-align: left;
-  vertical-align: top;
-}
-td.comment {
-  white-space: normal;
-  padding-left: 20px;
-}
-li {
-  list-style: none;
-}
-table {
-  width: 100%%;
-  padding-top: 1em;
-  clear: both;
-}
-
-div.main {
-  margin: 20px;
-  border: 2px solid #980101;
-  padding: 0px;
-  background-color: #fdd99b;
-  text-align: center;
-}
-div.pdata {
-  text-align: right;
-  padding-right: 10px;
-  float: right;
-}
-div.search {
-  float: left;
-  text-align: left;
-  padding-left: 10px;
-}
-a, span.pseudolink {
-  color: #d40000;
-  text-decoration: underline;
-  cursor: pointer;
-}
-span.removal {
-  color: #6699cc;
-}
-tr.bg2 {
-  background-color: #fdff99;
-}
-div.invisible {
-  display: none;
-}
-div.log {
-  display: none;
-  color: black;
-  width: 100%%;
-  font-family: monospace;
-  white-space: normal;
-}
-</style>
+    <link rel="stylesheet" href="/bot.css" />
+    <link rel="shortcut icon" href="favicon.ico" type="image/png" />
 <script type="text/javascript">
   var DHTML = (document.getElementById || document.all || document.layers);
   
@@ -120,6 +37,7 @@ div.log {
 
   }
 </script>
+</head>
 <body>
 <div class="main">
 <h1>Ubotu factoids</h1>
@@ -127,6 +45,7 @@ div.log {
 More help: <a href="http://wiki.ubuntu.com/">wiki.ubuntu.com</a> &middot;
 <a href="http://help.ubuntu.com/">help.ubuntu.com</a><br />
 More factoids: <a href="factoids.cgi?db=ubuntu">Ubuntu</a> &middot;
+<a href="factoids.cgi?db=falcon">Falcon</a> &middot;
 <a href="factoids.cgi?db=buntudot">buntudot</a> &middot;
 <a href="factoids.cgi?db=gnewsense">GNewSense</a><br />
 <form action="/factoids.cgi" method="GET"><input class="input" type="text" name="search" />
@@ -137,6 +56,7 @@ More factoids: <a href="factoids.cgi?db=ubuntu">Ubuntu</a> &middot;
 <p>
 <a href="ubuntu.db">Ubuntu factoid database file</a><br />
 <a href="buntudot.db">Buntudot factoid database file</a><br />
+<a href="falcon.db">Falcon factoid database file</a><br />
 <a href="gnewsense.db">GNewSense factoid database file</a><br />
 &copy;2006 Dennis Kaarsemaker
 </p>

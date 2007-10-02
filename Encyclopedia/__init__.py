@@ -20,7 +20,7 @@ funtionality
 import supybot
 import supybot.world as world
 
-__version__ = "2.1"
+__version__ = "2.2"
 __author__ = supybot.Author("Dennis Kaarsemaker","Seveas","dennis@kaarsemaker.net")
 __contributors__ = {}
 __url__ = 'https://bots.ubuntulinux.nl'
