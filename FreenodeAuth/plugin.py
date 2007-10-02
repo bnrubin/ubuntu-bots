@@ -70,17 +70,20 @@ class FreenodeAuth(callbacks.Plugin):
         return msg
             
     def login(self, irc, msg, args):
-        if msg.tagged('identified'):
+        if not msg.tagged('identified'):
+            irc.error(conf.supybot.replies.incorrectAuthentication())
+            return
+        try:
+            user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')])
+        except:
+            self.loadnicks()
             try:
                 user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')])
             except:
-                self.loadnicks()
-                try:
-                    user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')])
-                except:
-                    irc.error(conf.supybot.replies.incorrectAuthentication())
-                    return
-            user.addAuth(msg.prefix)
-            ircdb.users.setUser(user, flush=False)
+                irc.error(conf.supybot.replies.incorrectAuthentication())
+                return
+        user.addAuth(msg.prefix)
+        ircdb.users.setUser(user, flush=False)
+        irc.replySuccess()
     login = wrap(login)
 Class = FreenodeAuth
