@@ -71,8 +71,8 @@ class Webcal(callbacks.Plugin):
                 if url not in self.cache:
                     self.update(url)
                 events = self.filter(self.cache[url], c)
-                if events[0].is_on() and self.firstevent[c].summary == events[0].summary:
-                    continue
+                #if events[0].is_on() and self.firstevent[c].summary == events[0].summary:
+                #    continue
                 newtopic = self.maketopic(c, template=self.registryValue('topic',c))
                 if newtopic.strip() != self.irc.state.getTopic(c).strip():
                     self.irc.queueMsg(ircmsgs.topic(c, newtopic))
@@ -98,8 +98,8 @@ class Webcal(callbacks.Plugin):
         if len(events) > 1 and events[1].startDate < now:
                 events = events[1:]
         ev0 = events[0]
-        if ev0.seconds_to_go < 600:
-            preamble = 'Current meeting: %s' % ev0.summary.replace('Meeting','').strip()
+        if ev0.seconds_to_go() < 600:
+            preamble = 'Current meeting: %s ' % ev0.summary.replace('Meeting','').strip()
             if num_events == 1:
                 return preamble + (template % '')
             events = events[1:]
@@ -168,7 +168,7 @@ class Webcal(callbacks.Plugin):
             return
         newtopic = self.maketopic(c,tz=tzs[0])
         events = self.filter(self.cache[url], msg.args[0])
-        if events[0].is_on():
+        if events[0].is_on(): # FIXME channel filter
             irc.error('Please don\'t use @schedule during a meeting')
             irc.reply('Schedule for %s: %s' % (tzs[0], newtopic), private=True)
         else:
@@ -198,7 +198,7 @@ class Webcal(callbacks.Plugin):
         newtopic = 'Current time in %s: %s - %s' % \
             (tzs[0], datetime.datetime.now(pytz.UTC).astimezone(pytz.timezone(tzs[0])).strftime("%B %d %Y, %H:%M:%S"), newtopic)
 
-        if events[0].is_on():
+        if events[0].is_on(): # Fixme -- channel filter
             irc.error('Please don\'t use @schedule during a meeting')
             irc.reply(newtopic, private=True)
         else:

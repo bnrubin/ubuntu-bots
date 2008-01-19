@@ -89,8 +89,16 @@ class Bantracker(callbacks.Plugin):
             self.lastMsgs[irc] = msg
 
     def db_run(self, query, parms, expect_result = False, expect_id = False):
-        cur = self.db.cursor()
-        cur.execute(query, parms)
+        n_tries = 0
+        try:
+            cur = self.db.cursor()
+            cur.execute(query, parms)
+        except:
+            if n_tries > 5:
+                print "Tried more than 5 times, aborting"
+                raise
+            n_tries += 1
+            time.sleep(1)
         data = None
         if expect_result: data = cur.fetchall()
         if expect_id: data = self.db.insert_id()

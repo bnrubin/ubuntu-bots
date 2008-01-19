@@ -3,6 +3,7 @@
 DIR=/home/dennis/ubotu/data/apt
 
 for DIST in "$DIR"/*.list; do
+    test -h $DIST && continue
     DIST=${DIST:${#DIR}}
     DIST=${DIST/.list}
     mkdir -p "$DIR/apt-file/$DIST"

@@ -49,7 +49,7 @@ class FreenodeAuth(callbacks.Plugin):
             for i in range(16):
                 rp += chars[random.randint(1,len(chars))-1]
             user.setPassword(rp)
-        irc.queueMsg(ircmsgs.IrcMsg('CAPAB IDENTIFY-MSG'))
+#        irc.queueMsg(ircmsgs.IrcMsg('CAPAB IDENTIFY-MSG'))
 
     def do290(self, irc, msg):
         assert 'IDENTIFY-MSG' in msg.args[1]

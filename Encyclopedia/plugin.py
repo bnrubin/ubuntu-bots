@@ -72,6 +72,7 @@ class Encyclopedia(callbacks.Plugin):
         self.distros = []
         self.Apt = packages.Apt(self)
         self.edits = {}
+        self.alert = False
 
     def addeditor(self, irc, msg, args, name):
         if not capab(msg.prefix, 'addeditors'):
@@ -209,6 +210,8 @@ class Encyclopedia(callbacks.Plugin):
             return Factoid(f[0],f[1],f[2],f[3],f[4])
 
     def resolve_alias(self, channel, factoid, loop=0):
+        if factoid and factoid.name == self.registryValue('alert'):
+            self.alert = True
         if loop >= 10:
             return Factoid('','<reply> Error: infinite <alias> loop detected','','',0)
         if factoid and factoid.value.lower().startswith('<alias>'):
@@ -271,6 +274,7 @@ class Encyclopedia(callbacks.Plugin):
         text = self.addressed(recipient, text, irc)
         if not text:
             return
+        self.log.info("%s said in %s: %s" % (msg.prefix, msg.args[0], msg.args[1]))
         display_info = False
         target = msg.args[0]
         if target[0] != '#':
@@ -318,8 +322,8 @@ class Encyclopedia(callbacks.Plugin):
                 text, target, retmsg = self.get_target(msg.nick, orig_text, target)
                 if text.startswith('bug ') and text != ('bug 1'):
                     return
-                if text == self.registryValue('alert') and msg.args[0][0] == '#' and not display_info:
-                    msg.tag('alert')
+                #if text == self.registryValue('alert') and msg.args[0][0] == '#' and not display_info:
+                #    msg.tag('alert')
                 ret = self.factoid_lookup(text, channel, display_info)
 
         # Fall through to package lookup
@@ -346,9 +350,12 @@ class Encyclopedia(callbacks.Plugin):
             queue(irc, target, retmsg + ret)
         else:
             queue(irc, target, retmsg + ret[0])
-            if msg.tagged('alert'):
-                queue(irc, self.registryValue('relayChannel'), '%s called the ops in %s' % (msg.nick, msg.args[0]))
+            #if msg.tagged('alert'):
+            if self.alert:
+                if target.startswith('#') and not target.endswith('bots'):
+                    queue(irc, self.registryValue('relayChannel'), '%s called the ops in %s (%s)' % (msg.nick, msg.args[0], retmsg[:-2]))
                 #queue(irc, self.registryValue('relayChannel'), retmsg + ret[0])
+                self.alert = False
             for r in ret[1:]:
                 queue(irc, target, r)
 
