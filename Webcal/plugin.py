@@ -33,19 +33,13 @@ class Webcal(callbacks.Plugin):
         self.irc = irc
         try:
             schedule.removeEvent(self.name())
-        except:
-            pass
-        try:
             schedule.removeEvent(self.name() + 'b')
-        except:
+        except AssertionError:
             pass
         try:
             schedule.addPeriodicEvent(self.refresh_cache,  60 * 20, name=self.name())
-        except:
-            pass
-        try:
             schedule.addPeriodicEvent(self.autotopics,     60, name=self.name() + 'b')
-        except:
+        except AssertionError:
             pass
         self.cache = {}
         self.firstevent = {}
@@ -53,11 +47,8 @@ class Webcal(callbacks.Plugin):
     def die(self):
         try:
             schedule.removeEvent(self.name())
-        except:
-            pass
-        try:
             schedule.removeEvent(self.name() + 'b')
-        except:
+        except AssertionError:
             pass
         self.cache.clear()
 
