@@ -245,7 +245,7 @@ class Bantracker(callbacks.Plugin):
             user.addAuth(msg.prefix)
             ircdb.users.setUser(user, flush=False)
             if not self.registryValue('bansite'):
-                irc.error("No bansite enabled, please set conf.supybot.plugins.Bantracker.bansite")
+                irc.error("No bansite set, please set supybot.plugins.Bantracker.bansite")
                 return
             sessid = md5.new('%s%s%d' % (msg.prefix, time.time(), random.randint(1,100000))).hexdigest()
             self.db_run("""INSERT INTO sessions (session_id, user, time) VALUES (%s, %s, %d);""", 
