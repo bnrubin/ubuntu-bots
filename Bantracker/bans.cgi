@@ -14,13 +14,15 @@
 ###
 
 import sys
+# This needs to be set to the location of the commoncgi.py file
 sys.path.append('/var/www/ubotu.ubuntu-nl.org')
 from commoncgi import *
 
 ### Variables
-db       = '/home/dennis/ubotu/data/bans.db'
+# Location of the bans database
+db       = '/home/ubotu/data/bans.db'
 num_per_page = 100
-
+### You shouldn't have to change anything under this line ###
 con = sqlite.connect(db)
 cur = con.cursor()
 
@@ -29,7 +31,12 @@ error    = ''
 user = None
 
 # Delete old sessions
-cur.execute("""DELETE FROM sessions WHERE time < %d""", int(time.time()) - 2592000 * 3)
+## For some reason this fails, so deal with it
+try:
+  cur.execute("""DELETE FROM sessions WHERE time < %d""", int(time.time()) - 2592000 * 3)
+except:
+  con.commit()
+  pass
 
 # Session handling
 if form.has_key('sess'):
@@ -95,7 +102,7 @@ tz = pytz.timezone(tz)
 
 # Search form
 print '<div class="search">'
-print '<form action="/bans.cgi" method="GET">'
+print '<form action="bans.cgi" method="GET">'
 print '<input class="input" type="text" name="query"'
 if form.has_key('query'):
    print 'value="%s" ' % form['query'].value

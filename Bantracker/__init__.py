@@ -20,7 +20,7 @@ import supybot.world as world
 
 __version__ = "0.3.1"
 __author__ = supybot.Author("Dennis Kaarsemaker","Seveas","dennis@kaarsemaker.net")
-__contributors__ = {}
+__contributors__ = {supybot.Author("Terence Simpson", "stdin", "stdin@stdin.me.uk"): ['Alow configurable bantracker URL']}
 __url__ = 'https://ubotu.ubuntu-nl.org'
 
 import config

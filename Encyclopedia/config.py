@@ -40,3 +40,5 @@ conf.registerGlobalValue(Encyclopedia, 'aptdir',
     registry.String('', 'Path to apt cache directory',private=True))
 conf.registerGlobalValue(Encyclopedia, 'alert',
     registry.String('ops','factoid name used for alerts'))
+conf.registerGlobalValue(Encyclopedia, 'remotedb',
+    registry.String('http://jussi01.com/ubuntu.db', 'Remote location of the master database'))

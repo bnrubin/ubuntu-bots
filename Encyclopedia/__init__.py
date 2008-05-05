@@ -22,7 +22,7 @@ import supybot.world as world
 
 __version__ = "2.2"
 __author__ = supybot.Author("Dennis Kaarsemaker","Seveas","dennis@kaarsemaker.net")
-__contributors__ = {}
+__contributors__ = {supybot.Author("Terence Simpson", "stdin", "stdin@stdin.me.uk"): ['sync']}
 __url__ = 'https://bots.ubuntulinux.nl'
 
 import config

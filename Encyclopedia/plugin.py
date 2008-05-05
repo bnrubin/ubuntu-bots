@@ -512,4 +512,47 @@ class Encyclopedia(callbacks.Plugin):
                     ret[r] = 1
         return 'Found: %s' % ', '.join(sorted(ret.keys(), lambda x, y: cmp(ret[x], ret[y]))[:10])
 
+    def sync(self, irc, msg, args):
+        """takes no arguements
+
+        Downloads a copy of the database from the remote server.
+        """
+        if not capab(msg.prefix, "owner"):
+            irc.error("Sorry, you can't do that")
+            return
+        def download_database(location, dpath):
+            """Download the database located at location to path dpath"""
+            import urllib2
+            fd = urllib2.urlopen(location)
+            newDb = fd.read()
+            fd.close()
+           fd2 = open(dpath,'w')
+            fd2.write(newDb)
+            fd2.close()
+
+# Having this configurable is nice, but could lead to errors in *my* code,
+# So I'll just assume it's always going to be set to 'ubuntu'
+#        db = self.registryValue('database')
+        db = 'ubuntu'
+        dbpath = os.path.join(self.registryValue('datadir'), '%s.db' % db)
+        # We're moving files and downloading, lots can go wrong so use lots of try blocks.
+        try:
+            os.rename(dbpath, "%s.backup" % dbpath)
+        except:
+            self.log.error("Could not rename %s to %s.backup" % (dbpath, dbpath))
+            irc.error("Internal error, see log")
+            return
+
+        try:
+            # Downloading can take some time, let the user know we're doing something
+            irc.reply("Attemting to download database", prefixNick=False)
+            download_database(self.registryValue('remotedb'), dbpath)
+            irc.replySuccess()
+        except:
+            self.log.error("Could not download %s to %s" % (self.registryValue('remotedb'), dbpath))
+            irc.error("Internal error, see log")
+            os.rename("%s.backup" % dbpath, dbpath)
+            return
+    sync = wrap(sync)
+
 Class = Encyclopedia

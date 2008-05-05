@@ -1,7 +1,7 @@
 <html>
   <head>
     <title>Ubugtu bantracker</title>
-    <link rel="stylesheet" href="/bot.css" />
+    <link rel="stylesheet" href="bot.css" />
     <link rel="shortcut icon" href="favicon.ico" type="image/png" />
     <script type="text/javascript">
       var DHTML = (document.getElementById || document.all || document.layers);
@@ -39,7 +39,7 @@
       function loadlog(id) {
         r = new XMLHttpRequest();
         r.onreadystatechange = printlog;
-        r.open("GET",'/bans.cgi?log=' + id, true);
+        r.open("GET",'bans.cgi?log=' + id, true);
         r.send(null);
       }
       function printlog() {

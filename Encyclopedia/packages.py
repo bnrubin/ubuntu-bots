@@ -46,6 +46,12 @@ class Apt:
             if filelookup:
                 data = commands.getoutput(self.aptfilecommand % (distro, distro, pkg)).split()
                 if data:
+                    if data[0] == 'sh:': # apt-file isn't installed
+                      plugin.log.error("apt-file is not installed")
+                      return "Please use http://packages.ubuntu.com/ to search for files"
+                    if data[0] == 'E:': # No files in the cache dir
+                      plugin.log.error("Please run the 'update_apt_file' script")
+                      return "Cache out of data, please contact the administrator"
                     if len(data) > 5:
                         return "File %s found in %s (and %d others)" % (pkg, ', '.join(data[:5]), len(data)-5)
                     return "File %s found in %s" % (pkg, ', '.join(data))

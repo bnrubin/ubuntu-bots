@@ -14,13 +14,18 @@
 ###
 
 import sys
-sys.path.append('/var/www/ubotu.ubuntu-nl.org')
+# This needs to be set to the location of the commoncgi.py file
+sys.path.append('/var/www/')
 from commoncgi import *
 
 ### Variables
 NUM_PER_PAGE=50.0
-datadir = '/home/dennis/ubotu/data/facts'
+# Directory of the factoids database
+datadir = '/home/ubotu/data'
+# Database name (without .db)
 default_database = 'ubuntu'
+
+#### You shouldn't have to change anything under this line ###
 
 databases = [x for x in os.listdir(datadir)]
 
