@@ -70,6 +70,10 @@ class FreenodeAuth(callbacks.Plugin):
         return msg
             
     def login(self, irc, msg, args):
+        """takes no arguments
+
+        Allows users who are identified to NickServ to login without a password.
+        """
         if not msg.tagged('identified'):
             irc.error(conf.supybot.replies.incorrectAuthentication())
             return

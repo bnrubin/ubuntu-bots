@@ -232,6 +232,10 @@ class Bantracker(callbacks.Plugin):
         return msg
         
     def btlogin(self, irc, msg, args):
+        """takes no arguments
+
+        Sends you a message with a link to login to the bantracker.
+        """
         if msg.tagged('identified'):
             try:
                 user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')])

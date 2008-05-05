@@ -34,17 +34,17 @@ mess = {
     'hamster':     ('Hamster quotes', 'http://hamsterrepublic.com/dyn/bobsez', r'<font.*?<b>(?P<fact>.*?)</font>', False),
     #'yourmom':     ('', 'http://pfa.php1h.com', r'<p>(?P<fact>.*?)</p>', True),
     'bush':        ('Bush quotes', 'http://www.dubyaspeak.com/random.phtml', r'(?P<fact><font.*</font>)', True),
-    #'southpark':   ('', 'http://www.southparkquotes.com/random.php?num=1', r'<p>(?P<fact>.*)</p>', True),
+    #southpark':    ('', 'http://www.southparkquotes.com/random.php?num=1', r'<p>(?P<fact>.*)</p>', True),
     'mjg':         ('Matthew Garrett facts', 'http://www.angryfacts.com', r'</p><h1>(?P<fact>.*?)</h1>', False),
     'mjg59':       ('Matthew Garrett facts', 'http://www.angryfacts.com', r'</p><h1>(?P<fact>.*?)</h1>', False),
     'vmjg':        ('Virtual Matthew Garrett', 'http://www.rjek.com/vmjg59.cgi', r'<body>(?P<fact>.*?)<p>', True),
     'vmjg59':      ('Virtual Matthew Garrett', 'http://www.rjek.com/vmjg59.cgi', r'<body>(?P<fact>.*?)<p>', True),
     'shakespeare': ('Shakespeare quotes', 'http://www.pangloss.com/seidel/Shaker/', r'<font.*?>(?P<fact>.*?)</font>', False),
     'lugradio':    ('Lugradio facts', 'http://planet.lugradio.org/facts/', r'<h2>\s*(?P<fact>.*?)</h2>', False),
-    'bofh':        ('BOFH excuses', '%s/Mess/bofh.txt' % conf.supybot.directories.plugins[1], 'BOFH Excuse #%d: ', False),
-    '42':          ('HHGTTG quotes', '%s/Mess/42.txt' % conf.supybot.directories.plugins[1], '', False),
-    'magic8ball':  ('The magic 8ball', '%s/Mess/ball.txt' % conf.supybot.directories.plugins[1], '', False),
-    'ferengi':     ('Ferengi rules of acquisition', '%s/Mess/ferengi.txt' % conf.supybot.directories.plugins[1], 'Ferengi rule of acquisition ', False)
+    'bofh':        ('BOFH excuses', '%s/Mess/bofh.txt' % conf.supybot.directories.plugins()[1], 'BOFH Excuse #%d: ', False),
+    '42':          ('HHGTTG quotes', '%s/Mess/42.txt' % conf.supybot.directories.plugins()[1], '', False),
+    'magic8ball':  ('The magic 8ball', '%s/Mess/ball.txt' % conf.supybot.directories.plugins()[1], '', False),
+    'ferengi':     ('Ferengi rules of acquisition', '%s/Mess/ferengi.txt' % conf.supybot.directories.plugins()[1], 'Ferengi rule of acquisition ', False),
 }
 data = {}
 for m in mess.keys():
@@ -181,6 +181,9 @@ class Mess(callbacks.PluginRegexp):
     # str(s) if s is unicode!
     @ok
     def dice(self, irc, msg, args, count):
+        """[<count>]
+        Roll the dice, if count is given then roll that many times.
+        """
         if not count: count = 1 
         elif count > 5: count = 5
         elif count < 1: count = 1
@@ -227,7 +230,9 @@ class Mess(callbacks.PluginRegexp):
 
     @ok
     def pony(self, irc, msg, args, text):
-        """ NO! """
+        """[<user>]
+        Can you or <user> have a pony?
+        """
         if not text:
             text = 'you'
         irc.reply("No %s can't have a pony, %s!" % (text, msg.nick))

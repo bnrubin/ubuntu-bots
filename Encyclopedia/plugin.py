@@ -75,6 +75,10 @@ class Encyclopedia(callbacks.Plugin):
         self.alert = False
 
     def addeditor(self, irc, msg, args, name):
+        """<name>
+
+        Adds the user with the name <name> to the list of editors.
+        """
         if not capab(msg.prefix, 'addeditors'):
             return
         try:
@@ -86,6 +90,10 @@ class Encyclopedia(callbacks.Plugin):
     addeditor = wrap(addeditor, ['text'])
 
     def removeeditor(self, irc, msg, args, name):
+        """<name>
+
+        Removes the user with the name <name> from the list of editors.
+        """
         if not capab(msg.prefix, 'addeditors'):
             return
         try:
@@ -97,11 +105,19 @@ class Encyclopedia(callbacks.Plugin):
     removeeditor = wrap(removeeditor, ['text'])
 
     def editors(self, irc, msg, args):
+        """takes no arguments
+
+        Lists all the users who are in the list of editors.
+        """
         irc.reply(', '.join([ircdb.users.getUser(u).name for u in ircdb.users.users \
                              if 'editfactoids' in ircdb.users.getUser(u).capabilities]), private=True)
     editors = wrap(editors)
 
     def moderators(self, irc, msg, args):
+        """takes no arguments
+
+        Lists all the users who can add users to the list of editors.
+        """
         irc.reply(', '.join([ircdb.users.getUser(u).name for u in ircdb.users.users \
                              if 'addeditors' in ircdb.users.getUser(u).capabilities]), private=True)
     moderators = wrap(moderators)
@@ -516,6 +532,7 @@ class Encyclopedia(callbacks.Plugin):
         """takes no arguements
 
         Downloads a copy of the database from the remote server.
+        Set the server with the configuration variable supybot.plugins.Encyclopedia.remotedb.
         """
         if not capab(msg.prefix, "owner"):
             irc.error("Sorry, you can't do that")

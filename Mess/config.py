@@ -21,7 +21,7 @@ def configure(advanced):
 
 Mess = conf.registerPlugin('Mess')
 conf.registerChannelValue(conf.supybot.plugins.Mess, 'enabled',
-    registry.Boolean(False,"""Enable the non-offensive mess that ubugtu can spit out in the
+    registry.Boolean(False,"""Enable the non-offensive mess that the bot can spit out in the
     channel"""))
 conf.registerChannelValue(conf.supybot.plugins.Mess, 'offensive',
     registry.Boolean(False,"""Enable all possibly offensive mess that the bot can spit out in the
