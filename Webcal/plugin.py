@@ -39,15 +39,26 @@ class Webcal(callbacks.Plugin):
             schedule.removeEvent(self.name() + 'b')
         except:
             pass
-        
-        schedule.addPeriodicEvent(self.refresh_cache,  60 * 20, name=self.name())
-        schedule.addPeriodicEvent(self.autotopics,     60, name=self.name() + 'b')
+        try:
+            schedule.addPeriodicEvent(self.refresh_cache,  60 * 20, name=self.name())
+        except:
+            pass
+        try:
+            schedule.addPeriodicEvent(self.autotopics,     60, name=self.name() + 'b')
+        except:
+            pass
         self.cache = {}
         self.firstevent = {}
 
     def die(self):
-        schedule.removeEvent(self.name())
-        schedule.removeEvent(self.name() + 'b')
+        try:
+            schedule.removeEvent(self.name())
+        except:
+            pass
+        try:
+            schedule.removeEvent(self.name() + 'b')
+        except:
+            pass
         self.cache.clear()
 
     def reset(self):
