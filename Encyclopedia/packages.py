@@ -88,6 +88,9 @@ class Apt:
                 parser = FeedParser.FeedParser()
                 parser.feed(p)
                 p = parser.close()
+                if type(p) == type(""):
+                    plugin.log.error("apt returned an error, do you have the deb-src URLs in %s.list" % distro)
+                    return "Package lookup faild"
                 if apt.VersionCompare(maxp['Version'], p['Version']) < 0:
                     maxp = p
                 del parser

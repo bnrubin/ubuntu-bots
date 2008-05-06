@@ -165,8 +165,8 @@ class Webcal(callbacks.Plugin):
         if not url:
             return
         tzs = filter(lambda x: self._tzfilter(x.lower(),tz.lower()), pytz.all_timezones)
-        if not tzs or 'gmt' in tz.lower():
-            irc.error('Unknown timezone: %s - Full list: http://ubotu.ubuntu-nl.org/timezones.html' % tz)
+        if not tzs:
+            irc.error('Unknown timezone: %s - Full list: %s' % (tz, self.config.registryValue('tzUrl') or 'Value not set'))
             return
         newtopic = self.maketopic(c,tz=tzs[0])
         events = self.filter(self.cache[url], msg.args[0])
@@ -191,8 +191,8 @@ class Webcal(callbacks.Plugin):
         if not url:
             return
         tzs = filter(lambda x: self._tzfilter(x.lower(),tz.lower()), pytz.all_timezones)
-        if not tzs or 'gmt' in tz.lower():
-            irc.error('Unknown timezone: %s - Full list: http://ubotu.ubuntu-nl.org/timezones.html' % tz)
+        if not tzs:
+            irc.error('Unknown timezone: %s - Full list: %s' % (tz, self.config.registryValue('tzUrl') or 'Value not set'))
             return
         now = datetime.datetime.now(pytz.UTC)
         newtopic = self.maketopic(c,tz=tzs[0],num_events=1)

@@ -30,3 +30,5 @@ conf.registerChannelValue(conf.supybot.plugins.Webcal, 'doTopic',
     registry.Boolean(False,"""Whether to manage the topic"""))
 conf.registerGlobalValue(conf.supybot.plugins.Webcal, 'defaultChannel',
     registry.String('',"""Default channel to determine schedule for /msg replies"""))
+conf.registerGlobalValue(conf.supybot.plugins.Webcal, 'tzUrl',
+    registry.String('', """URL to the list of timezones supported by the Webcal plugin"""))
