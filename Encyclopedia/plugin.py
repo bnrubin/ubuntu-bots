@@ -253,6 +253,7 @@ class Encyclopedia(callbacks.Plugin):
             else:
                 factoid.value = "<reply> %s has no aliases" % (factoid.name)
         # Author info
+        db = self.get_db(channel)
         cur = db.cursor()
         cur.execute("SELECT author, added FROM log WHERE name = %s", factoid.name)
         data = cur.fetchall()
