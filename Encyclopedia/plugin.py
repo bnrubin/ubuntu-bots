@@ -253,7 +253,15 @@ class Encyclopedia(callbacks.Plugin):
             else:
                 factoid.value = "<reply> %s has no aliases" % (factoid.name)
         # Author info
+        cur = db.cursor()
+        cur.execute("SELECT author, added FROM log WHERE name = %s", factoid.name)
+        data = cur.fetchall()
         factoid.value += " - added by %s on %s" % (factoid.author[:factoid.author.find('!')], factoid.added[:factoid.added.find('.')])
+        if data:
+            last_edit = data[len(data)-1]
+            who = last_edit[0][:last_edit[0].find('!')]
+            when = last_edit[1][:last_edit[1].find('.')]
+            factoid.value += " - last edited by %s on %s" % (who, when)
         return factoid
 
     def check_aliases(self, channel, factoid):
@@ -290,7 +298,6 @@ class Encyclopedia(callbacks.Plugin):
         text = self.addressed(recipient, text, irc)
         if not text:
             return
-        self.log.info("%s said in %s: %s" % (msg.prefix, msg.args[0], msg.args[1]))
         display_info = False
         target = msg.args[0]
         if target[0] != '#':
@@ -315,7 +322,7 @@ class Encyclopedia(callbacks.Plugin):
             if lower_text.startswith('search '):
                 ret = self.search_factoid(lower_text[7:].strip(), channel)
             elif (' is ' in lower_text and text[:3] in ('no ', 'no,')) or '<sed>' in lower_text or '=~' in lower_text \
-                or lower_text.startswith('forget') or lower_text.startswith('unforget'):
+                or '~=' in lower_text or '<alias>' in lower_text or lower_text.startswith('forget') or lower_text.startswith('unforget'):
                 if not capab(msg.prefix, 'editfactoids'):
                     irc.reply("Your edit request has been forwarded to %s.  Thank you for your attention to detail" %
                               self.registryValue('relaychannel'),private=True)
@@ -424,6 +431,8 @@ class Encyclopedia(callbacks.Plugin):
                 text = text.replace('is<sed>','=~',1)
             if ' is <sed>' in text:
                 text = text.replace('is <sed>','=~',1)
+            if '~=' in text:
+                text = text.replace('~=','=~',1)
             # Split into name and regex
             name = text[:text.find('=~')].strip()
             regex = text[text.find('=~')+2:].strip()
@@ -543,7 +552,7 @@ class Encyclopedia(callbacks.Plugin):
             fd = urllib2.urlopen(location)
             newDb = fd.read()
             fd.close()
-           fd2 = open(dpath,'w')
+            fd2 = open(dpath,'w')
             fd2.write(newDb)
             fd2.close()
 

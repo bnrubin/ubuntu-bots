@@ -22,6 +22,7 @@ class Apt:
     def __init__(self, plugin):
         self.aptdir = plugin.registryValue('aptdir')
         self.distros = []
+        self.plugin = plugin
         if self.aptdir:
             self.distros = [x[:-5] for x in os.listdir(self.aptdir) if x.endswith('.list')]
             self.aptcommand = """apt-cache\\
@@ -47,10 +48,10 @@ class Apt:
                 data = commands.getoutput(self.aptfilecommand % (distro, distro, pkg)).split()
                 if data:
                     if data[0] == 'sh:': # apt-file isn't installed
-                      plugin.log.error("apt-file is not installed")
+                      self.plugin.log.error("apt-file is not installed")
                       return "Please use http://packages.ubuntu.com/ to search for files"
                     if data[0] == 'E:': # No files in the cache dir
-                      plugin.log.error("Please run the 'update_apt_file' script")
+                      self.plugin.log.error("Please run the 'update_apt_file' script")
                       return "Cache out of date, please contact the administrator"
                     if len(data) > 5:
                         return "File %s found in %s (and %d others)" % (pkg, ', '.join(data[:5]), len(data)-5)
@@ -89,7 +90,7 @@ class Apt:
                 parser.feed(p)
                 p = parser.close()
                 if type(p) == type(""):
-                    plugin.log.error("apt returned an error, do you have the deb-src URLs in %s.list" % distro)
+                    self.plugin.log.error("apt returned an error, do you have the deb-src URLs in %s.list" % distro)
                     return "Package lookup faild"
                 if apt.VersionCompare(maxp['Version'], p['Version']) < 0:
                     maxp = p
@@ -102,12 +103,16 @@ class Apt:
                 parser = FeedParser.FeedParser()
                 parser.feed(p)
                 p = parser.close()
+                if type(p) == type(""):
+                    self.plugin.log.error("apt returned an error, do you have the deb-src URLs in %s.list" % distro)
+                    return "Package lookup faild"
                 if apt.VersionCompare(maxp2['Version'], p['Version']) < 0:
                     maxp2 = p
                 del parser
             archs = ''
-            if maxp2['Architecture'] not in ('all','any'):
-                archs = ' (Only available for %s)' % maxp2['Architecture']
+            if maxp2.has_key('Architecture'):
+                if maxp2['Architecture'] not in ('all','any'):
+                    archs = ' (Only available for %s)' % maxp2['Architecture']
             return("%s (source: %s): %s. In component %s, is %s. Version %s (%s), package size %s kB, installed size %s kB%s" %
                    (maxp['Package'], maxp['Source'] or maxp['Package'], maxp['Description'].split('\n')[0], component(maxp['Section']),
                     maxp['Priority'], maxp['Version'], distro, int(maxp['Size'])/1024, maxp['Installed-Size'], archs))
