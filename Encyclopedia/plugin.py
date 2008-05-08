@@ -169,19 +169,20 @@ class Encyclopedia(callbacks.Plugin):
         return self.databases[channel]
 
     def addressed(self, recipients, text, irc):
+        nlen = len(irc.nick)
         if recipients[0] == '#':
             text = text.strip()
             if text.lower() == self.registryValue('prefixchar', channel=recipients) + irc.nick.lower():
                 return irc.nick.lower()
             if len(text) and text[0] == self.registryValue('prefixchar',channel=recipients):
                 text = text[1:]
-                if text.lower().startswith(irc.nick.lower()) and (len(text) < 5 or not text[5].isalnum()):
-                    t2 = text[5:].strip()
+                if text.lower().startswith(irc.nick.lower()) and (len(text) < nlen or not text[nlen].isalnum()):
+                    t2 = text[nlen:].strip()
                     if t2 and t2.find('>') != 0 and t2.find('|') != 0:
-                        text = text[5:].strip()
+                        text = text[nlen:].strip()
                 return text
-            if text.lower().startswith(irc.nick) and not text[5].isalnum():
-                return text[5:]
+            if text.lower().startswith(irc.nick) and not text[nlen].isalnum():
+                return text[nlen:]
             return False
         else: # Private
             if text.strip()[0] in str(conf.supybot.reply.whenAddressedBy.chars):
