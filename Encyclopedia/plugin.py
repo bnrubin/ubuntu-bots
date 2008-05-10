@@ -363,7 +363,7 @@ class Encyclopedia(callbacks.Plugin):
             if text.startswith('info '):
                 ret = self.Apt.info(text[5:].strip(),self.registryValue('searchorder', channel).split())
             elif text.startswith('find '):
-                ret = self.Apt.find(text[5:].strip(),self.registryValue('searchorder', channel).split())
+                ret = self.Apt.find(orig_text[5:].strip(),self.registryValue('searchorder', channel).split())
             #else:
             #    ret = self.Apt.info(text.strip(),self.registryValue('searchorder', channel).split())
             #    if ret.startswith('Package'):
