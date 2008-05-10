@@ -19,7 +19,13 @@ import sqlite, datetime, time
 import supybot.registry as registry
 import supybot.ircdb as ircdb
 import supybot.conf as conf
-import re, os, time
+import sys, os, time
+
+if sys.version_info >= (2, 5, 0)
+  import re
+else:
+  import sre as re
+
 import packages
 reload(packages)
 
@@ -227,7 +233,7 @@ class Encyclopedia(callbacks.Plugin):
             return Factoid(f[0],f[1],f[2],f[3],f[4])
 
     def resolve_alias(self, channel, factoid, loop=0):
-        if factoid and factoid.name == self.registryValue('alert'):
+        if factoid and factoid.name == self.registryValue('alert',channel):
             self.alert = True
         if loop >= 10:
             return Factoid('','<reply> Error: infinite <alias> loop detected','','',0)
@@ -327,8 +333,8 @@ class Encyclopedia(callbacks.Plugin):
                 or '~=' in lower_text or '<alias>' in lower_text or lower_text.startswith('forget') or lower_text.startswith('unforget'):
                 if not capab(msg.prefix, 'editfactoids'):
                     irc.reply("Your edit request has been forwarded to %s.  Thank you for your attention to detail" %
-                              self.registryValue('relaychannel'),private=True)
-                    irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel'), "In %s, %s said: %s" %
+                              self.registryValue('relaychannel',channel),private=True)
+                    irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel',channel), "In %s, %s said: %s" %
                                                  (msg.args[0], msg.nick, msg.args[1])))
                     return
                 ret = self.factoid_edit(text, channel, msg.prefix)
@@ -338,8 +344,8 @@ class Encyclopedia(callbacks.Plugin):
                         irc.error("I am only a bot, please don't think I'm intelligent :)")
                     else:
                         irc.reply("Your edit request has been forwarded to %s.  Thank you for your attention to detail" %
-                                  self.registryValue('relaychannel'),private=True)
-                        irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel'), "In %s, %s said: %s" %
+                                  self.registryValue('relaychannel',channel),private=True)
+                        irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel',channel), "In %s, %s said: %s" %
                                                      (msg.args[0], msg.nick, msg.args[1])))
                     return
                 ret = self.factoid_add(text, channel, msg.prefix)
@@ -378,7 +384,7 @@ class Encyclopedia(callbacks.Plugin):
             #if msg.tagged('alert'):
             if self.alert:
                 if target.startswith('#') and not target.endswith('bots'):
-                    queue(irc, self.registryValue('relayChannel'), '%s called the ops in %s (%s)' % (msg.nick, msg.args[0], retmsg[:-2]))
+                    queue(irc, self.registryValue('relayChannel',channel), '%s called the ops in %s (%s)' % (msg.nick, msg.args[0], retmsg[:-2]))
                 #queue(irc, self.registryValue('relayChannel'), retmsg + ret[0])
                 self.alert = False
             for r in ret[1:]:
@@ -394,6 +400,9 @@ class Encyclopedia(callbacks.Plugin):
                      (editor, factoid.name, str(datetime.datetime.now()), factoid.value))
             db.commit()
     
+        if '<alias>' in text.lower() and not text.lower().startswith('no'):
+            return self.factoid_add(text,channel,editor)
+
         if text.lower().startswith('forget '):
             factoid = self.get_single_factoid(channel, text[7:])
             if not factoid:
@@ -558,9 +567,15 @@ class Encyclopedia(callbacks.Plugin):
             fd2.write(newDb)
             fd2.close()
 
+        def tryReload():
+            try:
+                sys.modules['Encyclopedia'].reloadPlugin()
+            except:
+                pass
+
 # Having this configurable is nice, but could lead to errors in *my* code,
 # So I'll just assume it's always going to be set to 'ubuntu'
-#        db = self.registryValue('database')
+#        db = self.registryValue('database',channel)
         db = 'ubuntu'
         dbpath = os.path.join(self.registryValue('datadir'), '%s.db' % db)
         # We're moving files and downloading, lots can go wrong so use lots of try blocks.

@@ -50,7 +50,7 @@ import supybot.conf as conf
 import supybot.ircdb as ircdb
 import sqlite, pytz, cPickle, datetime, time, random, md5
 
-tz = 'Europe/Amsterdam'
+tz = 'UTC'
 
 def now():
     return cPickle.dumps(datetime.datetime.now(pytz.timezone(tz)))

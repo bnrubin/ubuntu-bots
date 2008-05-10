@@ -35,3 +35,9 @@ if world.testing:
 
 Class = plugin.Class
 configure = config.configure
+
+def reloadPlugin():
+    reload(config)
+    reload(plugin)
+    Class = plugin.Class
+    configure = config.configure

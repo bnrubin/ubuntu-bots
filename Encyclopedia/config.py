@@ -24,7 +24,7 @@ conf.registerChannelValue(Encyclopedia, 'database',
     registry.String('', 'Name of database to use'))
 conf.registerGlobalValue(Encyclopedia, 'packagelookup',
     registry.Boolean(True, "Whether to look up packages"))
-conf.registerGlobalValue(Encyclopedia, 'relaychannel',
+conf.registerChannelValue(Encyclopedia, 'relaychannel',
     registry.String('#ubuntu-ops', 'Relay channel for unauthorized edits'))
 conf.registerGlobalValue(Encyclopedia, 'notfoundmsg',
     registry.String('Factoid %s not found', 'Reply when factoid isn\'t found'))
@@ -38,7 +38,7 @@ conf.registerGlobalValue(Encyclopedia, 'datadir',
     registry.String('', 'Path to dir containing factoid databases',private=True))
 conf.registerGlobalValue(Encyclopedia, 'aptdir',
     registry.String('', 'Path to apt cache directory',private=True))
-conf.registerGlobalValue(Encyclopedia, 'alert',
+conf.registerChannelValue(Encyclopedia, 'alert',
     registry.String('ops','factoid name used for alerts'))
 conf.registerGlobalValue(Encyclopedia, 'remotedb',
     registry.String('http://jussi01.com/ubuntu.db', 'Remote location of the master database'))
