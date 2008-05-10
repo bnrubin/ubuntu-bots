@@ -183,12 +183,12 @@ class Encyclopedia(callbacks.Plugin):
             if len(text) and text[0] == self.registryValue('prefixchar',channel=recipients):
                 text = text[1:]
                 if text.lower().startswith(irc.nick.lower()) and (len(text) < nlen or not text[nlen].isalnum()):
-                    t2 = text[nlen:].strip()
-                    if t2 and t2.find('>') != 0 and t2.find('|') != 0:
-                        text = text[nlen:].strip()
+                    t2 = text[nlen+1:].strip()
+                    if t2 and t2.find('>') != -1 and t2.find('|') != -1:
+                        text = text[nlen+1:].strip()
                 return text
             if text.lower().startswith(irc.nick) and not text[nlen].isalnum():
-                return text[nlen:]
+                return text[nlen+1:]
             return False
         else: # Private
             if text.strip()[0] in str(conf.supybot.reply.whenAddressedBy.chars):
