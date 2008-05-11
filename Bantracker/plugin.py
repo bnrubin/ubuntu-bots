@@ -255,9 +255,9 @@ class Bantracker(callbacks.Plugin):
     btlogin = wrap(btlogin)
 
     def mark(self, irc, msg, args, channel, target, kickmsg):
-        """<nick> [<channel>] [<comment>]
+        """<nick|hostmask> [<channel>] [<comment>]
 
-        Creates an entry in the Bantracker as if <nick> was kicked from <channel> with the comment <comment>,
+        Creates an entry in the Bantracker as if <nick|hostmask> was kicked from <channel> with the comment <comment>,
         if <comment> is given it will be uses as the comment on the Bantracker, <channel> is only needed when send in /msg
         """
         if not msg.tagged('identified'):
@@ -278,6 +278,15 @@ class Bantracker(callbacks.Plugin):
             kickmsg = '**MARK**'
         else:
             kickmsg = "**MARK** - %s" % kickmsg
+        if ircutils.isUserHostmask(target):
+            hostmask = target
+        else:
+            try:
+                hostmask = irc.state.nickToHostmask(target)
+            except:
+                irc.reply('Could not get hostmask, using nick instead')
+                hostmask = target
+
         self.doLog(irc, channel, '*** %s requested a mark for %s\n' % (msg.nick, target))
         self.doKickban(irc, channel, msg.nick, target, kickmsg)
         irc.replySuccess()
