@@ -26,8 +26,12 @@ if sys.version_info >= (2, 5, 0)
 else:
   import sre as re
 
-import packages
-reload(packages)
+try:
+    import packages
+    reload(packages)
+    have_packages = True
+except ImportError:
+    have_packages = False
 
 # Simple wrapper class for factoids
 class Factoid:
@@ -76,7 +80,10 @@ class Encyclopedia(callbacks.Plugin):
         self.times = {}
         self.seens = {}
         self.distros = []
-        self.Apt = packages.Apt(self)
+        if have_packages:
+            self.Apt = packages.Apt(self)
+        else:
+            self.log.warning("Faild to import packages, you probably don't have python-apt installed")
         self.edits = {}
         self.alert = False
 
@@ -359,7 +366,7 @@ class Encyclopedia(callbacks.Plugin):
                 ret = self.factoid_lookup(text, channel, display_info)
 
         # Fall through to package lookup
-        if self.registryValue('packagelookup') and (not ret or not len(ret)):
+        if have_packages and self.registryValue('packagelookup') and (not ret or not len(ret)):
             text, target, retmsg = self.get_target(msg.nick, orig_text.lower(), target)
             if text.startswith('info '):
                 ret = self.Apt.info(text[5:].strip(),self.registryValue('searchorder', channel).split())
