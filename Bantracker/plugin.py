@@ -254,4 +254,34 @@ class Bantracker(callbacks.Plugin):
 
     btlogin = wrap(btlogin)
 
+    def mark(self, irc, msg, args, channel, target, kickmsg):
+        """<nick> [<channel>] [<comment>]
+
+        Creates an entry in the Bantracker as if <nick> was kicked from <channel> with the comment <comment>,
+        if <comment> is given it will be uses as the comment on the Bantracker, <channel> is only needed when send in /msg
+        """
+        if not msg.tagged('identified'):
+            irc.error(conf.supybot.replies.incorrectAuthentication())
+            return
+        try:
+            user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')])
+        except:
+            irc.error(conf.supybot.replies.incorrectAuthentication())
+            return
+
+        user.addAuth(msg.prefix)
+        ircdb.users.setUser(user, flush=False)
+        if not channel:
+            irc.error('<channel> must be given if not in a channel')
+            return
+        if not kickmsg:
+            kickmsg = '**MARK**'
+        else:
+            kickmsg = "**MARK** - %s" % kickmsg
+        self.doLog(irc, channel, '*** %s requested a mark for %s\n' % (msg.nick, target))
+        self.doKickban(irc, channel, msg.nick, target, kickmsg)
+        irc.replySuccess()
+
+    mark = wrap(mark, [optional('channel'), 'something', additional('text')])
+
 Class = Bantracker

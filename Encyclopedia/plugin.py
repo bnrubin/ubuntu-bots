@@ -205,8 +205,8 @@ class Encyclopedia(callbacks.Plugin):
         factoids = FactoidSet()
         factoids.global_primary    = self.get_single_factoid(channel, name)
         factoids.global_secondary  = self.get_single_factoid(channel, name + '-also')
-        factoids.channel_primary   = self.get_single_factoid(channel, name + '-' + channel)
-        factoids.channel_secondary = self.get_single_factoid(channel, name + '-' + channel + '-also')
+        factoids.channel_primary   = self.get_single_factoid(channel, name + '-' + channel.lower())
+        factoids.channel_secondary = self.get_single_factoid(channel, name + '-' + channel.lower() + '-also')
         if resolve:
             factoids.global_primary    = self.resolve_alias(channel, factoids.global_primary)
             factoids.global_secondary  = self.resolve_alias(channel, factoids.global_secondary)
