@@ -338,7 +338,8 @@ class Encyclopedia(callbacks.Plugin):
                                                  (msg.args[0], msg.nick, msg.args[1])))
                     return
                 ret = self.factoid_edit(text, channel, msg.prefix)
-            elif ' is ' in text and '|' not in text and '>' not in text.replace('<reply>','').replace('<alias>',''):
+#            elif ' is ' in text and '|' not in text and '>' not in text.replace('<reply>','').replace('<alias>',''):
+            elif ' is ' in text:
                 if not capab(msg.prefix, 'editfactoids'):
                     if len(text[:text.find('is')]) > 15:
                         irc.error("I am only a bot, please don't think I'm intelligent :)")
