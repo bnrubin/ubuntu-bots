@@ -21,7 +21,7 @@ import supybot.ircdb as ircdb
 import supybot.conf as conf
 import sys, os, time
 
-if sys.version_info[0] == 2 and sys.version_info[1] >= 5:
+if sys.version_info >= (2, 5, 0):
   import re
 else:
   import sre as re
