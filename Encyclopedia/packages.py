@@ -31,7 +31,7 @@ class Apt:
                                  -o"Dir::State::status=%s/%%s.status"\\
                                  -o"Dir::Cache=%s/cache"\\
                                  %%s %%s""" % tuple([self.aptdir]*4)
-            self.aptfilecommand = """apt-file -s %s/%%s.list -c %s/apt-file/%%s -l -F search %%s""" % tuple([self.aptdir]*2)
+            self.aptfilecommand = """apt-file -s %s/%%s.list -c %s/apt-file/%%s -l search %%s""" % tuple([self.aptdir]*2)
 
     def find(self, pkg, checkdists, filelookup=True):
         _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum or x in '.-_+'])
