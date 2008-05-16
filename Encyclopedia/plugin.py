@@ -194,7 +194,7 @@ class Encyclopedia(callbacks.Plugin):
                     if t2 and t2.find('>') != -1 and t2.find('|') != -1:
                         text = text[nlen+1:].strip()
                 return text
-            if text.lower().startswith(irc.nick) and not text[nlen].isalnum():
+            if text.lower().startswith(irc.nick.lower()) and not text[nlen].isalnum():
                 return text[nlen+1:]
             return False
         else: # Private
