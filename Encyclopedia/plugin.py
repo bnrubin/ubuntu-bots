@@ -64,9 +64,15 @@ def queue(irc, to, msg):
         irc.queueMsg(ircmsgs.privmsg(to, msg))
 
 def capab(prefix, capability):
+    if prefix.find('!') > 0:
+        user = prefix[:prefix.find('!')]
+    else:
+        user = prefix
     try:
-        ircdb.users.getUser(prefix)
-        return ircdb.checkCapability(prefix, capability)
+        if 'editfactoids' in ircdb.users.getUser(prefix).capabilities:
+            return True
+        else:
+            return False
     except:
         return False
 
