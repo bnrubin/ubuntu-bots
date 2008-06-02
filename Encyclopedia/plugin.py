@@ -206,10 +206,11 @@ class Encyclopedia(callbacks.Plugin):
         else: # Private
             if text.strip()[0] in str(conf.supybot.reply.whenAddressedBy.chars):
                 return False
-            for c in irc.callbacks:
-                comm = text.split()[0]
-                if c.isCommandMethod(comm) and not c.isDisabled(comm):
-                    return False
+            if not text.split()[0] == 'search':
+                for c in irc.callbacks:
+                    comm = text.split()[0]
+                    if c.isCommandMethod(comm) and not c.isDisabled(comm):
+                        return False
             if text[0] == self.registryValue('prefixchar',channel=recipients):
                 return text[1:]
             return text
