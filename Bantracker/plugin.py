@@ -55,8 +55,18 @@ tz = 'UTC'
 def now():
     return cPickle.dumps(datetime.datetime.now(pytz.timezone(tz)))
 
+def capab(user, capability):
+    try:
+        if capability in user.capabilities:
+            return True
+        else:
+            return False
+    except:
+        return False
+
 class Bantracker(callbacks.Plugin):
-    """This plugin has no commands"""
+    """Use @mark to add a bantracker entry manually and
+       @btlogin to log into the bantracker"""
     noIgnore = True
     
     def __init__(self, irc):
@@ -244,13 +254,17 @@ class Bantracker(callbacks.Plugin):
                 return
             user.addAuth(msg.prefix)
             ircdb.users.setUser(user, flush=False)
-            if not self.registryValue('bansite'):
-                irc.error("No bansite set, please set supybot.plugins.Bantracker.bansite")
-                return
-            sessid = md5.new('%s%s%d' % (msg.prefix, time.time(), random.randint(1,100000))).hexdigest()
-            self.db_run("""INSERT INTO sessions (session_id, user, time) VALUES (%s, %s, %d);""", 
-                   (sessid, msg.prefix[:msg.prefix.find('!')], int(time.time())))
-            irc.reply('Log in at %s/bans/cgi?sess=%s' % (self.registryValue('bansite'), sessid), private=True)
+
+        if not capab(user, 'bantracker'):
+            irc.error(conf.supybot.replies.noCapability() % 'bantracker')
+            return
+        if not self.registryValue('bansite'):
+            irc.error("No bansite set, please set supybot.plugins.Bantracker.bansite")
+            return
+        sessid = md5.new('%s%s%d' % (msg.prefix, time.time(), random.randint(1,100000))).hexdigest()
+        self.db_run("INSERT INTO sessions (session_id, user, time) VALUES (%s, %s, %d);", 
+               (sessid, msg.prefix[:msg.prefix.find('!')], int(time.time())))
+        irc.reply('Log in at %s/bans/cgi?sess=%s' % (self.registryValue('bansite'), sessid), private=True)
 
     btlogin = wrap(btlogin)
 
@@ -264,16 +278,28 @@ class Bantracker(callbacks.Plugin):
             irc.error(conf.supybot.replies.incorrectAuthentication())
             return
         try:
-            user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')])
+            user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')].lower())
         except:
             irc.error(conf.supybot.replies.incorrectAuthentication())
             return
 
         user.addAuth(msg.prefix)
         ircdb.users.setUser(user, flush=False)
+        if not capab(user, 'bantracker'):
+            irc.error(conf.supybot.replies.noCapability() % 'bantracker')
+            return
+
         if not channel:
             irc.error('<channel> must be given if not in a channel')
             return
+        channels = []
+        for (chan, c) in irc.state.channels.iteritems():
+            channels.append(chan)
+
+        if not channel in channels:
+            irc.error('Not in that channel')
+            return
+
         if not kickmsg:
             kickmsg = '**MARK**'
         else:
@@ -287,8 +313,8 @@ class Bantracker(callbacks.Plugin):
                 irc.reply('Could not get hostmask, using nick instead')
                 hostmask = target
 
-        self.doLog(irc, channel, '*** %s requested a mark for %s\n' % (msg.nick, target))
-        self.doKickban(irc, channel, msg.nick, target, kickmsg)
+        self.doLog(irc, channel.lower(), '*** %s requested a mark for %s\n' % (msg.nick, target))
+        self.doKickban(irc, channel.lower(), msg.nick, hostmask, kickmsg)
         irc.replySuccess()
 
     mark = wrap(mark, [optional('channel'), 'something', additional('text')])

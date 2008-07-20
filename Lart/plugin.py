@@ -75,9 +75,8 @@ class Lart(plugins.ChannelIdDatabasePlugin):
                 return
         text = self._replaceFirstPerson(lart.text, msg.nick)
         if ircutils.strEqual(target, irc.nick) or \
-           'ubotu' in ircutils.stripFormatting(target).lower() or \
-           'seveas' in ircutils.stripFormatting(target).lower() or \
-           ((not msg.prefix.endswith('seveas')) and random.uniform(0,100) < 25):
+           irc.nick.lower() in ircutils.stripFormatting(target).lower() or \
+           random.uniform(0,100) < 25:
             target = msg.nick
             reason = ''
         else:

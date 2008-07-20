@@ -1,5 +1,5 @@
 ###
-# Copyright (c) 2007, Dennis Kaarsemaker
+# Copyright (c) 2008, Terence Simpson
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -12,13 +12,7 @@
 #
 ###
 
-import supybot.conf as conf
-import supybot.registry as registry
+from supybot.test import *
 
-def configure(advanced):
-    from supybot.questions import expect, anything, something, yn
-    conf.registerPlugin('FreenodeAuth', True)
-
-FreenodeAuth = conf.registerPlugin('FreenodeAuth')
-conf.registerGlobalValue(FreenodeAuth, 'UserList',
-    registry.String('', """Filename of file with list of users""",private=True))
+class IRCLoginTestCase(PluginTestCase):
+    plugins = ('IRCLogin',)

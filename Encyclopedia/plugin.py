@@ -392,6 +392,8 @@ class Encyclopedia(callbacks.Plugin):
             ret = self.registryValue('notfoundmsg')
             if ret.count('%') == ret.count('%s') == 1:
                 ret = ret % text
+        if not target.startswith('#') and not channel.lower() == irc.nick.lower():
+            queue(irc, channel, "%s, please see my private message" % target)
         if type(ret) != list:
             queue(irc, target, retmsg + ret)
         else:
@@ -414,7 +416,7 @@ class Encyclopedia(callbacks.Plugin):
             cs.execute('''insert into log (author, name, added, oldvalue) values (%s, %s, %s, %s)''',
                      (editor, factoid.name, str(datetime.datetime.now()), factoid.value))
             db.commit()
-    
+
         if '<alias>' in text.lower() and not text.lower().startswith('no'):
             return self.factoid_add(text,channel,editor)
 

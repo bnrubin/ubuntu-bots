@@ -1,5 +1,5 @@
 ###
-# Copyright (c) 2007, Dennis Kaarsemaker
+# Copyright (c) 2008, Terence Simpson
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -13,16 +13,16 @@
 ###
 
 """
-Let nickserv-identified users log in without password
+Let nickserv-identified users log in without password via Launchpad
 """
 
 import supybot
 import supybot.world as world
 
-__version__ = "0.2"
-__author__ = supybot.Author("Dennis Kaarsemaker","Seveas","dennis@kaarsemaker.net")
+__version__ = "0.1"
+__author__ = supybot.Author("Terence Simpson","stdin","stdin@stdin.me.uk")
 __contributors__ = {}
-__url__ = 'http://ubotu.ubuntu-nl.org/'
+__url__ = 'http://jussi01.com/web/'
 
 import config
 reload(config)
