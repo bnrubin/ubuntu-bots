@@ -1,6 +1,10 @@
 This plugin can store all bans/kicks etc in an sqlite database. It includes a
-cgi script to view bans/kicks and comment on them. The CGI script uses launchpad
-authentication, which may not be useful for everyone.
+cgi script to view bans/kicks and comment on them. To view/user the bantracker
+web interface a user must use the @btlogin command from the bot. They must also
+have the 'bantracker' capability.
+You can use the @mark <nick|hostmask> [<channel>] [<comment>]
+command to manually add an entry to the bantracker without having to actially
+kick/ban someone.
 
 It also uses commoncgi.py which should be on your sys.path (or as you can see in
 the script, sys.path is modified to include the dir of commoncgi.py)
