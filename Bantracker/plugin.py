@@ -241,19 +241,31 @@ class Bantracker(callbacks.Plugin):
             self(irc, m)
         return msg
         
+    def check_auth(self, irc, msg, args):
+        if not msg.tagged('identified'):
+            irc.error(conf.supybot.replies.incorrectAuthentication())
+            return False
+        try:
+            user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')].lower())
+        except:
+            irc.error(conf.supybot.replies.incorrectAuthentication())
+            return False
+
+        if not capab(user, 'bantracker'):
+            irc.error(conf.supybot.replies.noCapability() % 'bantracker')
+            return False
+        return user
+
     def btlogin(self, irc, msg, args):
         """takes no arguments
 
         Sends you a message with a link to login to the bantracker.
         """
-        if msg.tagged('identified'):
-            try:
-                user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')])
-            except:
-                irc.error(conf.supybot.replies.incorrectAuthentication())
-                return
-            user.addAuth(msg.prefix)
-            ircdb.users.setUser(user, flush=False)
+        user = self.check_auth(irc, msg, args)
+        if not user:
+            return
+        user.addAuth(msg.prefix)
+        ircdb.users.setUser(user, flush=False)
 
         if not capab(user, 'bantracker'):
             irc.error(conf.supybot.replies.noCapability() % 'bantracker')
@@ -274,20 +286,11 @@ class Bantracker(callbacks.Plugin):
         Creates an entry in the Bantracker as if <nick|hostmask> was kicked from <channel> with the comment <comment>,
         if <comment> is given it will be uses as the comment on the Bantracker, <channel> is only needed when send in /msg
         """
-        if not msg.tagged('identified'):
-            irc.error(conf.supybot.replies.incorrectAuthentication())
+        user = self.check_auth(irc, msg, args)
+        if not user:
             return
-        try:
-            user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')].lower())
-        except:
-            irc.error(conf.supybot.replies.incorrectAuthentication())
-            return
-
         user.addAuth(msg.prefix)
         ircdb.users.setUser(user, flush=False)
-        if not capab(user, 'bantracker'):
-            irc.error(conf.supybot.replies.noCapability() % 'bantracker')
-            return
 
         if not channel:
             irc.error('<channel> must be given if not in a channel')
@@ -318,5 +321,98 @@ class Bantracker(callbacks.Plugin):
         irc.replySuccess()
 
     mark = wrap(mark, [optional('channel'), 'something', additional('text')])
+
+    def nick_to_host(irc, target):
+        if ircutils.isUserHostmask(target):
+            return target
+        else:
+            try:
+                return irc.state.nickToHostmask(target)
+            except:
+                return "%s!*@*" % target
+    nick_to_host = staticmethod(nick_to_host)
+
+    def sort_bans(self, channel=None):
+        data = self.db_run("SELECT mask, removal, channel, id FROM bans", (), expect_result=True)
+        if channel:
+            data = [i for i in data if i[2] == channel]
+        data = [i for i in data if i[1] == None]
+        mutes = [(i[0][1:], i[3]) for i in data if i[0][0] == '%']
+        bans = [(i[0], i[3]) for i in data if i[0][0] != '%']
+        return mutes + bans
+
+    def bansearch(self, irc, msg, args, target, channel):
+        """<nick|hostmask> [<channel>]
+
+        Search bans database for a ban on nick/host,
+        if channel is not given search all channel bans.
+        """
+        def format_entry(entry):
+            ret = list(entry[:-1])
+            t = cPickle.loads(entry[-1]).astimezone(pytz.timezone('UTC')).strftime("%b %d %Y %H:%M:%S")
+            ret.append(t)
+            return tuple(ret)
+
+        if not self.check_auth(irc, msg, args):
+            return
+
+        hostmask = self.nick_to_host(irc, target)
+        data = self.sort_bans(channel)
+
+        match = []
+        for e in data:
+            if ircutils.hostmaskPatternEqual(e[0], hostmask):
+                match.append((e[0], e[1]))
+
+        if not match:
+            irc.reply("No matches found for %s in %s" % (hostmask, True and channel or "any channel"))
+            return
+        ret = []
+        for m in match:
+            ret.append(format_entry(self.db_run("SELECT mask, operator, channel, time FROM bans WHERE id=%d", m[1], expect_result=True)[0]))
+        for i in ret:
+            irc.reply("Match: %s by %s in %s on %s" % i)
+
+    bansearch = wrap(bansearch, ['something', optional('anything', default=None)])
+
+    def banlog(self, irc, msg, args, target, channel):
+        """<nick|hostmask> [<channel>]
+
+        Prints the last 5 messages from the nick/host logged before a ban/mute,
+        the nick/host has to have an active ban/mute against it.
+        If channel is not given search all channel bans.
+        """
+        if not self.check_auth(irc, msg, args):
+            return
+
+        hostmask = self.nick_to_host(irc, target)
+        target = hostmask.split('!')[0]
+        data = self.sort_bans(channel)
+
+        match = []
+        for e in data:
+            if ircutils.hostmaskPatternEqual(e[0], hostmask):
+                match.append((e[0], e[1]))
+
+        sent = []
+
+        if not match:
+            irc.reply("No matches found for %s (%s) in %s" % (target, hostmask, True and channel or "any channel"))
+            return
+        ret = []
+        for m in match:
+            ret.append(self.db_run("SELECT log FROM bans WHERE id=%d", m[1], expect_result=True))
+
+        for log in ret:
+            lines = [i for i in log[0][0].split('\n') if "<%s>" % target.lower() in i.lower() and i[21:21+len(target)].lower() == target.low$
+            if not lines:
+                irc.error("No log for %s available" % target)
+            for l in lines[:5]:
+                if l not in sent:
+                    irc.reply(l)
+                    sent.append(l)
+            irc.reply('--')
+
+    banlog = wrap(banlog, ['something', optional('anything', default=None)])
 
 Class = Bantracker
