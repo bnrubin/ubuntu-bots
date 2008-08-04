@@ -351,6 +351,9 @@ class Encyclopedia(callbacks.Plugin):
             retmsg = term[2]
         elif term[0] == "seen":
             ret = "I have no seen command"
+            retmsg = term[2] and "%s: " % msg.prefix.split('!', 1)[0] or ''
+        elif term[0] in ("what", "whats", "what's") or term[0].startswith("what ") or term[0].startswith("what ") or term[0].startswith("whats ") or term[0].startswith("what's "): # Try and catch people saying "what is ...?"
+            ret = "I am only a bot, please don't think I'm intelligent :)"
             retmsg = term[2]
         elif lower_text[:4] not in ('info ','find '):
             # Lookup, search or edit?
