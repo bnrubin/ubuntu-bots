@@ -352,8 +352,7 @@ class Encyclopedia(callbacks.Plugin):
                                                  (msg.args[0], msg.nick, msg.args[1])))
                     return
                 ret = self.factoid_edit(text, channel, msg.prefix)
-#            elif ' is ' in text and '|' not in text and '>' not in text.replace('<reply>','').replace('<alias>',''):
-            elif ' is ' in text:
+            elif ' is ' in lower_text and (' is ' in lower_text and '|' in lower_text and lower_text.index('|') > lower_text.index(' is ')):
                 if not capab(msg.prefix, 'editfactoids'):
                     if len(text[:text.find('is')]) > 15:
                         irc.error("I am only a bot, please don't think I'm intelligent :)")
@@ -414,7 +413,7 @@ class Encyclopedia(callbacks.Plugin):
 
         def log_change(factoid):
             cs.execute('''insert into log (author, name, added, oldvalue) values (%s, %s, %s, %s)''',
-                     (editor, factoid.name, str(datetime.datetime.now()), factoid.value))
+                     (editor, factoid.name, str(datetime.datetime.now(pytz.timezone("UTC"))), factoid.value))
             db.commit()
 
         if '<alias>' in text.lower() and not text.lower().startswith('no'):
@@ -515,7 +514,7 @@ class Encyclopedia(callbacks.Plugin):
         if ret:
             return ret
         cs.execute("""INSERT INTO facts (name, value, author, added) VALUES (%s, %s, %s, %s)""",
-                    (name, value, editor, str(datetime.datetime.now())))
+                    (name, value, editor, str(datetime.datetime.now(pytz.timezone("UTC")))))
         db.commit()
         return "I'll remember that, %s" % editor[:editor.find('!')]
 

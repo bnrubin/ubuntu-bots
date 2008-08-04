@@ -275,7 +275,7 @@ class Bantracker(callbacks.Plugin):
             return
         sessid = md5.new('%s%s%d' % (msg.prefix, time.time(), random.randint(1,100000))).hexdigest()
         self.db_run("INSERT INTO sessions (session_id, user, time) VALUES (%s, %s, %d);", 
-               (sessid, msg.prefix[:msg.prefix.find('!')], int(time.time())))
+               (sessid, msg.prefix[:msg.prefix.find('!')], int(time.mktime(time.gmtime()))))
         irc.reply('Log in at %s/bans/cgi?sess=%s' % (self.registryValue('bansite'), sessid), private=True)
 
     btlogin = wrap(btlogin)
