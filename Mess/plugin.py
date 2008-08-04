@@ -21,6 +21,7 @@ import random, re, time, commands, urllib2
 import supybot.ircmsgs as ircmsgs
 import supybot.conf as conf
 import threading
+import os
 
 mess = {
     't':           ('Mr. T facts', 'http://4q.cc/?pid=fact&person=mrt', r'<div id="factbox">\s*(?P<fact>.*?)\s*</div>', False),
@@ -41,10 +42,10 @@ mess = {
     'vmjg59':      ('Virtual Matthew Garrett', 'http://www.rjek.com/vmjg59.cgi', r'<body>(?P<fact>.*?)<p>', True),
     'shakespeare': ('Shakespeare quotes', 'http://www.pangloss.com/seidel/Shaker/', r'<font.*?>(?P<fact>.*?)</font>', False),
     'lugradio':    ('Lugradio facts', 'http://planet.lugradio.org/facts/', r'<h2>\s*(?P<fact>.*?)</h2>', False),
-    'bofh':        ('BOFH excuses', '%s/Mess/bofh.txt' % conf.supybot.directories.plugins()[1], 'BOFH Excuse #%d: ', False),
-    '42':          ('HHGTTG quotes', '%s/Mess/42.txt' % conf.supybot.directories.plugins()[1], '', False),
-    'magic8ball':  ('The magic 8ball', '%s/Mess/ball.txt' % conf.supybot.directories.plugins()[1], '', False),
-    'ferengi':     ('Ferengi rules of acquisition', '%s/Mess/ferengi.txt' % conf.supybot.directories.plugins()[1], 'Ferengi rule of acquisition ', False),
+    'bofh':        ('BOFH excuses', '%s/bofh.txt' % os.path.split(os.path.abspath(__file__))[0], 'BOFH Excuse #%d: ', False),
+    '42':          ('HHGTTG quotes', '%s/42.txt' % os.path.split(os.path.abspath(__file__))[0], '', False),
+    'magic8ball':  ('The magic 8ball', '%s/ball.txt' % os.path.split(os.path.abspath(__file__))[0], '', False),
+    'ferengi':     ('Ferengi rules of acquisition', '%s/ferengi.txt' % os.path.split(os.path.abspath(__file__))[0], 'Ferengi rule of acquisition ', False),
 }
 data = {}
 for m in mess.keys():

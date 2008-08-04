@@ -69,7 +69,7 @@ def capab(prefix, capability):
     else:
         user = prefix
     try:
-        if 'editfactoids' in ircdb.users.getUser(prefix).capabilities:
+        if 'editfactoids' in list(ircdb.users.getUser(prefix).capabilities):
             return True
         else:
             return False
@@ -148,6 +148,11 @@ class Encyclopedia(callbacks.Plugin):
         if text.startswith('tell '):
             text = ' ' + text
 
+        if '|' in text:
+            if not retmsg:
+                retmsg = text[text.find('|')+1:].strip() + ': '
+            text = text[:text.find('|')].strip()
+
         if '>' in text:
             target = text[text.rfind('>')+1:].strip().split()[0]
             text = text[:text.rfind('>')].strip()
@@ -158,11 +163,6 @@ class Encyclopedia(callbacks.Plugin):
             text = text[text.find(' about ')+7:].strip()
             retmsg = "%s wants you to know: " % nick
             
-        if '|' in text:
-            if not retmsg:
-                retmsg = text[text.find('|')+1:].strip() + ': '
-            text = text[:text.find('|')].strip()
-
         if target == 'me':
             target = nick
         if target.lower() != orig_target.lower() and target.startswith('#'):
@@ -178,7 +178,7 @@ class Encyclopedia(callbacks.Plugin):
     def get_db(self, channel):
         db = self.registryValue('database',channel)
         if channel in self.databases:
-            if self.databases[channel].time < time.time() - 3600:
+            if self.databases[channel].time < time.time() - 3600 or self.databases[channel].name != db:
                 self.databases[channel].close()
                 self.databases.pop(channel)
         if channel not in self.databases:
@@ -339,11 +339,24 @@ class Encyclopedia(callbacks.Plugin):
         lower_text = text.lower()
         ret = ''
         retmsg = ''
-        if lower_text[:4] not in ('info','find'):
+        term = self.get_target(msg.nick, orig_text, target)
+        if term[0] == "info":
+            ret = "Retrieve information on a package: !info <package>"
+            retmsg = term[2]
+        elif term[0] == "find":
+            ret = "Search for a pacakge or a file: !find <term/file>"
+            retmsg = term[2]
+        elif term[0] == "search":
+            ret = "Search factoids for term: !search <term>"
+            retmsg = term[2]
+        elif term[0] == "seen":
+            ret = "I have no seen command"
+            retmsg = term[2]
+        elif lower_text[:4] not in ('info ','find '):
             # Lookup, search or edit?
             if lower_text.startswith('search '):
                 ret = self.search_factoid(lower_text[7:].strip(), channel)
-            elif (' is ' in lower_text and text[:3] in ('no ', 'no,')) or '<sed>' in lower_text or '=~' in lower_text \
+            elif (' is ' in lower_text and lower_text[:3] in ('no ', 'no,')) or '<sed>' in lower_text or '=~' in lower_text \
                 or '~=' in lower_text or '<alias>' in lower_text or lower_text.startswith('forget') or lower_text.startswith('unforget'):
                 if not capab(msg.prefix, 'editfactoids'):
                     irc.reply("Your edit request has been forwarded to %s.  Thank you for your attention to detail" %
@@ -352,7 +365,18 @@ class Encyclopedia(callbacks.Plugin):
                                                  (msg.args[0], msg.nick, msg.args[1])))
                     return
                 ret = self.factoid_edit(text, channel, msg.prefix)
-            elif ' is ' in lower_text and (' is ' in lower_text and '|' in lower_text and lower_text.index('|') > lower_text.index(' is ')):
+            elif ' is ' in lower_text and '|' in lower_text and lower_text.index('|') > lower_text.index(' is '):
+                if not capab(msg.prefix, 'editfactoids'):
+                    if len(text[:text.find('is')]) > 15:
+                        irc.error("I am only a bot, please don't think I'm intelligent :)")
+                    else:
+                        irc.reply("Your edit request has been forwarded to %s.  Thank you for your attention to detail" %
+                                  self.registryValue('relaychannel',channel),private=True)
+                        irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel',channel), "In %s, %s said: %s" %
+                                                     (msg.args[0], msg.nick, msg.args[1])))
+                    return
+                ret = self.factoid_add(text, channel, msg.prefix)
+            elif ' is ' in lower_text:
                 if not capab(msg.prefix, 'editfactoids'):
                     if len(text[:text.find('is')]) > 15:
                         irc.error("I am only a bot, please don't think I'm intelligent :)")
@@ -390,7 +414,7 @@ class Encyclopedia(callbacks.Plugin):
             retmsg = ''
             ret = self.registryValue('notfoundmsg')
             if ret.count('%') == ret.count('%s') == 1:
-                ret = ret % text
+                ret = ret % repr(text)
         if not target.startswith('#') and not channel.lower() == irc.nick.lower():
             queue(irc, channel, "%s, please see my private message" % target)
         if type(ret) != list:
@@ -513,7 +537,7 @@ class Encyclopedia(callbacks.Plugin):
         ret = self.check_aliases(channel, factoid)
         if ret:
             return ret
-        cs.execute("""INSERT INTO facts (name, value, author, added) VALUES (%s, %s, %s, %s)""",
+        cs.execute("INSERT INTO facts (name, value, author, added) VALUES (%s, %s, %s, %s)",
                     (name, value, editor, str(datetime.datetime.now(pytz.timezone("UTC")))))
         db.commit()
         return "I'll remember that, %s" % editor[:editor.find('!')]
@@ -554,14 +578,20 @@ class Encyclopedia(callbacks.Plugin):
             cur.execute("SELECT name,value FROM facts WHERE name LIKE '%%%s%%' OR VAlUE LIKE '%%%s%%'" % (k, k))
             res = cur.fetchall()
             for r in res:
+                val = r[1]
                 d = r[1].startswith('<deleted>')
+                a = r[1].startswith('<alias>')
                 r = r[0]
                 if d:
                     r += '*'
+                if a:
+                    r += '@' + val[7:].strip()
                 try:
                     ret[r] += 1
                 except:
                     ret[r] = 1
+        if not ret:
+            return "None found"
         return 'Found: %s' % ', '.join(sorted(ret.keys(), lambda x, y: cmp(ret[x], ret[y]))[:10])
 
     def sync(self, irc, msg, args):

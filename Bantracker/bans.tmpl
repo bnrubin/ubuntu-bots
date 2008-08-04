@@ -1,6 +1,6 @@
 <html>
   <head>
-    <title>Ubugtu bantracker</title>
+    <title>Ubottu bantracker</title>
     <link rel="stylesheet" href="bot.css" />
     <link rel="shortcut icon" href="favicon.ico" type="image/png" />
     <script type="text/javascript">
@@ -31,9 +31,19 @@
     
       }
       
-
+      var s = 0;
       function showlog(item) {
-        loadlog(item);
+        if (s == item) {
+            c = new getObj('log');
+            if( c.style.display == 'block' ) {
+                c.style.display = 'none';
+            } else {
+                c.style.diaply = 'block';
+            }
+            s = 0;
+        } else {
+          loadlog(item);
+        }
       }
       var r;
       function loadlog(id) {
@@ -41,6 +51,7 @@
         r.onreadystatechange = printlog;
         r.open("GET",'bans.cgi?log=' + id, true);
         r.send(null);
+        s = id;
       }
       function printlog() {
         if (r.readyState == 4) {
@@ -53,11 +64,12 @@
   </head>
   <body>
     <div class="main">
-      <h1>Ubotu Bantracker</h1>
+      <h1>Ubottu Bantracker</h1>
       <p>
       %s
       </p>
-      <p>&copy;2006-2007 Dennis Kaarsemaker</p>
+      <p>&copy;2006 Dennis Kaarsemaker<br>
+      Edited by Terence Simpson</p>
     </div>
   </body>
 </html>

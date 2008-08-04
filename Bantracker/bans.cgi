@@ -15,14 +15,16 @@
 
 import sys
 # This needs to be set to the location of the commoncgi.py file
-sys.path.append('/var/www/ubotu.ubuntu-nl.org')
+sys.path.append('/home/ubottu/bot/plugins/')
 from commoncgi import *
 
 ### Variables
 # Location of the bans database
-db       = '/home/ubotu/data/bans.db'
+db       = '/home/ubottu/data/bans.db'
+# Number of bans to show per page
 num_per_page = 100
 ### You shouldn't have to change anything under this line ###
+
 con = sqlite.connect(db)
 cur = con.cursor()
 
@@ -31,12 +33,18 @@ error    = ''
 user = None
 
 # Delete old sessions
-## For some reason this fails, so deal with it
+# FAIL!
 try:
-  cur.execute("""DELETE FROM sessions WHERE time < %d""", int(time.time()) - 2592000 * 3)
+    cur.execute("DELETE FROM sessions WHERE time < %d", int(time.mktime(time.gmtime())) - 2592000 * 3)
+    con.commit()
+    con.close()
 except:
-  con.commit()
-  pass
+    try:
+        con.commit()
+    except:
+        pass
+    finally:
+        con.close()
 
 # Session handling
 if form.has_key('sess'):
@@ -44,34 +52,58 @@ if form.has_key('sess'):
 if cookie.has_key('sess'):
     try:
         sess = cookie['sess'].value
-        cur.execute("""SELECT user FROM sessions WHERE session_id=%s""",sess)
+        con = sqlite.connect(db)
+        cur = con.cursor()
+        cur.execute("SELECT user FROM sessions WHERE session_id=%s",sess)
         user = cur.fetchall()[0][0]
+        con.commit()
+        con.close()
     except:
         con.commit()
+        con.close()
         pass
 
 if not user:
-    print "Sorry, bantracker has been shut down for anonymous users due to server load"
+    print "Sorry, bantracker has been shut down for anonymous users due to server load<br>"
+    print "Join <a href=irc://irc.freenode.net/ubuntu-ops>#ubuntu-ops</a> on irc.freenode.net to descuss bans"
     send_page('bans.tmpl')
-    
 
 # Log
 if form.has_key('log'):
-   cur.execute("""SELECT log FROM bans WHERE id=%s""", form['log'].value)
+   con = sqlite.connect(db)
+   cur = con.cursor()
+   cur.execute("SELECT log FROM bans WHERE id=%s", form['log'].value)
    log = cur.fetchall()
    con.commit()
-   print q(log[0][0]).replace('\n', '<br />')
+   con.close()
+   if form.has_key('mark'):
+      marked = form['mark'].value
+      lines = log[0][0].splitlines()
+      for line in lines:
+         if marked.lower() in line.lower():
+            print '<font style="BACKGROUND-COLOR: yellow">%s</font><br>' % q(line)
+         else:
+            print "%s<br>" % q(line)
+   else:
+      print q(log[0][0]).replace('\n', '<br />')
    send_page('empty.tmpl')
 
 # Main page
 # Process comments
 if form.has_key('comment') and form.has_key('comment_id') and user:
-    cur.execute("""SELECT ban_id FROM comments WHERE ban_id=%s and comment=%s""", (form['comment_id'].value, form['comment'].value))
+    con = sqlite.connect(db)
+    cur = con.cursor()
+    cur.execute("SELECT ban_id FROM comments WHERE ban_id=%s and comment=%s", (form['comment_id'].value, form['comment'].value))
     comm = cur.fetchall()
-    if not len(comm):
-        cur.execute("""INSERT INTO comments (ban_id, who, comment, time) VALUES (%s, %s, %s, %s)""",
-                    (form['comment_id'].value,user,form['comment'].value,pickle.dumps(datetime.datetime.now(pytz.UTC))))
     con.commit()
+    con.close()
+    if not len(comm):
+        con = sqlite.connect(db)
+        cur = con.cursor()
+        cur.execute("INSERT INTO comments (ban_id, who, comment, time) VALUES (%s, %s, %s, %s)",
+                    (form['comment_id'].value,user,form['comment'].value,pickle.dumps(datetime.datetime.now(pytz.UTC))))
+        con.commit()
+        con.close()
 
 # Write the page
 print '<form action="bans.cgi" method="POST">'
@@ -133,6 +165,10 @@ print '<input class="input" type="checkbox" name="mutes" '
 if form.has_key('mutes') or not form.has_key('query'):
     print 'checked="checked"  '
 print '/> Search in existing mutes<br />'
+print '<input class="input" type="checkbox" name="floods" '
+if form.has_key('floods') or not form.has_key('query'):
+    print 'checked="checked"  '
+print '/> Include FloodBots<br />'
 print '</div>'
     
 print '<div style="clear:both"><input  class="submit" type="submit" value="search" /></div>'
@@ -144,11 +180,14 @@ if not form.has_key('query'):
     if form.has_key('sort'):
         sort='&sort=' + form['sort'].value
     print '<div style="clear: both">&middot;'
+    con = sqlite.connect(db)
+    cur = con.cursor()
     cur.execute('SELECT COUNT(id) FROM bans')
     nump = math.ceil(int(cur.fetchall()[0][0]) / float(num_per_page))
-    for i in range(nump):
+    for i in range(int(nump)):
         print '<a href="bans.cgi?page=%d%s">%d</a> &middot;' % (i, sort, i+1)
     print '</div>'
+    con.close()
 
 # Empty log div, will be filled with AJAX
 print '<div id="log" class="log">&nbsp;</div>'
@@ -167,13 +206,20 @@ for h in [['Channel',0], ['Nick/Mask',1], ['Operator',2], ['Time',6]]:
 print '<th>Log</th></tr>'
 
 # Select and filter bans
+con = sqlite.connect(db)
+cur = con.cursor()
 cur.execute("SELECT channel,mask,operator,time,removal,removal_op,id FROM bans ORDER BY id DESC")
 bans = cur.fetchall()
+con.close()
     
-def myfilter(item, regex, kick, ban, oldban, mute, oldmute):
+def myfilter(item, regex, kick, ban, oldban, mute, oldmute, floods, operator):
+    if operator:
+        if not operator.lower() in item[2].lower(): return False
     if '!' not in item[1]: 
         if not kick: return False
-    elif item[1][0] == '%':
+    if not floods:
+        if 'floodbot' in item[2].lower(): return False
+    if item[1][0] == '%':
         if item[4]:
             if not oldmute: return False
         else:
@@ -183,17 +229,23 @@ def myfilter(item, regex, kick, ban, oldban, mute, oldmute):
             if not oldban: return False
         else:
             if not ban: return False
-    return regex.search(item[1]) or regex.search(item[2]) or regex.search(item[0]) or (item[5] and regex.search(item[5]))
+    if operator:
+        return regex.search(item[0]) or regex.search(item[1]) or (item[5] and regex.search(item[5]))
+    return regex.search(item[0]) or regex.search(item[1]) or regex.search(item[2]) or (item[5] and regex.search(item[5]))
 
 if form.has_key('query'):
-    k = b = ob = m = om = False
+    k = b = ob = m = om = fb = oper = False
     if form.has_key('kicks'):    k  = True
     if form.has_key('oldbans'):  ob = True
     if form.has_key('bans'):     b  = True
     if form.has_key('oldmutes'): om = True
     if form.has_key('mutes'):    m  = True
+    if form.has_key('floods'):   fb = True
+    if form['query'].value.startswith("oper:"):
+        oper = form['query'].value[4:].split(':', 1)[1].split(None, 1)[0]
+        form['query'].value = form['query'].value[5+len(oper):].strip()
     regex = re.compile(re.escape(form['query'].value).replace('\%','.*'), re.DOTALL | re.I)
-    bans = filter(lambda x: myfilter(x, regex, k, b, ob, m, om), bans)
+    bans = filter(lambda x: myfilter(x, regex, k, b, ob, m, om, fb, oper), bans)
     start = 0; end = len(bans)
 else:
     page = 0
@@ -230,7 +282,7 @@ for b in bans[start:end]:
     i += 1
     print '>'
     # Channel
-    print '<td>%s %s</td>' % ('',b[0])
+    print '<td> %s</td>' % b[0]
     # Mask
     print '<td>%s' % b[1]
     # Ban removal
@@ -248,7 +300,7 @@ for b in bans[start:end]:
         print '<br /><span class="removal">%s</span>' % pickle.loads(b[4]).astimezone(tz).strftime("%b %d %Y %H:%M:%S")
     print '</td>'
     # Log link
-    print """<td><span class="pseudolink" onclick="showlog('%s')">Show log</span></td>""" % b[6]
+    print '<td><span class="pseudolink" onclick="showlog(\'%s\')">Show/Hide log</span></td>' % b[6]
     print '</tr>'
     
     # Comments
@@ -257,8 +309,11 @@ for b in bans[start:end]:
         print ' class="bg2"'
     print '>'
     print '<td colspan="5" class="comment">'
-    cur.execute("""SELECT who, comment, time FROM comments WHERE ban_id = %s""" % b[6])
+    con = sqlite.connect(db)
+    cur = con.cursor()
+    cur.execute("SELECT who, comment, time FROM comments WHERE ban_id = %s" % b[6])
     comments = cur.fetchall()
+    con.close()
     if len(comments) == 0:
         print '<span class="removal">(No comments) </span>'
     else:
@@ -267,14 +322,16 @@ for b in bans[start:end]:
             print u' <span class="removal"><br />%s, %s</span><br />' % \
                 (c[0],pickle.loads(c[2]).astimezone(tz).strftime("%b %d %Y %H:%M:%S"))
     if user:
-        print """<span class="pseudolink" onclick="toggle('%s','comment')">Add comment</span>""" % b[6]
-        print """<div class="invisible" id="comment_%s"><br />""" % b[6]
-        print """<form action="bans.cgi" method="POST"><textarea cols="50" rows="5" class="input" name="comment"></textarea><br />"""
-        print """<input type="hidden" name="comment_id" value="%s" />""" % b[6]
-        print """<input class="submit" type="submit" value="Send" /></form>"""
+        print '<span class="pseudolink" onclick="toggle(\'%s\',\'comment\')">Add comment</span>' % b[6]
+        print '<div class="invisible" id="comment_%s"><br />' % b[6]
+        print '<form action="bans.cgi" method="POST"><textarea cols="50" rows="5" class="input" name="comment"></textarea><br />'
+        print '<input type="hidden" name="comment_id" value="%s" />' % b[6]
+        print '<input class="submit" type="submit" value="Send" /></form>'
     print '</td></tr>'
 
 print '</table>'
+if not bans and form.has_key('query'):
+    print "<center><u>No matches for:</u> &quot;%s&quot;</center>" % form['query'].value
 
 # Aaaaaaaaaaaaaaaaand send!
 send_page('bans.tmpl')
