@@ -64,16 +64,30 @@ def queue(irc, to, msg):
         irc.queueMsg(ircmsgs.privmsg(to, msg))
 
 def capab(prefix, capability):
+    capability = capability.lower()
     if prefix.find('!') > 0:
         user = prefix[:prefix.find('!')]
     else:
         user = prefix
     try:
-        if 'editfactoids' in list(ircdb.users.getUser(prefix).capabilities):
-            return True
-        else:
-            return False
+        user = ircdb.users.getUser(prefix)
+        capabilities = list(user.capabilities)
     except:
+        return False
+    # Capability hierarchy #
+    if capability == "editfactoids":
+        if capab(user.name, "addeditors"):
+            return True
+    if capability == "addeditors":
+        if capab(user.name, "admin"):
+            return True
+    if capability == "admin":
+        if capab(user.name, "owner"):
+            return True
+    # End #
+    if capability in capabilities:
+        return True
+    else:
         return False
 
 class Encyclopedia(callbacks.Plugin):
@@ -128,8 +142,7 @@ class Encyclopedia(callbacks.Plugin):
 
         Lists all the users who are in the list of editors.
         """
-        irc.reply(', '.join([ircdb.users.getUser(u).name for u in ircdb.users.users \
-                             if 'editfactoids' in ircdb.users.getUser(u).capabilities]), private=True)
+        irc.reply(', '.join([u.name for u in ircdb.users.users.values() if capab(u.name, "editfactoids")]), private=True)
     editors = wrap(editors)
 
     def moderators(self, irc, msg, args):
@@ -137,8 +150,7 @@ class Encyclopedia(callbacks.Plugin):
 
         Lists all the users who can add users to the list of editors.
         """
-        irc.reply(', '.join([ircdb.users.getUser(u).name for u in ircdb.users.users \
-                             if 'addeditors' in ircdb.users.getUser(u).capabilities]), private=True)
+        irc.reply(', '.join([u.name for u in ircdb.users.users.values() if capab(u.name, 'addeditors')]), private=True)
     moderators = wrap(moderators)
 
     def get_target(self, nick, text, orig_target):

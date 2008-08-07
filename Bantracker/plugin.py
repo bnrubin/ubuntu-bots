@@ -55,13 +55,21 @@ tz = 'UTC'
 def now():
     return cPickle.dumps(datetime.datetime.now(pytz.timezone(tz)))
 
+
 def capab(user, capability):
-    try:
-        if capability in list(user.capabilities):
+    capability = capability.lower()
+    capabilities = list(user.capabilities)
+    # Capability hierarchy #
+    if capability == "bantracker":
+        if capab(user.name, "admin"):
             return True
-        else:
-            return False
-    except:
+    if capability == "admin":
+        if capab(user.name, "owner"):
+            return True
+    # End #
+    if capability in capabilities:
+        return True
+    else:
         return False
 
 def hostmaskPatternEqual(pattern, hostmask):
@@ -531,7 +539,7 @@ class Bantracker(callbacks.Plugin):
 
         hostmask = self.nick_to_host(irc, target)
         data = self.sort_bans(channel)
-        if 'owner' in list(user.capabilities) or 'admin' in list(user.capabilities):
+        if capab(user, 'admin'):
             if len(queue.msgcache) > 0:
                 irc.reply("Warning: still syncing (%i)" % len(queue.msgcache))
 
@@ -560,7 +568,7 @@ class Bantracker(callbacks.Plugin):
 
         for i in ret:
             irc.reply("Match: %s by %s in %s on %s (ID: %s)" % (i[0] + (i[1],)))
-            if 'botmsg' in list(user.capabilities):
+            if capab(user, 'botmsg'):
                 if target.split('!', 1)[0] != '*':
                     irc.reply("%s/bans.cgi?log=%s&mark=%s" % (self.registryValue('bansite'), i[1], target.split('!')[0]), private=True)
                 else:
@@ -697,7 +705,7 @@ class Bantracker(callbacks.Plugin):
         user = self.check_auth(irc, msg, args)
         if not user:
             return
-        if 'botmsg' in list(user.capabilities):
+        if capab(user, 'botmsg'):
             user.removeCapability('botmsg')
             irc.reply("Disabled")
         else:
