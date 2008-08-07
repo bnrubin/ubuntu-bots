@@ -21,7 +21,7 @@ def configure(advanced):
 
 Encyclopedia = conf.registerPlugin('Encyclopedia')
 conf.registerChannelValue(Encyclopedia, 'database',
-    registry.String('', 'Name of database to use'))
+    registry.String('ubuntu', 'Name of database to use'))
 conf.registerGlobalValue(Encyclopedia, 'packagelookup',
     registry.Boolean(True, "Whether to look up packages"))
 conf.registerChannelValue(Encyclopedia, 'relaychannel',
@@ -40,5 +40,5 @@ conf.registerGlobalValue(Encyclopedia, 'aptdir',
     registry.String('', 'Path to apt cache directory',private=True))
 conf.registerChannelValue(Encyclopedia, 'alert',
     registry.String('ops','factoid name used for alerts'))
-conf.registerGlobalValue(Encyclopedia, 'remotedb',
+conf.registerChannelValue(Encyclopedia, 'remotedb',
     registry.String('http://jussi01.com/ubuntu.db', 'Remote location of the master database'))

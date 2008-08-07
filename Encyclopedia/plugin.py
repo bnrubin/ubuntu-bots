@@ -598,11 +598,12 @@ class Encyclopedia(callbacks.Plugin):
             return "None found"
         return 'Found: %s' % ', '.join(sorted(ret.keys(), lambda x, y: cmp(ret[x], ret[y]))[:10])
 
-    def sync(self, irc, msg, args):
-        """takes no arguements
+    def sync(self, irc, msg, args, channel):
+        """[<channel>]
 
         Downloads a copy of the database from the remote server.
-        Set the server with the configuration variable supybot.plugins.Encyclopedia.remotedb.
+        Set the server with the channel configuration variable supybot.plugins.Encyclopedia.remotedb.
+        If <channel> is not set it will default to the channel the command is given in or the global value
         """
         if not capab(msg.prefix, "owner"):
             irc.error("Sorry, you can't do that")
@@ -610,42 +611,56 @@ class Encyclopedia(callbacks.Plugin):
         def download_database(location, dpath):
             """Download the database located at location to path dpath"""
             import urllib2
+            tmp_db = "%s%stmp" % (dpath, os.extsep)
             fd = urllib2.urlopen(location)
-            newDb = fd.read()
+            fd2 = open(tmp_db,'w')
+            fd2.write(fd.read()) # Download to a temparary file
             fd.close()
-            fd2 = open(dpath,'w')
-            fd2.write(newDb)
             fd2.close()
+            # Do some checking to make sure we have an SQLite database
+            fd2 = open(tmp_db, 'rb')
+            data = fd.read(47)
+            if data == '** This file contains an SQLite 2.1 database **': # OK, rename to dpath
+                os.rename(tmp_db, dpath)
+            else: # Remove the tmpparary file and raise an error
+                os.remove(tmp_db)
+                raise RuntimeError, "Downloaded file was not a SQLite 2.1 database"
 
-        def tryReload():
-            try:
-                sys.modules['Encyclopedia'].reloadPlugin()
-            except:
-                pass
-
-# Having this configurable is nice, but could lead to errors in *my* code,
-# So I'll just assume it's always going to be set to 'ubuntu'
-#        db = self.registryValue('database',channel)
-        db = 'ubuntu'
+        db = self.registryValue('database', channel)
+        rdb = self.registryValue('remotedb', channel)
+        if not db:
+            if channel:
+                irc.error("I don't have a database set for %s" % channel)
+                return
+            irc.error("There is no global database set, use 'config supybot.plugins.Encyclopedia.database <database>' to set it")
+            return
+        if not rdb:
+            if channel:
+                irc.error("I don't have a remote database set for %s" % channel)
+                return
+            irc.error("There is no global remote database set, use 'config supybot.plugins.Encyclopedia.remotedb <url>' ro set it")
+            return
         dbpath = os.path.join(self.registryValue('datadir'), '%s.db' % db)
         # We're moving files and downloading, lots can go wrong so use lots of try blocks.
         try:
             os.rename(dbpath, "%s.backup" % dbpath)
-        except:
+        except Exception, e:
             self.log.error("Could not rename %s to %s.backup" % (dbpath, dbpath))
+            self.log.error(utils.exnToString(e))
             irc.error("Internal error, see log")
             return
 
         try:
             # Downloading can take some time, let the user know we're doing something
             irc.reply("Attemting to download database", prefixNick=False)
-            download_database(self.registryValue('remotedb'), dbpath)
+            download_database(rdb, dbpath)
             irc.replySuccess()
-        except:
-            self.log.error("Could not download %s to %s" % (self.registryValue('remotedb'), dbpath))
+        except Exception, e:
+            self.log.error("Could not download %s to %s" % (rdb, dbpath))
+            self.log.error(utils.exnToString(e))
             irc.error("Internal error, see log")
             os.rename("%s.backup" % dbpath, dbpath)
             return
-    sync = wrap(sync)
+    sync = wrap(sync, [optional("somethingWithoutSpaces")])
 
 Class = Encyclopedia
