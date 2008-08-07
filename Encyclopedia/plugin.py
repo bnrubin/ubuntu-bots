@@ -418,8 +418,9 @@ class Encyclopedia(callbacks.Plugin):
             ret = self.registryValue('notfoundmsg')
             if ret.count('%') == ret.count('%s') == 1:
                 ret = ret % repr(text)
-        if not target.startswith('#') and not channel.lower() == irc.nick.lower():
-            queue(irc, channel, "%s, please see my private message" % target)
+        if channel.lower() != irc.nick.lower() and target[0] != '#': # not /msg
+            if target in irc.state.channels[channel].users:
+                queue(irc, channel, "%s, please see my private message" % target)
         if type(ret) != list:
             queue(irc, target, retmsg + ret)
         else:
