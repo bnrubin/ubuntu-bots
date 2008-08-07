@@ -19,6 +19,7 @@ import sqlite, datetime, time, pytz
 import supybot.registry as registry
 import supybot.ircdb as ircdb
 import supybot.conf as conf
+import supybot.utils as utils
 import sys, os
 
 if sys.version_info >= (2, 5, 0):
