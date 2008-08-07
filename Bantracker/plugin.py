@@ -48,7 +48,7 @@ import supybot.callbacks as callbacks
 import supybot.ircmsgs as ircmsgs
 import supybot.conf as conf
 import supybot.ircdb as ircdb
-import sqlite, pytz, cPickle, datetime, time, random, md5
+import sqlite, pytz, cPickle, datetime, time, random, md5, threading
 
 tz = 'UTC'
 

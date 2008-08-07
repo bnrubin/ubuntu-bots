@@ -34,12 +34,12 @@ class Webcal(callbacks.Plugin):
         try:
             schedule.removeEvent(self.name())
             schedule.removeEvent(self.name() + 'b')
-        except AssertionError:
+        except Exception: # Oh well
             pass
         try:
             schedule.addPeriodicEvent(self.refresh_cache,  60 * 20, name=self.name())
             schedule.addPeriodicEvent(self.autotopics,     60, name=self.name() + 'b')
-        except AssertionError:
+        except Exception: # Just work
             pass
         self.cache = {}
         self.firstevent = {}
