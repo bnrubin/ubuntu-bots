@@ -15,11 +15,11 @@
 from supybot.commands import *
 import supybot.ircmsgs as ircmsgs
 import supybot.callbacks as callbacks
-import sqlite, datetime, time
+import sqlite, datetime, time, pytz
 import supybot.registry as registry
 import supybot.ircdb as ircdb
 import supybot.conf as conf
-import sys, os, time
+import sys, os
 
 if sys.version_info >= (2, 5, 0):
   import re
