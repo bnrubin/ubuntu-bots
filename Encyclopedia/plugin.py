@@ -632,7 +632,7 @@ class Encyclopedia(callbacks.Plugin):
             fd2.close()
             # Do some checking to make sure we have an SQLite database
             fd2 = open(tmp_db, 'rb')
-            data = fd.read(47)
+            data = fd2.read(47)
             if data == '** This file contains an SQLite 2.1 database **': # OK, rename to dpath
                 os.rename(tmp_db, dpath)
             else: # Remove the tmpparary file and raise an error
