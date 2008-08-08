@@ -61,10 +61,10 @@ def capab(user, capability):
     capabilities = list(user.capabilities)
     # Capability hierarchy #
     if capability == "bantracker":
-        if capab(user.name, "admin"):
+        if capab(user, "admin"):
             return True
     if capability == "admin":
-        if capab(user.name, "owner"):
+        if capab(user, "owner"):
             return True
     # End #
     if capability in capabilities:
