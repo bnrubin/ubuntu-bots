@@ -156,6 +156,24 @@ launchpad"""
         irc.replySuccess()
     login = wrap(login)
 
+    def doPrivmsg(self, irc, msg):
+        if not conf.supybot.defaultIgnore: # Only do this when defaultIgnore is set
+            return
+        if chr(1) in msg.args[1]:
+            return
+        to = msg.args[0]
+        cmd = msg.args[1]
+        if to.lower() == irc.nick.lower():
+            if cmd != "login":
+                return
+        elif msg.args[1][0] in conf.supybot.reply.whenAddressedBy.chars():
+            cmd = msg.args[1][1:]
+            if cmd != "login":
+                return
+        else:
+            return
+        self._callCommand(["login"], irc, msg, [])
+
     def do290(self, irc, msg):
         assert 'IDENTIFY-MSG' in msg.args[1]
         irc.getRealIrc()._Freenode_capabed = True
