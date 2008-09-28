@@ -40,7 +40,7 @@ total = 0
 # Read POST
 if 'db' in form:
     database = form['db'].value
-if database not in database:
+if database not in databases:
     database = default_database
 con = sqlite.connect(os.path.join(datadir, database + '.db'))
 cur = con.cursor()

@@ -163,6 +163,12 @@ launchpad"""
             return
         to = msg.args[0]
         cmd = msg.args[1]
+        try:
+            user = ircdb.users.getUser(msg.prefix)
+            if user.checkHostmask(msg.prefix):
+                return
+        except:
+            pass
         if to.lower() == irc.nick.lower():
             if cmd != "login":
                 return

@@ -95,6 +95,38 @@ class Lart(plugins.ChannelIdDatabasePlugin):
     pity = lart
     slander = lart
 
+    def callPrecedence(self, irc):
+        before = []
+        for cb in irc.callbacks:
+            if cb.name() == 'IRCLogin':
+                before.append(cb)
+        return (before, [])
+
+    def inFilter(self, irc, msg):
+        if not msg.command == 'PRIVMSG':
+            return msg
+        if not conf.supybot.defaultIgnore():
+            return msg
+        s = callbacks.addressed(irc.nick, msg)
+        if not s:
+            return msg
+        if checkIgnored(msg.prefix):
+            return msg
+        try:
+            id = ircdb.users.getUserId(msg.prefix)
+            user = users.getUser(id)
+            return msg
+        except:
+            pass
+        cmd, args = (s.split(None, 1) + [None])[:2]
+        if cmd and cmd[0] in str(conf.supybot.reply.whenAddressedBy.chars.get(msg.args[0])):
+            cmd = cmd[1:]
+        if cmd in self.listCommands():
+            tokens = callbacks.tokenize(s, channel=msg.args[0])
+            self.Proxy(irc, msg, tokens)
+        return msg
+#        self._callCommand([cmd], irc, msg, [])
+
 Class = Lart
 
 # vim:set shiftwidth=4 tabstop=4 expandtab textwidth=79:

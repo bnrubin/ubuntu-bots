@@ -198,6 +198,7 @@ class Encyclopedia(callbacks.Plugin):
             self.databases[channel] = sqlite.connect(os.path.join(self.registryValue('datadir'), '%s.db' % db))
             self.databases[channel].name = db
             self.databases[channel].time = time.time()
+        self.log.info(os.path.join(self.registryValue('datadir'), '%s.db' % db))
         return self.databases[channel]
 
     def addressed(self, recipients, text, irc):
