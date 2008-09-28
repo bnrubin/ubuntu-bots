@@ -211,10 +211,12 @@ cur = con.cursor()
 cur.execute("SELECT channel,mask,operator,time,removal,removal_op,id FROM bans ORDER BY id DESC")
 bans = cur.fetchall()
 con.close()
-    
-def myfilter(item, regex, kick, ban, oldban, mute, oldmute, floods, operator):
+
+def myfilter(item, regex, kick, ban, oldban, mute, oldmute, floods, operator, channel)    
     if operator:
         if not operator.lower() in item[2].lower(): return False
+    if channel:
+        if not channel.lower() in item[0].lower(): return False
     if '!' not in item[1]: 
         if not kick: return False
     if not floods:
@@ -230,22 +232,34 @@ def myfilter(item, regex, kick, ban, oldban, mute, oldmute, floods, operator):
         else:
             if not ban: return False
     if operator:
-        return regex.search(item[0]) or regex.search(item[1]) or (item[5] and regex.search(item[5]))
-    return regex.search(item[0]) or regex.search(item[1]) or regex.search(item[2]) or (item[5] and regex.search(item[5]))
+        return regex.search(item[1]) or regex.search(item[0]) or (item[5] and regex.search(item[5]))
+    return regex.search(item[1]) or regex.search(item[2]) or regex.search(item[0]) or (item[5] and regex.search(item[5]))
+
+def getQueryTerm(query, term):
+    if term[-1] != ':':
+        term += ':'
+    if term in query:
+        idx = query.index(term) + len(term)
+        ret = query[idx:].split(None, 1)[0]
+        query = query.replace(term + ret, '', 1).strip()
+        return (query, ret)
+    return (query, None)
 
 if form.has_key('query'):
-    k = b = ob = m = om = fb = oper = False
+    k = b = ob = m = om = fb = False
+    oper = chan = False
     if form.has_key('kicks'):    k  = True
     if form.has_key('oldbans'):  ob = True
     if form.has_key('bans'):     b  = True
     if form.has_key('oldmutes'): om = True
     if form.has_key('mutes'):    m  = True
     if form.has_key('floods'):   fb = True
-    if form['query'].value.startswith("oper:"):
-        oper = form['query'].value[4:].split(':', 1)[1].split(None, 1)[0]
-        form['query'].value = form['query'].value[5+len(oper):].strip()
+    if "chan:" in form['query'].value:
+        (form['query'].value, chan) = getQueryTerm(form['query'].value, "chan:")
+    if "oper:" in form['query'].value:
+        (form['query'].value, oper) = getQueryTerm(form['query'].value, "oper:")
     regex = re.compile(re.escape(form['query'].value).replace('\%','.*'), re.DOTALL | re.I)
-    bans = filter(lambda x: myfilter(x, regex, k, b, ob, m, om, fb, oper), bans)
+    bans = filter(lambda x: myfilter(x, regex, k, b, ob, m, om, fb, oper, chan), bans)
     start = 0; end = len(bans)
 else:
     page = 0
@@ -327,11 +341,18 @@ for b in bans[start:end]:
         print '<form action="bans.cgi" method="POST"><textarea cols="50" rows="5" class="input" name="comment"></textarea><br />'
         print '<input type="hidden" name="comment_id" value="%s" />' % b[6]
         print '<input class="submit" type="submit" value="Send" /></form>'
-    print '</td></tr>'
+    print '</div></td></tr>'
 
 print '</table>'
 if not bans and form.has_key('query'):
-    print "<center><u>No matches for:</u> &quot;%s&quot;</center>" % form['query'].value
+    if chan and oper:
+        print "<center><u>No matches for:</u> &quot;%s&quot in %s by %s;</center>" % (form['query'].value, chan, oper)
+    elif chan:
+        print "<center><u>No matches for:</u> &quot;%s&quot; in %s</center>" % (form['query'].value, chan)
+    elif oper:
+        print "<center><u>No matches for:</u> &quot;%s&quot; by %s</center>" % (form['query'].value, oper)
+    else:
+        print "<center><u>No matches for:</u> &quot;%s&quot;</center>" % form['query'].value
 
 # Aaaaaaaaaaaaaaaaand send!
 send_page('bans.tmpl')

@@ -37,10 +37,12 @@ class IOWrapper:
         return self.buf
     
 sys.stdout = IOWrapper()
+sys.stderr = IOWrapper()
 
 def send_page(template):
     data = sys.stdout.getvalue()
     sys.stdout = sys.__stdout__
+    sys.stderr = sys.__stderr__
     print "Content-Type: text/html"
     print cookie
     print ""
@@ -48,7 +50,11 @@ def send_page(template):
     fd = open(template)
     tmpl = fd.read()
     fd.close()
-    print tmpl[:tmpl.find('%s')]
+    print tmpl[:tmpl.find('%e')]
+    for e in errdata:
+        print e
+    print tmpl[tmpl.find('%e')+2:tmpl.find('%s')]
+#    print tmpl[:tmpl.find('%s')]
     for d in data:
         print d
     print tmpl[tmpl.find('%s')+2:]
