@@ -369,7 +369,7 @@ class Encyclopedia(callbacks.Plugin):
         elif term[0] in ("what", "whats", "what's") or term[0].startswith("what ") or term[0].startswith("what ") or term[0].startswith("whats ") or term[0].startswith("what's "): # Try and catch people saying "what is ...?"
             ret = "I am only a bot, please don't think I'm intelligent :)"
             retmsg = term[2]
-        elif lower_text[:4] not in ('info ','find '):
+        elif lower_text[:5] not in ('info ','find '):
             # Lookup, search or edit?
             if lower_text.startswith('search '):
                 ret = self.search_factoid(lower_text[7:].strip(), channel)
