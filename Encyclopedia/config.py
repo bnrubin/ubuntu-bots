@@ -22,23 +22,17 @@ def configure(advanced):
 Encyclopedia = conf.registerPlugin('Encyclopedia')
 conf.registerChannelValue(Encyclopedia, 'database',
     registry.String('ubuntu', 'Name of database to use'))
-conf.registerGlobalValue(Encyclopedia, 'packagelookup',
-    registry.Boolean(True, "Whether to look up packages"))
 conf.registerChannelValue(Encyclopedia, 'relaychannel',
     registry.String('#ubuntu-ops', 'Relay channel for unauthorized edits'))
 conf.registerGlobalValue(Encyclopedia, 'notfoundmsg',
     registry.String('Factoid %s not found', 'Reply when factoid isn\'t found'))
 conf.registerChannelValue(Encyclopedia,'prefixchar',
     registry.String('!','Prefix character for factoid display/editing'))
-    
-conf.registerChannelValue(Encyclopedia, 'searchorder',
-    registry.String('','Distro search order'))
-
 conf.registerGlobalValue(Encyclopedia, 'datadir',
-    registry.String('', 'Path to dir containing factoid databases',private=True))
-conf.registerGlobalValue(Encyclopedia, 'aptdir',
-    registry.String('', 'Path to apt cache directory',private=True))
+    registry.String("", 'Path to dir containing factoid databases', private=True))
 conf.registerChannelValue(Encyclopedia, 'alert',
-    registry.String(['ops' 'op', 'kops', 'calltheops'],'factoid name(s) used for alerts'))
+    registry.SpaceSeparatedListOfStrings(['ops', 'op', 'kops', 'calltheops'], 'factoid name(s) used for alerts', private=True))
 conf.registerChannelValue(Encyclopedia, 'remotedb',
-    registry.String('http://jussi01.com/web/ubuntu.db', 'Remote location of the master database'))
+    registry.String('http://jussi01.com/web/ubuntu.db', 'Remote location of the master database', private=True))
+conf.registerChannelValue(Encyclopedia, 'ignores',
+    registry.SpaceSeparatedListOfStrings(['find', 'info'], 'factoid name(s) to ignore', private=True))

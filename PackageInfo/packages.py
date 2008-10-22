@@ -23,8 +23,10 @@ class Apt:
         self.aptdir = plugin.registryValue('aptdir')
         self.distros = []
         self.plugin = plugin
+        self.log = plugin.log
         if self.aptdir:
             self.distros = [x[:-5] for x in os.listdir(self.aptdir) if x.endswith('.list')]
+            self.distros.sort()
             self.aptcommand = """apt-cache\\
                                  -o"Dir::State::Lists=%s/%%s"\\
                                  -o"Dir::etc::sourcelist=%s/%%s.list"\\
@@ -35,11 +37,11 @@ class Apt:
 
     def find(self, pkg, checkdists, filelookup=True):
         _pkg = ''.join([x for x in pkg.strip().split(None,1)[0] if x.isalnum or x in '.-_+'])
-        distro = checkdists[0]
+        distro = checkdists
         if len(pkg.strip().split()) > 1:
             distro = ''.join([x for x in pkg.strip().split(None,2)[1] if x.isalnum or x in '.-_+'])
         if distro not in self.distros:
-            distro = checkdists[0]
+            return "%s is not a valid distribution %s" % (distro, self.distros)
         pkg = _pkg
 
         data = commands.getoutput(self.aptcommand % (distro, distro, distro, 'search -n', pkg))
@@ -48,10 +50,10 @@ class Apt:
                 data = commands.getoutput(self.aptfilecommand % (distro, distro, pkg)).split()
                 if data:
                     if data[0] == 'sh:': # apt-file isn't installed
-                      self.plugin.log.error("apt-file is not installed")
+                      self.log.error("apt-file is not installed")
                       return "Please use http://packages.ubuntu.com/ to search for files"
                     if data[0] == 'E:': # No files in the cache dir
-                      self.plugin.log.error("Please run the 'update_apt_file' script")
+                      self.log.error("Please run the 'update_apt_file' script")
                       return "Cache out of date, please contact the administrator"
                     if len(data) > 5:
                         return "File %s found in %s (and %d others)" % (pkg, ', '.join(data[:5]), len(data)-5)
@@ -69,14 +71,16 @@ class Apt:
         distro = None
         if len(pkg.strip().split()) > 1:
             distro = ''.join([x for x in pkg.strip().split(None,2)[1] if x.isalnum() or x in '-._+'])
-        if distro:
-            if distro not in self.distros:
-                checkdists = [checkdists[0]]
-            else:
-                checkdists = [distro]
+        if not distro:
+            distro = checkdists
+        if distro not in self.distros:
+            return "%s is not a valid distribution %s" % (distro, self.distros)
+
+        checkdists = distro
+
         pkg = _pkg
 
-        for distro in checkdists:
+        for distro in [checkdists]:
             data = commands.getoutput(self.aptcommand % (distro, distro, distro, 'show', pkg))
             data2 = commands.getoutput(self.aptcommand % (distro, distro, distro, 'showsrc', pkg))
             if not data or 'E: No packages found' in data:
@@ -90,7 +94,7 @@ class Apt:
                 parser.feed(p)
                 p = parser.close()
                 if type(p) == type(""):
-                    self.plugin.log.error("apt returned an error, do you have the deb-src URLs in %s.list" % distro)
+                    self.log.error("apt returned an error, do you have the deb-src URLs in %s.list?" % distro)
                     return "Package lookup faild"
                 if apt.VersionCompare(maxp['Version'], p['Version']) < 0:
                     maxp = p
@@ -104,7 +108,7 @@ class Apt:
                 parser.feed(p)
                 p = parser.close()
                 if type(p) == type(""):
-                    self.plugin.log.error("apt returned an error, do you have the deb-src URLs in %s.list" % distro)
+                    self.log.error("apt returned an error, do you have the deb-src URLs in %s.list?" % distro)
                     return "Package lookup faild"
                 if apt.VersionCompare(maxp2['Version'], p['Version']) < 0:
                     maxp2 = p

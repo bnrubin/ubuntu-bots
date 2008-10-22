@@ -13,14 +13,14 @@
 ###
 
 """
-This plugin is a factoid encyclopedia and has Ubuntu/Debian package&file lookup
-funtionality
+This plugin is a factoid encyclopedia. Ubuntu/Debian package&file lookup
+funtionality has been moved to PackageInfo
 """
 
 import supybot
 import supybot.world as world
 
-__version__ = "2.2"
+__version__ = "2.3"
 __author__ = supybot.Author("Dennis Kaarsemaker","Seveas","dennis@kaarsemaker.net")
 __contributors__ = {supybot.Author("Terence Simpson", "stdin", "stdin@stdin.me.uk"): ['sync']}
 __url__ = 'https://bots.ubuntulinux.nl'
@@ -35,9 +35,3 @@ if world.testing:
 
 Class = plugin.Class
 configure = config.configure
-
-def reloadPlugin():
-    reload(config)
-    reload(plugin)
-    Class = plugin.Class
-    configure = config.configure

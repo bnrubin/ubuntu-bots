@@ -20,19 +20,41 @@ import supybot.registry as registry
 import supybot.ircdb as ircdb
 import supybot.conf as conf
 import supybot.utils as utils
-import sys, os
+import supybot.ircutils as ircutils
+import sys, os, re, md5, random, time
 
-if sys.version_info >= (2, 5, 0):
-  import re
-else:
-  import sre as re
-
-try:
-    import packages
-    reload(packages)
-    have_packages = True
-except ImportError:
-    have_packages = False
+def checkIgnored(hostmask, recipient='', users=ircdb.users, channels=ircdb.channels):
+    if ircdb.ignores.checkIgnored(hostmask):
+        return True
+    try:
+        id = ircdb.users.getUserId(hostmask)
+        user = users.getUser(id)
+    except KeyError:
+        # If there's no user...
+        if ircutils.isChannel(recipient):
+            channel = channels.getChannel(recipient)
+            if channel.checkIgnored(hostmask):
+                return True
+            else:
+                return False
+        else:
+            return False
+    if user._checkCapability('owner'):
+        # Owners shouldn't ever be ignored.
+        return False
+    elif user.ignore:
+        return True
+    elif recipient:
+        if ircutils.isChannel(recipient):
+            channel = ircdb.channels.getChannel(recipient)
+            if channel.checkIgnored(hostmask):
+                return True
+            else:
+                return False
+        else:
+            return False
+    else:
+        return False
 
 # Simple wrapper class for factoids
 class Factoid:
@@ -91,6 +113,14 @@ def capab(prefix, capability):
     else:
         return False
 
+def safeQuote(s):
+    if isinstance(s, list):
+        res = []
+        for i in s:
+            res.append(safeQuote(i))
+        return res
+    return s.replace('%', '%%')
+
 class Encyclopedia(callbacks.Plugin):
     """!factoid: show factoid"""
     threaded = True
@@ -98,13 +128,6 @@ class Encyclopedia(callbacks.Plugin):
     def __init__(self, irc):
         callbacks.Plugin.__init__(self, irc)
         self.databases = {}
-        self.times = {}
-        self.seens = {}
-        self.distros = []
-        if have_packages:
-            self.Apt = packages.Apt(self)
-        else:
-            self.log.warning("Faild to import packages, you probably don't have python-apt installed")
         self.edits = {}
         self.alert = False
 
@@ -139,15 +162,15 @@ class Encyclopedia(callbacks.Plugin):
     removeeditor = wrap(removeeditor, ['text'])
 
     def editors(self, irc, msg, args):
-        """takes no arguments
+        """Takes no arguments
 
         Lists all the users who are in the list of editors.
         """
-        irc.reply(', '.join([u.name for u in ircdb.users.users.values() if capab(u.name, "editfactoids")]), private=True)
+        irc.reply(', '.join([u.name for u in ircdb.users.users.values() if capab(u.name, 'editfactoids')]), private=True)
     editors = wrap(editors)
 
     def moderators(self, irc, msg, args):
-        """takes no arguments
+        """Takes no arguments
 
         Lists all the users who can add users to the list of editors.
         """
@@ -218,7 +241,7 @@ class Encyclopedia(callbacks.Plugin):
                 return text[nlen+1:]
             return False
         else: # Private
-            if text.strip()[0] in str(conf.supybot.reply.whenAddressedBy.chars):
+            if text.strip()[0] in str(conf.supybot.reply.whenAddressedBy.chars.get(recipients)):
                 return False
             if not text.split()[0] == 'search':
                 for c in irc.callbacks:
@@ -261,7 +284,7 @@ class Encyclopedia(callbacks.Plugin):
             return Factoid(f[0],f[1],f[2],f[3],f[4])
 
     def resolve_alias(self, channel, factoid, loop=0):
-        if factoid and factoid.name == self.registryValue('alert',channel):
+        if factoid and factoid.name in self.registryValue('alert', channel):
             self.alert = True
         if loop >= 10:
             return Factoid('','<reply> Error: infinite <alias> loop detected','','',0)
@@ -324,16 +347,32 @@ class Encyclopedia(callbacks.Plugin):
                 return alias.value.lower
             factoid.value = '<alias> ' + alias.name
 
+    def callPrecedence(self, irc):
+        before = []
+        for cb in irc.callbacks:
+            if cb.name() == 'IRCLogin':
+                before.append(cb)
+        return (before, [])
+
     def doPrivmsg(self, irc, msg):
+        def beginswith(text, strings):
+            for string in strings:
+                if text.startswith(string):
+                    return True
+            return False
+
         # Filter CTCP
         if chr(1) in msg.args[1]:
             return
 
+        if checkIgnored(msg.prefix,msg.args[0]):
+            return
         # Are we being queried?
         recipient, text = msg.args
         text = self.addressed(recipient, text, irc)
         if not text:
             return
+        doChanMsg = True
         display_info = False
         target = msg.args[0]
         if target[0] != '#':
@@ -351,25 +390,24 @@ class Encyclopedia(callbacks.Plugin):
         # Now switch between actions
         orig_text = text
         lower_text = text.lower()
+        if "please see" in lower_text:
+            if "from %s" % irc.nick.lower() in lower_text or "from the bot" in lower_text:
+                doChanMsg = False
         ret = ''
         retmsg = ''
         term = self.get_target(msg.nick, orig_text, target)
-        if term[0] == "info":
-            ret = "Retrieve information on a package: !info <package>"
-            retmsg = term[2]
-        elif term[0] == "find":
-            ret = "Search for a pacakge or a file: !find <term/file>"
-            retmsg = term[2]
-        elif term[0] == "search":
+        if term[0] == "search":
             ret = "Search factoids for term: !search <term>"
             retmsg = term[2]
-        elif term[0] == "seen":
+        elif term[0] == "seen" or term[0].startswith("seen "):
             ret = "I have no seen command"
             retmsg = term[2] and "%s: " % msg.prefix.split('!', 1)[0] or ''
         elif term[0] in ("what", "whats", "what's") or term[0].startswith("what ") or term[0].startswith("what ") or term[0].startswith("whats ") or term[0].startswith("what's "): # Try and catch people saying "what is ...?"
             ret = "I am only a bot, please don't think I'm intelligent :)"
             retmsg = term[2]
-        elif lower_text[:5] not in ('info ','find '):
+        elif beginswith(lower_text, self.registryValue('ignores', channel)):
+            return
+        else:
             # Lookup, search or edit?
             if lower_text.startswith('search '):
                 ret = self.search_factoid(lower_text[7:].strip(), channel)
@@ -408,21 +446,7 @@ class Encyclopedia(callbacks.Plugin):
                 text, target, retmsg = self.get_target(msg.nick, orig_text, target)
                 if text.startswith('bug ') and text != ('bug 1'):
                     return
-                #if text == self.registryValue('alert') and msg.args[0][0] == '#' and not display_info:
-                #    msg.tag('alert')
                 ret = self.factoid_lookup(text, channel, display_info)
-
-        # Fall through to package lookup
-        if have_packages and self.registryValue('packagelookup') and (not ret or not len(ret)):
-            text, target, retmsg = self.get_target(msg.nick, orig_text.lower(), target)
-            if text.startswith('info '):
-                ret = self.Apt.info(text[5:].strip(),self.registryValue('searchorder', channel).split())
-            elif text.startswith('find '):
-                ret = self.Apt.find(orig_text[5:].strip(),self.registryValue('searchorder', channel).split())
-            #else:
-            #    ret = self.Apt.info(text.strip(),self.registryValue('searchorder', channel).split())
-            #    if ret.startswith('Package'):
-            #        ret = None
 
         if not ret:
             if len(text) > 15:
@@ -432,18 +456,16 @@ class Encyclopedia(callbacks.Plugin):
             ret = self.registryValue('notfoundmsg')
             if ret.count('%') == ret.count('%s') == 1:
                 ret = ret % repr(text)
-        if channel.lower() != irc.nick.lower() and target[0] != '#': # not /msg
+        if doChanMsg and channel.lower() != irc.nick.lower() and target[0] != '#': # not /msg
             if target in irc.state.channels[channel].users:
                 queue(irc, channel, "%s, please see my private message" % target)
         if type(ret) != list:
             queue(irc, target, retmsg + ret)
         else:
             queue(irc, target, retmsg + ret[0])
-            #if msg.tagged('alert'):
             if self.alert:
                 if target.startswith('#') and not target.endswith('bots'):
-                    queue(irc, self.registryValue('relayChannel',channel), '%s called the ops in %s (%s)' % (msg.nick, msg.args[0], retmsg[:-2]))
-                #queue(irc, self.registryValue('relayChannel'), retmsg + ret[0])
+                    queue(irc, self.registryValue('relayChannel', channel), '%s called the ops in %s (%s)' % (msg.nick, msg.args[0], retmsg[:-2]))
                 self.alert = False
             for r in ret[1:]:
                 queue(irc, target, r)
@@ -616,18 +638,25 @@ class Encyclopedia(callbacks.Plugin):
         """[<channel>]
 
         Downloads a copy of the database from the remote server.
-        Set the server with the channel configuration variable supybot.plugins.Encyclopedia.remotedb.
-        If <channel> is not set it will default to the channel the command is given in or the global value
+        Set the server with the channel variable supybot.plugins.Encyclopedia.remotedb.
+        If <channel> is not set it will default to the channel the command is given in or the global value.
         """
         if not capab(msg.prefix, "owner"):
             irc.error("Sorry, you can't do that")
+            return
+        if channel:
+            if not ircutils.isChannel(channel):
+                irc.error("'%s' is not a valid channel" % safeQuote(channel))
+                return
+        remotedb = self.registryValue('remotedb', channel)
+        if not remotedb:
             return
         def download_database(location, dpath):
             """Download the database located at location to path dpath"""
             import urllib2
             tmp_db = "%s%stmp" % (dpath, os.extsep)
             fd = urllib2.urlopen(location)
-            fd2 = open(tmp_db,'w')
+            fd2 = open(tmp_db, 'w')
             fd2.write(fd.read()) # Download to a temparary file
             fd.close()
             fd2.close()
@@ -636,23 +665,24 @@ class Encyclopedia(callbacks.Plugin):
             data = fd2.read(47)
             if data == '** This file contains an SQLite 2.1 database **': # OK, rename to dpath
                 os.rename(tmp_db, dpath)
+                self.databases[channel].close()
+                self.databases.pop(channel)
             else: # Remove the tmpparary file and raise an error
                 os.remove(tmp_db)
                 raise RuntimeError, "Downloaded file was not a SQLite 2.1 database"
 
         db = self.registryValue('database', channel)
-        rdb = self.registryValue('remotedb', channel)
         if not db:
             if channel:
                 irc.error("I don't have a database set for %s" % channel)
                 return
             irc.error("There is no global database set, use 'config supybot.plugins.Encyclopedia.database <database>' to set it")
             return
-        if not rdb:
+        if not remotedb:
             if channel:
                 irc.error("I don't have a remote database set for %s" % channel)
                 return
-            irc.error("There is no global remote database set, use 'config supybot.plugins.Encyclopedia.remotedb <url>' ro set it")
+            irc.error("There is no global remote database set, use 'config supybot.plugins.Encyclopedia.remotedb <url>' to set it")
             return
         dbpath = os.path.join(self.registryValue('datadir'), '%s.db' % db)
         # We're moving files and downloading, lots can go wrong so use lots of try blocks.
@@ -667,14 +697,15 @@ class Encyclopedia(callbacks.Plugin):
         try:
             # Downloading can take some time, let the user know we're doing something
             irc.reply("Attemting to download database", prefixNick=False)
-            download_database(rdb, dbpath)
+            download_database(remotedb, dbpath)
             irc.replySuccess()
         except Exception, e:
-            self.log.error("Could not download %s to %s" % (rdb, dbpath))
+            self.log.error("Could not download %s to %s" % (remotedb, dbpath))
             self.log.error(utils.exnToString(e))
             irc.error("Internal error, see log")
             os.rename("%s.backup" % dbpath, dbpath)
             return
+
     sync = wrap(sync, [optional("somethingWithoutSpaces")])
 
 Class = Encyclopedia
