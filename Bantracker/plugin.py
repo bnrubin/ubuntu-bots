@@ -221,14 +221,23 @@ class Bantracker(callbacks.Plugin):
     def die(self):
         global queue
         if self.db:
-            self.db.close()
-        self.thread_timer.cancel()
+            try:
+                self.db.close()
+            except:
+                pass
+        try:
+            self.thread_timer.cancel()
+        except:
+            pass
         queue.clear()
 
     def reset(self):
         global queue
         if self.db:
-            self.db.close()
+            try:
+                self.db.close()
+            except:
+                pass
         queue.clear()
         self.logs.clear()
         self.lastMsgs.clear()

@@ -19,6 +19,7 @@ import supybot.ircutils as ircutils
 import supybot.callbacks as callbacks
 import supybot.schedule as schedule
 import supybot.ircmsgs as ircmsgs
+import supybot.conf as conf
 import pytz
 import ical
 import datetime, shelve, re

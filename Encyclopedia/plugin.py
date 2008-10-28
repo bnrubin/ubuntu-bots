@@ -665,8 +665,11 @@ class Encyclopedia(callbacks.Plugin):
             data = fd2.read(47)
             if data == '** This file contains an SQLite 2.1 database **': # OK, rename to dpath
                 os.rename(tmp_db, dpath)
-                self.databases[channel].close()
-                self.databases.pop(channel)
+                try:
+                    self.databases[channel].close()
+                    self.databases.pop(channel)
+                except:
+                    pass
             else: # Remove the tmpparary file and raise an error
                 os.remove(tmp_db)
                 raise RuntimeError, "Downloaded file was not a SQLite 2.1 database"
