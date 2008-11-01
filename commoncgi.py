@@ -41,6 +41,7 @@ sys.stderr = IOWrapper()
 
 def send_page(template):
     data = sys.stdout.getvalue()
+    errdata = sys.stderr.getvalue()
     sys.stdout = sys.__stdout__
     sys.stderr = sys.__stderr__
     print "Content-Type: text/html"
