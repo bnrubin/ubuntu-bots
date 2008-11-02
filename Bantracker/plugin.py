@@ -419,8 +419,19 @@ class Bantracker(callbacks.Plugin):
             self(irc, m)
         return msg
         
+    def callPrecedence(self, irc):
+        before = []
+        for cb in irc.callbacks:
+            if cb.name() == 'IRCLogin':
+                before.append(cb)
+        return (before, [])
+
     def check_auth(self, irc, msg, args, cap='bantracker'):
-        if not msg.tagged('identified'):
+        hasIRCLogin = False
+        for cb in self.callPrecedence(irc)[0]:
+            if cb.name() == "IRCLogin":
+                hasIRCLogin = True
+        if hasIRCLogin and not msg.tagged('identified'):
             irc.error(conf.supybot.replies.incorrectAuthentication())
             return False
         try:

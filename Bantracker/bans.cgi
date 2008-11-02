@@ -65,7 +65,7 @@ if cookie.has_key('sess'):
 
 if not user:
     print "Sorry, bantracker has been shut down for anonymous users due to server load<br>"
-    print "Join <a href=irc://irc.freenode.net/ubuntu-ops>#ubuntu-ops</a> on irc.freenode.net to descuss bans"
+    print "Join <a href=irc://irc.freenode.net/ubuntu-ops>#ubuntu-ops</a> on irc.freenode.net to discuss bans"
     send_page('bans.tmpl')
 
 # Log
