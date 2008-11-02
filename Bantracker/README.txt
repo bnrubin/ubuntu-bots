@@ -41,5 +41,3 @@ CREATE TABLE users (
 To configure the plugin, create the sqlite database with above structure and set
 supybot.plugins.bantracker.database to its filename. Then enable it per channel
 by setting the channel variable supybot.plugins.bantracker.enabled
-
-The btlogin function needs the FreenodeAuth plugin

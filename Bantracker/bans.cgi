@@ -212,7 +212,7 @@ cur.execute("SELECT channel,mask,operator,time,removal,removal_op,id FROM bans O
 bans = cur.fetchall()
 con.close()
 
-def myfilter(item, regex, kick, ban, oldban, mute, oldmute, floods, operator, channel)    
+def myfilter(item, regex, kick, ban, oldban, mute, oldmute, floods, operator, channel):
     if operator:
         if not operator.lower() in item[2].lower(): return False
     if channel:
