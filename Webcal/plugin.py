@@ -25,6 +25,39 @@ import ical
 import datetime, shelve, re
 import cPickle as pickle
 
+def checkIgnored(hostmask, recipient='', users=ircdb.users, channels=ircdb.channels):
+    if ircdb.ignores.checkIgnored(hostmask):
+        return True
+    try:
+        id = ircdb.users.getUserId(hostmask)
+        user = users.getUser(id)
+    except KeyError:
+        # If there's no user...
+        if ircutils.isChannel(recipient):
+            channel = channels.getChannel(recipient)
+            if channel.checkIgnored(hostmask):
+                return True
+            else:
+                return False
+        else:
+            return False
+    if user._checkCapability('owner'):
+        # Owners shouldn't ever be ignored.
+        return False
+    elif user.ignore:
+        return True
+    elif recipient:
+        if ircutils.isChannel(recipient):
+            channel = ircdb.channels.getChannel(recipient)
+            if channel.checkIgnored(hostmask):
+                return True
+            else:
+                return False
+        else:
+            return False
+    else:
+        return False
+
 class Webcal(callbacks.Plugin):
     """@schedule <timezone>: display the schedule in your timezone"""
     threaded = True
