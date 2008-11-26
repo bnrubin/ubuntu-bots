@@ -77,7 +77,6 @@ launchpad"""
         irc.reply('Running...')
         user2nick = {}
         nick2user = {}
-        #TODO: Make the team configurable, just needs a config entry
         users = lp.getUsers()
         for user in users:
             lpuser = lp.getIRCNick(user, False)
@@ -98,7 +97,9 @@ launchpad"""
             return
         fd = open(uf, 'rb')
         up = Unpickler(fd)
-        (user2nick, nick2user) = up.load()
+        (self.user2nick, self.nick2user) = up.load()
+        nick2user = self.nick2user
+        user2nick = self.user2nick
         self.knownusers = [i.lower() for i in nick2user.keys()]
         allusers = [u.name.lower() for u in ircdb.users.itervalues()]
         to_add = [x for x in self.knownusers if x not in allusers]
@@ -115,7 +116,6 @@ launchpad"""
         for u in nick2user.keys():
             try:
                 user = ircdb.users.getUser(u.lower())
-                #Add bantracker capability to all users from launchpad team
                 if not 'bantracker' in user.capabilities:
                     user.addCapability('bantracker')
             except Exception, e:
@@ -142,15 +142,29 @@ launchpad"""
         if not msg.tagged('identified'):
             irc.error('You are not identified')
             return
+        nick = msg.nick.lower()
+        user = None
         try:
-            user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')].lower())
+            user = self.nick2user.get(nick, None)
+            if user:
+                user = ircdb.users.getUser(user)
         except:
-            self.loadUsers()
+            user = None
+            pass
+        if not user:
             try:
-                user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')].lower())
+                user = ircdb.users.getUser(msg.prefix)
             except:
-                irc.error(conf.supybot.replies.incorrectAuthentication())
-                return
+                self.loadUsers()
+                try:
+                    user = ircdb.users.getUser(msg.prefix)
+                except:
+                    for (id, obj) in ircdb.users.users.iteritems():
+                        if obj.name.lower() == nick:
+                            user =  obj
+                    if not user:
+                        irc.error(conf.supybot.replies.incorrectAuthentication())
+                        return
         user.addAuth(msg.prefix)
         ircdb.users.setUser(user, flush=False)
         irc.replySuccess()
@@ -161,23 +175,26 @@ launchpad"""
             return
         if chr(1) in msg.args[1]:
             return
-        to = msg.args[0]
-        cmd = msg.args[1]
         try:
             user = ircdb.users.getUser(msg.prefix)
             if user.checkHostmask(msg.prefix):
+                #self.log.info("%s is a known user: %r" % (msg.prefix, user))
                 return
         except:
             pass
-        if to.lower() == irc.nick.lower():
-            if cmd != "login":
+
+        text = callbacks.addressed(irc.nick, msg)
+        if not text or text != "login":
+            if msg.args[1]:
+                if msg.args[1][0] == '@':
+                    cmd = msg.args[1][1:]
+                else:
+                    cmd = msg.args[1]
+                if cmd != "login":
+                    return
+            else:
                 return
-        elif msg.args[1][0] in conf.supybot.reply.whenAddressedBy.chars():
-            cmd = msg.args[1][1:]
-            if cmd != "login":
-                return
-        else:
-            return
+        self.log.info("Calling login for %s" % msg.prefix)
         self._callCommand(["login"], irc, msg, [])
 
     def do290(self, irc, msg):
@@ -190,12 +207,18 @@ launchpad"""
         irc.queueMsg(ircmsgs.IrcMsg('CAPAB IDENTIFY-MSG'))
 
     def inFilter(self, irc, msg):
+        if not msg.command == "PRIVMSG":
+            return msg
         if getattr(irc,'_Freenode_capabed',None) and msg.command == 'PRIVMSG':
-            first = msg.args[1][0]
-            rest = msg.args[1][1:]
-            msg.tag('identified', first == '+')
-            msg = ircmsgs.privmsg(msg.args[0], rest, msg=msg)
-            assert msg.receivedAt and msg.receivedOn and msg.receivedBy
+            if msg.tagged('identified') == None:
+                first = msg.args[1][0]
+                rest = msg.args[1][1:]
+                msg.tag('identified', first == '+')
+                if first in ('+', '-'):
+                    msg = ircmsgs.privmsg(msg.args[0], rest, msg=msg)
+                assert msg.receivedAt and msg.receivedOn and msg.receivedBy
+        if len(msg.args) >= 2 and msg.args[1] and msg.args[1][0] in ('+', '-'):
+            self.do376(irc, msg)
         return msg
 
 Class = IRCLogin
