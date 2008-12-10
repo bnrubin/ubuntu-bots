@@ -1,6 +1,7 @@
 #!/usr/bin/python
 ###
 # Copyright (c) 2006,2007 Dennis Kaarsemaker
+# Copyright (C) 2008 Terence Simpson <tsimpson@ubuntu.com> (stdin on irc.freenode.net)
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -63,12 +64,12 @@ if search:
     query2 = "SELECT COUNT(name) FROM facts WHERE "
     bogus = False
     for k in keys:
-        k = k.replace("'","\'")
+        k = repr('%' + k + '%')
         if bogus:
             query1 += ' OR '
             query2 += ' OR '
-        query1 += "name LIKE '%%%s%%' OR VAlUE LIKE '%%%s%%'" % (k, k)
-        query2 += "name LIKE '%%%s%%' OR VAlUE LIKE '%%%s%%'" % (k, k)
+        query1 += "name LIKE %s OR VAlUE LIKE %s" % (k, k)
+        query2 += "name LIKE %s OR VAlUE LIKE %s" % (k, k)
         bogus=True
 
     query1 += ') ORDER BY %s LIMIT %d, %d' % (order_by, NUM_PER_PAGE*page, NUM_PER_PAGE)
