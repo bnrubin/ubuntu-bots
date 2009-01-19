@@ -197,7 +197,7 @@ class Encyclopedia(callbacks.Plugin):
         elif ' tell ' in text and ' about ' in text:
             target = text[text.find(' tell ')+6:].strip().split(None,1)[0]
             text = text[text.find(' about ')+7:].strip()
-            retmsg = "%s wants you to know: " % nick
+            retmsg = "<%s> wants you to know: " % nick
             
         if target == 'me':
             target = nick

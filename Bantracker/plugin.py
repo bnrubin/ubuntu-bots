@@ -48,13 +48,22 @@ import supybot.callbacks as callbacks
 import supybot.ircmsgs as ircmsgs
 import supybot.conf as conf
 import supybot.ircdb as ircdb
-import sqlite, pytz, cPickle, datetime, time, random, md5, threading
+import sqlite
+import pytz
+import cPickle
+import datetime
+import time
+import random
+import md5
+import threading
 
 tz = 'UTC'
 
 def now():
     return cPickle.dumps(datetime.datetime.now(pytz.timezone(tz)))
 
+def fromTime(x):
+    return cPickle.dumps(datetime.datetime(*time.gmtime(x)[:6], **{'tzinfo': pytz.timezone("UTC")}))
 
 def capab(user, capability):
     capability = capability.lower()
@@ -77,6 +86,8 @@ def hostmaskPatternEqual(pattern, hostmask):
         return False
     if pattern.count('!') == 2:
         pattern = "!".join(pattern.split('!')[:-1])
+    if pattern[0] == '%':
+        pattern = pattern[1:]
     return ircutils.hostmaskPatternEqual(pattern, hostmask)
 
 def dequeue(parent, irc):
@@ -92,13 +103,11 @@ class MsgQueue(object):
     def clear(self):
         self.msgcache = []
     def dequeue(self, parent, irc):
-        parent.thread_timer.cancel()
         parent.thread_timer = threading.Timer(30.0, dequeue, args=(parent, irc))
-        if len(self.msgcache) == 0:
-            parent.thread_timer.start()
-            return
-        msg = self.msgcache.pop(0)
-        irc.queueMsg(msg)
+        if len(self.msgcache):
+            msg = self.msgcache.pop(0)
+            if irc:
+                irc.queueMsg(msg)
         parent.thread_timer.start()
 
 queue = MsgQueue()
@@ -110,12 +119,12 @@ class Ban(object):
         if args:
             self.mask = args[2]
             self.who = args[3]
-            self.when = args[4]
+            self.when = float(args[4])
         else:
             self.mask = kwargs['mask']
             self.who = kwargs['who']
-            self.when = kwargs['when']
-        self.ascwhen = time.asctime(time.gmtime(float(self.when)))
+            self.when = float(kwargs['when'])
+        self.ascwhen = time.asctime(time.gmtime(self.when))
 
     def __tuple__(self):
         return (self.mask, self.who, self.ascwhen)
@@ -131,21 +140,22 @@ class Ban(object):
 
 class Bantracker(callbacks.Plugin):
     """Plugin to manage bans.
-       Use 'mark' to add a bantracker entry manually,
-       'btlogin' to log into the bantracker,
-       'bansearch' to search the bantracker for bans and
-       'banlog' print the last 5 lines for ban entries
-       See '@list Bantracker' and '@help <command>' for other commands"""
+       See '@list Bantracker' and '@help <command>' for commands"""
     noIgnore = True
+    threaded = True
     
     def __init__(self, irc):
         self.__parent = super(Bantracker, self)
         self.__parent.__init__(irc)
+        self.default_irc = irc
         self.lastMsgs = {}
         self.lastStates = {}
+        self.replies = {}
         self.logs = {}
         self.nicks = {}
         self.bans = {}
+        self.nicks = {}
+        self.hosts = {}
 
         self.thread_timer = threading.Timer(30.0, dequeue, args=(self,irc))
         self.thread_timer.start()
@@ -159,10 +169,18 @@ class Bantracker(callbacks.Plugin):
         self.get_nicks(irc)
 
     def get_nicks(self, irc):
+        self.hosts.clear()
         for (channel, c) in irc.state.channels.iteritems():
             for nick in list(c.users):
+                nick = nick.lower()
                 if not nick in self.nicks:
-                    self.nicks[nick] = self.nick_to_host(irc, nick)
+                    host = self.nick_to_host(irc, nick, False).lower()
+                    self.nicks[nick] = host
+                    host = host.split('@', 1)[1]
+                    if '*' not in host:
+                        if host not in self.hosts:
+                            self.hosts[host] = []
+                        self.hosts[host].append(nick)
 
     def get_bans(self, irc):
         global queue
@@ -171,21 +189,39 @@ class Bantracker(callbacks.Plugin):
                 self.bans[channel] = []
             queue.queue(ircmsgs.mode(channel, 'b'))
 
-    def sendWhois(self, irc, nick):
+    def sendWhois(self, irc, nick, do_reply=False, *args):
+        nick = nick.lower()
         irc.queueMsg(ircmsgs.whois(nick, nick))
+        if do_reply:
+            self.replies[nick] = [args[0], args[1:]]
 
     def do311(self, irc, msg):
         """/whois"""
         nick = msg.args[1].lower()
         mask = "%s!%s@%s" % (nick, msg.args[2].lower(), msg.args[3].lower())
+        mask = mask.lower()
         self.nicks[nick] = mask
+        host = mask.split('@', 1)[1]
+        if nick in self.replies:
+            f = getattr(self, "real_%s" % self.replies[nick][0])
+            args = self.replies[nick][1]
+            del self.replies[nick]
+            kwargs={'from_reply': True, 'reply': "%s!%s@%s" % (msg.args[1], msg.args[2], msg.args[3])}
+            f(*args, **kwargs)
 
     def do314(self, irc, msg):
         """/whowas"""
         nick = msg.args[1].lower()
         mask = "%s!%s@%s" % (nick, msg.args[2].lower(), msg.args[3].lower())
+        mask = mask.lower()
         if not nick in self.nicks:
             self.nicks[nick] = mask
+        if nick in self.replies:
+            f = getattr(self, "real_%s" % self.replies[nick][0])
+            args = self.replies[nick][1]
+            del self.replies[nick]
+            kwargs={'from_reply': True, 'reply': "%s!%s@%s" % (msg.args[1], msg.args[2], msg.args[3])}
+            f(*args, **kwargs)
 
     def do401(self, irc, msg):
         """/whois faild"""
@@ -193,7 +229,13 @@ class Bantracker(callbacks.Plugin):
 
     def do406(self, irc, msg):
         """/whowas faild"""
-        self.log.info("Host lookup faild")
+        nick = msg.args[1].lower()
+        if nick in self.replies:
+            f = getattr(self, "real_%s" % self.replies[nick][0])
+            args = self.replies[nick][1]
+            del self.replies[nick]
+            kwargs = {'from_reply': True, 'reply': None}
+            f(*args, **kwargs)
 
     def do367(self, irc, msg):
         """Got ban"""
@@ -201,22 +243,23 @@ class Bantracker(callbacks.Plugin):
             self.bans[msg.args[1]] = []
         self.bans[msg.args[1]].append(Ban(msg.args))
 
-    def nick_to_host(self, irc, target):
+    def nick_to_host(self, irc=None, target='', with_nick=True, reply_now=True):
         target = target.lower()
         if ircutils.isUserHostmask(target):
             return target
         elif target in self.nicks:
             return self.nicks[target]
-        else:
+        elif irc:
             try:
                 return irc.state.nickToHostmask(target)
             except:
                 self.sendWhois(irc, target)
-
-        if target in self.nicks:
-            return self.nicks[target]
-        else:
-            return "%s!*@*" % target
+                if reply_now:
+                    self.sendWhois(irc, target)
+                    if with_nick:
+                        return "%s!*@*" % target
+                    return "*@*"
+        return
 
     def die(self):
         global queue
@@ -239,10 +282,10 @@ class Bantracker(callbacks.Plugin):
             except:
                 pass
         queue.clear()
-        self.logs.clear()
+#        self.logs.clear()
+#        self.nicks.clear()
         self.lastMsgs.clear()
         self.lastStates.clear()
-        self.nicks.clear()
 
     def __call__(self, irc, msg):
         try:
@@ -285,17 +328,20 @@ class Bantracker(callbacks.Plugin):
             s = time.strftime(format, time.gmtime()) + " " + ircutils.stripFormatting(s)
         self.logs[channel] = self.logs[channel][-199:] + [s.strip()]
 
-    def doKickban(self, irc, channel, nick, target, kickmsg = None):
+    def doKickban(self, irc, channel, nick, target, kickmsg = None, use_time = None):
         if not self.registryValue('enabled', channel):
             return
         n = now()
+        if use_time:
+            n = fromTime(use_time)
         id = self.db_run("INSERT INTO bans (channel, mask, operator, time, log) values(%s, %s, %s, %s, %s)", 
-                          (channel, target, nick, n, '\n'.join(self.logs[channel])), expect_id=True)
+                      (channel, target, nick, n, '\n'.join(self.logs[channel])), expect_id=True)
         if kickmsg and id and not (kickmsg == nick):
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, kickmsg, n))
         if channel not in self.bans:
             self.bans[channel] = []
         self.bans[channel].append(Ban(mask=target, who=nick, when=time.mktime(time.gmtime())))
+        return id
 
     def doUnban(self, irc, channel, nick, mask):
         if not self.registryValue('enabled', channel):
@@ -350,6 +396,7 @@ class Bantracker(callbacks.Plugin):
                        '*** %s has joined %s\n' % (msg.nick or msg.prefix, channel))
             if not channel in self.bans.keys():
                 self.bans[channel] = []
+            if msg.prefix.split('!', 1)[0] == irc.nick:
                 queue.queue(ircmsgs.mode(channel, 'b'))
         nick = msg.nick.lower() or msg.prefix.lower().split('!', 1)[0]
         self.nicks[nick] = msg.prefix.lower()
@@ -376,6 +423,12 @@ class Bantracker(callbacks.Plugin):
                 self.doKickban(irc, channel, args[2].replace(':',''), msg.nick, ' '.join(args[3:])[1:-1].strip())
 
     def doMode(self, irc, msg):
+        user = None
+        if msg.tagged('identified'):
+            try:
+                user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')].lower())
+            except:
+                pass
         channel = msg.args[0]
         if irc.isChannel(channel) and msg.args[1:]:
             self.doLog(irc, channel,
@@ -390,7 +443,9 @@ class Bantracker(callbacks.Plugin):
                     elif c == '+': plusmin = True
                     else:
                         if c == 'b':
-                            if plusmin: self.doKickban(irc, channel, msg.nick, msg.args[i])
+                            if plusmin:
+                                id = self.doKickban(irc, channel, msg.nick, msg.args[i])
+                                msg = ircmsgs.privmsg(msg.nick, "Ban %s (ID: %s)" % (msg.args[i], id))
                             else: self.doUnban(irc,channel, msg.nick, msg.args[i])
                             i += 1
                         if c == 'd':
@@ -409,6 +464,8 @@ class Bantracker(callbacks.Plugin):
         for (channel, chan) in self.lastStates[irc].channels.iteritems():
             if msg.nick in chan.users:
                 self.doLog(irc, channel, '*** %s has quit IRC (%s)\n' % (msg.nick, msg.args[0]))
+            if msg.nick in self.nicks:
+                del self.nicks[msg.nick]
 
     def outFilter(self, irc, msg):
         # Gotta catch my own messages *somehow* :)
@@ -446,7 +503,7 @@ class Bantracker(callbacks.Plugin):
         return user
 
     def btlogin(self, irc, msg, args):
-        """takes no arguments
+        """Takes no arguments
 
         Sends you a message with a link to login to the bantracker.
         """
@@ -482,9 +539,10 @@ class Bantracker(callbacks.Plugin):
         if not channel:
             irc.error('<channel> must be given if not in a channel')
             return
+        channel = channel.lower()
         channels = []
         for chan in irc.state.channels.keys():
-            channels.append(chan)
+            channels.append(chan.lower())
 
         if not channel in channels:
             irc.error('Not in that channel')
@@ -541,7 +599,7 @@ class Bantracker(callbacks.Plugin):
         return match
 
 
-    def bansearch(self, irc, msg, args, target, channel):
+    def real_bansearch(self, irc, msg, args, target, channel, from_reply=False, reply=None):
         """<nick|hostmask> [<channel>]
 
         Search bans database for a ban on nick/host,
@@ -557,21 +615,29 @@ class Bantracker(callbacks.Plugin):
         if not user:
             return
 
-        hostmask = self.nick_to_host(irc, target)
-        data = self.sort_bans(channel)
+        if from_reply:
+            if not reply:
+                if capab(user, 'admin'):
+                    if len(queue.msgcache) > 0:
+                            irc.reply("Warning: still syncing (%i)" % len(queue.msgcache))
+                irc.reply("No matches found for %s in %s" % (hostmask, True and channel or "any channel"))
+            hostmask = reply
+        else:
+            hostmask = self.nick_to_host(irc, target, reply_now=False)
+        if not hostmask:
+            self.sendWhois(irc, target, True, 'bansearch', irc, msg, args, target, channel)
+            return
+        match = self.getBans(hostmask, channel)
+
         if capab(user, 'admin'):
             if len(queue.msgcache) > 0:
                 irc.reply("Warning: still syncing (%i)" % len(queue.msgcache))
-
-        hostmask = self.nick_to_host(irc, target)
-        match = self.getBans(hostmask, channel)
 
         if not match:
             irc.reply("No matches found for %s in %s" % (hostmask, True and channel or "any channel"))
             return
         ret = []
         for m in match:
-            ret.append(format_entry(self.db_run("SELECT mask, operator, channel, time FROM bans WHERE id=%d", m[1], expect_result=True)[0]))
             if m[1]:
                 ret.append((format_entry(self.db_run("SELECT mask, operator, channel, time FROM bans WHERE id=%d", m[1], expect_result=True)[0]), m[1]))
 
@@ -588,13 +654,8 @@ class Bantracker(callbacks.Plugin):
 
         for i in ret:
             irc.reply("Match: %s by %s in %s on %s (ID: %s)" % (i[0] + (i[1],)))
-            if capab(user, 'botmsg'):
-                if target.split('!', 1)[0] != '*':
-                    irc.reply("%s/bans.cgi?log=%s&mark=%s" % (self.registryValue('bansite'), i[1], target.split('!')[0]), private=True)
-                else:
-                    irc.reply("%s/bans.cgi?log=%s" % (self.registryValue('bansite'), i[1]), private=True)
 
-    bansearch = wrap(bansearch, ['something', optional('anything', default=None)])
+    bansearch = wrap(real_bansearch, ['something', optional('anything', default=None)])
 
     def banlog(self, irc, msg, args, target, channel):
         """<nick|hostmask> [<channel>]
@@ -603,11 +664,13 @@ class Bantracker(callbacks.Plugin):
         the nick/host has to have an active ban/mute against it.
         If channel is not given search all channel bans.
         """
-        if not self.check_auth(irc, msg, args):
+        user = self.check_auth(irc, msg, args)
+        if not user:
             return
 
-        if len(queue.msgcache) > 0:
-            irc.reply("Warning: still syncing (%i)" % len(queue.msgcache))
+        if capab(user, 'admin'):
+            if len(queue.msgcache) > 0:
+                irc.reply("Warning: still syncing (%i)" % len(queue.msgcache))
 
         hostmask = self.nick_to_host(irc, target)
         target = target.split('!', 1)[0]
@@ -619,12 +682,9 @@ class Bantracker(callbacks.Plugin):
 
         ret = []
         for m in match:
-            if m[1]:
-                ret.append((self.db_run("SELECT log, channel FROM bans WHERE id=%d", m[1], expect_result=True), m[1]))
+            ret.append((self.db_run("SELECT log, channel FROM bans WHERE id=%d", m[1], expect_result=True), m[1]))
 
         sent = []
-        if not ret:
-            irc.reply("No matches in tracker")
         for logs in ret:
             log = logs[0]
             id = logs[1]
@@ -646,7 +706,8 @@ class Bantracker(callbacks.Plugin):
 
     def updatebt(self, irc, msg, args, channel):
         """[<channel>]
-        Update bans in the tracker from channel ban list,
+
+        Update bans in the tracker from the channel ban list,
         if channel is not given then run in all channels
         """
 
@@ -665,40 +726,60 @@ class Bantracker(callbacks.Plugin):
                     bans.remove(ban)
 
             for ban in remove_bans:
-                self.log.info("Removing ban %s from %s" % (ban, channel))
+                self.log.info("Removing ban %s from %s" % (ban.replace('%', '%%'), chan))
                 self.doUnban(irc, channel, "Automated-Removal", ban)
-
             return len(remove_bans)
+
+        def addBans(chan):
+            bans = self.bans[chan]
+            old_bans = getBans(chan)
+            add_bans = []
+            for ban in bans:
+                if ban.mask not in old_bans and ban not in add_bans:
+                    add_bans.append(ban)
+
+            for ban in add_bans:
+                nick = ban.who
+                if nick.endswith('.freenode.net'):
+                    nick = "Automated-Addition"
+                self.log.info("Adding ban %s to %s (%s)" % (str(ban).replace('%', '%%'), chan, nick))
+                self.doLog(irc, channel.lower(), '*** Ban sync from channel: %s\n' % str(ban).replace('%', '%%'))
+                self.doKickban(irc, chan, nick, ban.mask, use_time = ban.when)
+            return len(add_bans)
 
         if not self.check_auth(irc, msg, args, 'owner'):
             return
 
-        res = 0
+        a_res = 0
+        r_res = 0
 
         if len(queue.msgcache) > 0:
             irc.reply("Error: still syncing (%i)" % len(queue.msgcache))
             return
 
-        try:
-            if channel:
-                res += remBans(channel)
-            else:
-                for channel in irc.state.channels.keys():
-                    if channel not in  self.bans:
-                        self.bans[channel] = []
-                    res += remBans(channel)
-        except KeyError, e:
-            irc.error("%s, Please wait longer" % e)
-            return
+        if channel:
+            r_res += remBans(channel)
+            a_res += addBans(channel)
+        else:
+            for channel in irc.state.channels.keys():
+                if channel not in self.bans:
+                    self.bans[channel] = []
+                r_res += remBans(channel)
+                a_res += addBans(channel)
 
-        irc.reply("Cleared %i obsolete bans" % res)
+        irc.reply("Cleared %i obsolete bans" % r_res)
+        irc.reply("Added %i new bans" % a_res)
+        delta = r_res + a_res
+        irc.reply("Delta: %s%i" % (str(delta and ' +')[-1], delta))
 
     updatebt = wrap(updatebt, [optional('anything', default=None)])
 
     def comment(self, irc, msg, args, id, kickmsg):
         """<id> [<comment>]
+
         Reads or adds the <comment> for the ban with <id>,
-        use @bansearch to find the id of a ban"""
+        use @bansearch to find the id of a ban
+        """
         def addComment(id, nick, msg):
             n = now()
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, msg, n))
@@ -713,28 +794,14 @@ class Bantracker(callbacks.Plugin):
             data = readComment(id)
             if data:
                 for c in data:
-                    irc.reply("%s %s: %s" % (cPickle.loads(c[2]).astimezone(pytz.timezone('UTC')).strftime("%b %d %Y %H:%M:%S"), c[0], c[1]) )
+                    irc.reply("%s %s: %s" % (cPickle.loads(c[2]).astimezone(pytz.timezone('UTC')).strftime("%b %d %Y %H:%M:%S"), c[0], c[1].strip()) )
             else:
                 irc.error("No comments recorded for ban %i" % id)
     comment = wrap(comment, ['id', optional('text')])
 
-    def togglemsg(self, irc, msg, args):
-        """takes no arguments
-        Enable/Disable private mssages from the bot
-        """
-        user = self.check_auth(irc, msg, args)
-        if not user:
-            return
-        if capab(user, 'botmsg'):
-            user.removeCapability('botmsg')
-            irc.reply("Disabled")
-        else:
-            user.addCapability('botmsg')
-            irc.reply("Enabled")
-    togglemsg = wrap(togglemsg)
-
     def banlink(self, irc, msg, args, id, highlight):
         """<id> [<highlight>]
+
         Returns a direct link to the log of kick/ban <id>
         if <highlight> is given, lines containing that will be highlighted
         """
