@@ -33,6 +33,6 @@ conf.registerGlobalValue(Encyclopedia, 'datadir',
 conf.registerChannelValue(Encyclopedia, 'alert',
     registry.SpaceSeparatedListOfStrings(['ops', 'op', 'kops', 'calltheops'], 'factoid name(s) used for alerts', private=True))
 conf.registerChannelValue(Encyclopedia, 'remotedb',
-    registry.String('http://jussi01.com/web/ubuntu.db', 'Remote location of the master database', private=True))
+    registry.String('http://ubottu.com/ubuntu.db', 'Remote location of the master database', private=True))
 conf.registerChannelValue(Encyclopedia, 'ignores',
     registry.SpaceSeparatedListOfStrings(['find', 'info'], 'factoid name(s) to ignore', private=True))
