@@ -76,7 +76,7 @@ If errors is True print any errors to stderr, defaults to True
             if e <= s:
                 break
             # Limit to freenode nicks
-            if 'on network <code style="font-size: 120%">irc.freenode.net</code>' in data[s:e]:
+            if 'freenode' in data[s:e] or 'ubuntu' in data[s:e]:
                 ircnames.append(data[s:e])
             del data[s:e]
         except:

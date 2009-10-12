@@ -1,29 +1,20 @@
 #!/usr/bin/python
 import sys, os
 sys.path.append(os.path.dirname(__file__))
+import icalendar
+reload(icalendar)
 from icalendar import Calendar, cal, prop
 from dateutil import tz as tzmod
 from cStringIO import StringIO
 import pytz
 import urllib2
-import datetime
+import datetime, time
 import rruler
-
-DEB_OBJ = None
+reload(rruler)
 
 SECONDS_PER_DAY=24*60*60
 def seconds(timediff):
     return SECONDS_PER_DAY * timediff.days + timediff.seconds
-
-def toTz(date, tz):
-    assert isinstance(tz, datetime.tzinfo), "tz must be a tzinfo type"
-    if isinstance(date, datetime.datetime):
-        try:
-            return date.astimezone(tz)
-        except:
-            return datetime.datetime.combine(date.date(), datetime.time(date.time().hour, date.time().minute, date.time().second, tzinfo=tz))
-    elif isinstance(datetime.date):
-        return datetime.datetime.combine(date, datetime.time(0, 0, 0, tzinfo=tz))
 
 class ICalReader:
     def __init__(self, data):
@@ -83,6 +74,10 @@ class ICalReader:
             event.addRecurrenceRule(rule)
         return event
 
+    @staticmethod
+    def toTz(date, tz):
+        return datetime.datetime(date.year, date.month, date.day, date.hour, date.minute, date.second, tzinfo=tz)
+
     def parseDate(self, date):
         if not date:
             return
@@ -92,7 +87,7 @@ class ICalReader:
         for attr in ['hour', 'minute', 'second']:
             if not hasattr(date.dt, attr):
                 return
-        return toTz(date.dt, tz)
+        return self.toTz(date.dt, tz)
 #        return datetime.datetime(date.dt.year, date.dt.month, date.dt.day, date.dt.hour, date.dt.minute, date.dt.second, tzinfo=tz)
 
     def selectEvents(self, selectFunction):
@@ -132,11 +127,8 @@ class ICalEvent(cal.Event):
 
     @classmethod
     def from_event(cls, event, parent):
-        global DEB_OBJ
         x = cls(**dict(event))
         x.__dict__ = event.__dict__
-        x.exceptionDates = []
-        x.dateSet = None
         x.summary = x['summary']
         x.timezone = x['dtstart'].dt.tzinfo
         x.startDate = parent.parseDate(x['dtstart'])
@@ -148,27 +140,25 @@ class ICalEvent(cal.Event):
         x.raw_data = str(x)
         if 'rrule' in event:
             x.addRecurrenceRule(event['rrule'])
-        if x.summary == "Server Team Meeting":
-            DEB_OBJ = x
         return x
 
     def __str__(self):
         return "%s (%s - %s)" % (self.summary, self.startDate, self.endDate)
 
     def __eq__(self, otherEvent):
-        return self.startTime() == otherEvent.startTime()
+        return self.startDate == otherEvent.startDate
 
     def __lt__(self, otherEvent):
-        return self.startTime() < otherEvent.startTime()
+        return self.startDate < otherEvent.startDate
 
     def __gt__(self, otherEvent):
-        return self.startTime() > otherEvent.startTime()
+        return self.startDate > otherEvent.startDate
 
     def __ge__(self, otherEvent):
-        return self.startTime() >= otherEvent.startTime()
+        return self.startDate >= otherEvent.startDate
 
     def __le__(self, otherEvent):
-        return self.startTime() <= otherEvent.startTime()
+        return self.startDate <= otherEvent.startDate
 
     def addExceptionDate(self, date):
         self.exceptionDates.append(date)
@@ -180,8 +170,7 @@ class ICalEvent(cal.Event):
         return self.startsOn(datetime.datetime.today())
 
     def startsTomorrow(self):
-        tomorrow = datetime.datetime.today() + datetime.timedelta(1)
-#        tomorrow = datetime.datetime.fromtimestamp(time.time() + SECONDS_PER_DAY)
+        tomorrow = datetime.datetime.fromtimestamp(time.time() + SECONDS_PER_DAY)
         return self.startsOn(tomorrow)
 
     def startsOn(self, date):
@@ -191,47 +180,29 @@ class ICalEvent(cal.Event):
                 (self.dateSet and self.dateSet.includes(date)))
 
     def startTime(self):
-        now = datetime.datetime.now(pytz.UTC)
-        if self.dateSet and self.startDate < now:
-            dates = self.dateSet.getRecurrence()
-            for date in dates:
-                if date.date() >= now.date():
-                    if date.date() > now.date() or (date.date() == now.date and date.astimezone(pytz.UTC).time() >= now.time()):
-                        return toTz(datetime.datetime.combine(date,self.startDate.time()), self.startDate.tzinfo)
         return self.startDate
-
-    def endTime(self):
-        now = datetime.datetime.now(pytz.UTC).date()
-        if self.dateSet and self.endDate.date() < now:
-            return toTz(datetime.datetime.combine(self.startTime().date(), self.endDate.time()), self.startDate.tzinfo)
-        return self.endDate
 
     def schedule(self, timezone=None):
         if not timezone:
-            return "%s UTC: %s" % (self.startTime().astimezone(pytz.UTC).strftime("%d %b %H:%M"), self.summary.replace('Meeting','').strip())
-        if isinstance(timezone, basestring):
-            return "%s: %s" % (self.startTime().astimezone(pytz.timezone(timezone)).strftime("%d %b %H:%M"), self.summary.replace('Meeting','').strip())
-        return "%s: %s" % (self.startTime().astimezone(timezone).strftime("%d %b %H:%M"), self.summary.replace('Meeting','').strip())
+            return "%s UTC: %s" % (self.startDate.strftime("%d %b %H:%M"), self.summary.replace('Meeting','').strip())
+        return "%s: %s" % (self.startDate.astimezone(pytz.timezone(timezone)).strftime("%d %b %H:%M %Z"), self.summary.replace('Meeting','').strip())
 
     def is_on(self):
-        now = datetime.datetime.now(pytz.UTC)
-        return self.startTime() >= now and self.endTime() < now
+        return self.startDate < datetime.datetime.now(pytz.UTC) and self.endDate > datetime.datetime.now(pytz.UTC)
 
     def has_passed(self):
-        if self.dateSet:
-            return toTz(datetime.datetime.combine(self.startTime().date(), self.endDate.time()), self.startDate.tzinfo) < datetime.datetime.now(pytz.UTC)
         return self.endDate < datetime.datetime.now(pytz.UTC)
 
     def seconds_to_go(self):
-        return seconds(self.startTime() - datetime.datetime.now(pytz.UTC))
+        return seconds(self.startDate - datetime.datetime.now(pytz.UTC))
 
     def seconds_ago(self):
-        return seconds(datetime.datetime.now(pytz.UTC) - self.endTime())
+        return seconds(datetime.datetime.now(pytz.UTC) - self.endDate)
 
     def time_to_go(self):
-        if self.endTime() < datetime.datetime.now(pytz.UTC):
+        if self.endDate < datetime.datetime.now(pytz.UTC):
             return False
-        delta = self.startTime() - datetime.datetime.now(pytz.UTC)
+        delta = self.startDate - datetime.datetime.now(pytz.UTC)
         s = ''
         if delta.days:
             if delta.days != 1:
@@ -257,25 +228,72 @@ class DateSet:
         self.untilDate = None
         self.byMonth = None
         self.byDate = None
-        self.dates = None
         self.parseRecurrenceRule(rule)
 
     def parseRecurrenceRule(self, rule):
         freq = rruler.rrule_map[rule.pop('freq')[0]]
-        now = datetime.datetime.now(self.startDate.tzinfo)
-        rule['dtstart'] = now
-        rule['until'] = now + datetime.timedelta(60)
         self.recurrence = rruler.rrule_wrapper(freq, **rule)
-
-    def getRecurrence(self):
-        if not self.dates:
-            self.dates = []
-            for x in list(self.recurrence):
-                self.dates.append(toTz(x, self.startDate.tzinfo))
-            self.dates.append(self.startDate)
-        return self.dates
+#        if 'freq' in rule:
+#            self.frequency = rule['freq']
+#        if 'count' in rule:
+#            self.count = rule['count']
+#        if 'until' in rule:
+##            self.untilDate = rule['until'][0].strftime("%Y%m%dT%H%M%SZ")
+#            self.untilDate = rule['until'][0]
+#        if 'interval' in rule:
+#            self.interval = rule['interval']
+#        if 'bymonth' in rule:
+#            self.myMonth = rule['bymonth']
+#        if 'byday' in rule:
+#            self.byDay = rule['byday']
 
     def includes(self, date):
         if isinstance(date, datetime.datetime):
             date = date.date()
-        return date in [x.date() for x in self.getRecurrence()]
+        return date in [x.date() for x in list(self.recurrence)] or date == self.startDate.date()
+#        if date == self.startDate:
+#            return True
+#
+#        if self.untilDate and date > self.untilDate:
+#            return False
+#
+#        if self.frequency == 'DAILY':
+#            increment = 1
+#            if self.interval:
+#                increment = self.interval
+#            d = self.startDate
+#            counter = 0
+#            while(d < date):
+#                if self.count:
+#                    counter += 1
+#                    if counter >= self.count:
+#                        return False
+#
+#                d = d.replace(day=d.day+1)
+#
+#                if (d.day == date.day and
+#                    d.year == date.year and
+#                    d.month == date.month):
+#                    return True
+#
+#        elif self.frequency == 'WEEKLY':
+#            if self.startDate.weekday() == date.weekday():
+#                return True
+#            else:
+#                if self.endDate:
+#                    for n in range(0, self.endDate.day - self.startDate.day):
+#                        newDate = self.startDate.replace(day=self.startDate.day+n)
+#                        if newDate.weekday() == date.weekday():
+#                            return True
+#
+#        elif self.frequency == 'MONTHLY':
+#            if self.startDate.month == date.month:
+#                if self.startDate.weekday() == date.weekday():
+#                    return True
+#
+#        elif self.frequency == 'YEARLY':
+#            if (self.startDate.month == date.month) and (self.startDate.day == date.day):
+#                return True
+#
+#        return False
+

@@ -1,0 +1,182 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:PUBLISH
+X-WR-CALNAME:The Fridge | October 17\, 2008 - December 16\, 2008
+PRODID:-//strange bird labs//Drupal iCal API//EN
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081017T190000Z
+DTEND;VALUE=DATE-TIME:20081017T210000Z
+UID:http://fridge.ubuntu.com/node/1656
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1656
+SUMMARY:Tunisian LoCo Team IRC Meeting
+DESCRIPTION:<p>Location\: #ubuntu-tn<br />
+ Agenda\: Team participation to SFD Tunisia 2008.</p>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081018T130000Z
+DTEND;VALUE=DATE-TIME:20081018T150000Z
+UID:http://fridge.ubuntu.com/node/1571
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1571
+SUMMARY:Xubuntu Community Meeting
+DESCRIPTION:<p>Location\: #ubuntu-meeting<br />
+ Agenda\: https\://wiki.ubuntu.com/Xubuntu/Meetings</p>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081021T110000Z
+DTEND;VALUE=DATE-TIME:20081021T130000Z
+UID:http://fridge.ubuntu.com/node/1558
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1558
+SUMMARY:Community Council Meeting
+DESCRIPTION:<p>Location\: #ubuntu-meeting<br />
+ Agenda\: <a href=\\"https\://wiki.ubuntu.com/CommunityCouncilAgenda\\">https\://wiki.ubuntu.com/CommunityCouncilAgenda</a></p>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081021T110000Z
+DTEND;VALUE=DATE-TIME:20081021T120000Z
+UID:http://fridge.ubuntu.com/node/1678
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1678
+SUMMARY:Asia Oceania Membership Board Meeting
+DESCRIPTION:<p>Location\: #ubuntu-meeting</p>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081021T140000Z
+DTEND;VALUE=DATE-TIME:20081021T160000Z
+UID:http://fridge.ubuntu.com/node/1662
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1662
+SUMMARY:Technical Board Meeting
+DESCRIPTION:<ul>
+ <li><strong>Agenda\:</strong> <a href=\\"https\://wiki.ubuntu.com/TechnicalBoardAgenda\\">https\://wiki.ubuntu.com/TechnicalBoardAgenda</a></li>
+ <li><strong>Location\:</strong> #ubuntu-meeting</li>
+ </ul>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081021T150000Z
+DTEND;VALUE=DATE-TIME:20081021T160000Z
+UID:http://fridge.ubuntu.com/node/1681
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1681
+SUMMARY:Server Team Meeting
+DESCRIPTION:<p>Location\: #ubuntu-meeting on IRC<br />
+ Agenda\: https\://wiki.ubuntu.com/ServerTeam/Meeting</p>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081021T170000Z
+DTEND;VALUE=DATE-TIME:20081021T180000Z
+UID:http://fridge.ubuntu.com/node/1683
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1683
+SUMMARY:Kernel Team Meeting
+DESCRIPTION:<p>Location\:  #ubuntu-meeting in IRC<br />
+ Agenda\:  Not listed as of publication</p>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081022T230000Z
+DTEND;VALUE=DATE-TIME:20081023T000000Z
+UID:http://fridge.ubuntu.com/node/1667
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1667
+SUMMARY:Forum Council Meeting
+DESCRIPTION:<p>Location\: #ubuntu-meeting</p>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081028T160000Z
+DTEND;VALUE=DATE-TIME:20081028T170000Z
+UID:http://fridge.ubuntu.com/node/1682
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1682
+SUMMARY:Server Team Meeting
+DESCRIPTION:<p>Location\: #ubuntu-meeting on IRC<br />
+ Agenda\:  https\://wiki.ubuntu.com/ServerTeam/Meeting</p>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081028T170000Z
+DTEND;VALUE=DATE-TIME:20081028T180000Z
+UID:http://fridge.ubuntu.com/node/1684
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1684
+SUMMARY:Kernel Team Meeting
+DESCRIPTION:<p>Location\:  #ubuntu-meeting in IRC<br />
+ Agenda\: Not listed as of publication</p>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081104T140000Z
+DTEND;VALUE=DATE-TIME:20081104T140000Z
+UID:http://fridge.ubuntu.com/node/1663
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1663
+SUMMARY:Technical Board Meeting
+DESCRIPTION:<ul>
+ <li><strong>Agenda\:</strong> <a href=\\"https\://wiki.ubuntu.com/TechnicalBoardAgenda\\">https\://wiki.ubuntu.com/TechnicalBoardAgenda</a></li>
+ <li><strong>Location\:</strong> #ubuntu-meeting</li>
+ </ul>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081104T210000Z
+DTEND;VALUE=DATE-TIME:20081104T230000Z
+UID:http://fridge.ubuntu.com/node/1553
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1553
+SUMMARY:Community Council Meeting
+DESCRIPTION:<p>Location\: #ubuntu-meeting<br />
+ Agenda\: <a href=\\"https\://wiki.ubuntu.com/CommunityCouncilAgenda\\">https\://wiki.ubuntu.com/CommunityCouncilAgenda</a></p>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081106T000000Z
+DTEND;VALUE=DATE-TIME:20081106T010000Z
+UID:http://fridge.ubuntu.com/node/1547
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1547
+SUMMARY:Maryland LoCo IRC Meeting
+DESCRIPTION:<p>Location\: #ubuntu-us-md</p>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081118T110000Z
+DTEND;VALUE=DATE-TIME:20081118T130000Z
+UID:http://fridge.ubuntu.com/node/1559
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1559
+SUMMARY:Community Council Meeting
+DESCRIPTION:<p>Location\: #ubuntu-meeting<br />
+ Agenda\: <a href=\\"https\://wiki.ubuntu.com/CommunityCouncilAgenda\\">https\://wiki.ubuntu.com/CommunityCouncilAgenda</a></p>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081202T210000Z
+DTEND;VALUE=DATE-TIME:20081202T230000Z
+UID:http://fridge.ubuntu.com/node/1554
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1554
+SUMMARY:Community Council Meeting
+DESCRIPTION:<p>Location\: #ubuntu-meeting<br />
+ Agenda\: <a href=\\"https\://wiki.ubuntu.com/CommunityCouncilAgenda\\">https\://wiki.ubuntu.com/CommunityCouncilAgenda</a></p>
+ 
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP;VALUE=DATE:20081017T202549Z
+DTSTART;VALUE=DATE-TIME:20081204T000000Z
+DTEND;VALUE=DATE-TIME:20081204T010000Z
+UID:http://fridge.ubuntu.com/node/1548
+URL;VALUE=URI:http://fridge.ubuntu.com/node/1548
+SUMMARY:Maryland LoCo IRC Meeting
+DESCRIPTION:<p>Location\: #ubuntu-us-md</p>
+ 
+END:VEVENT
+END:VCALENDAR

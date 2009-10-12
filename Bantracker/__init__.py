@@ -21,7 +21,7 @@ import supybot.world as world
 __version__ = "0.3.1"
 __author__ = supybot.Author("Dennis Kaarsemaker","Seveas","dennis@kaarsemaker.net")
 __contributors__ = {supybot.Author("Terence Simpson", "stdin", "stdin@stdin.me.uk"): ['Alow configurable bantracker URL']}
-__url__ = 'https://ubotu.ubuntu-nl.org'
+__url__ = 'http://ubottu.com/'
 
 import config
 reload(config)

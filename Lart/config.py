@@ -42,13 +42,9 @@ def configure(advanced):
 
 Lart = conf.registerPlugin('Lart')
 # This is where your configuration variables (if any) should go.  For example:
-# conf.registerGlobalValue(Lart, 'someConfigVariableName',
-#     registry.Boolean(False, """Help for someConfigVariableName."""))
-conf.registerChannelValue(Lart, 'showIds',
-    registry.Boolean(False, """Determines whether the bot will show the ids of
-    a lart when the lart is given."""))
 conf.registerChannelValue(Lart, 'enabled',
-    registry.Boolean(False, """Mesa want lart!"""))
-
+    registry.Boolean(False, "Whether or not to enable the LART for the channel"))
+conf.registerChannelValue(Lart, 'showIds',
+    registry.Boolean(False, "Determines whether the bot will show the ids of a lart when the lart is given."))
 
 # vim:set shiftwidth=4 tabstop=4 expandtab textwidth=79:

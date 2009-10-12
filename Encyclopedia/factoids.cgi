@@ -1,7 +1,7 @@
 #!/usr/bin/python
 ###
 # Copyright (c) 2006,2007 Dennis Kaarsemaker
-# Copyright (C) 2008 Terence Simpson <tsimpson@ubuntu.com> (stdin on irc.freenode.net)
+# Copyright (c) 2008, 2009 Terence Simpson
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -16,17 +16,17 @@
 
 import sys
 # This needs to be set to the location of the commoncgi.py file
-sys.path.append('/var/www/')
+sys.path.append('/var/www/bot')
 from commoncgi import *
 
 ### Variables
 NUM_PER_PAGE=50.0
-# Directory of the factoids database
-datadir = '/home/ubotu/data'
-# Database name (without .db)
+# Directory containing the factoid database
+datadir = '/home/bot/'
+# Database filename (without the .db extention)
 default_database = 'ubuntu'
 
-#### You shouldn't have to change anything under this line ###
+### Nothing below this line should be edited unless you know what you're doing ###
 
 databases = [x for x in os.listdir(datadir)]
 

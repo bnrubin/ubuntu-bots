@@ -19,11 +19,14 @@ import supybot.ircutils as ircutils
 import supybot.callbacks as callbacks
 import supybot.schedule as schedule
 import supybot.ircmsgs as ircmsgs
+import supybot.ircdb as ircdb
 import supybot.conf as conf
-import pytz
-import ical
-import datetime, shelve, re
-import cPickle as pickle
+
+try:
+    import supybot.plugin as plugin
+    LoggerWrapper = plugin.loadPluginModule("IRCLog", False).LoggerWrapper
+except Exception, e:
+    def LoggerWrapper(self): return self.log
 
 def checkIgnored(hostmask, recipient='', users=ircdb.users, channels=ircdb.channels):
     if ircdb.ignores.checkIgnored(hostmask):
@@ -58,25 +61,38 @@ def checkIgnored(hostmask, recipient='', users=ircdb.users, channels=ircdb.chann
     else:
         return False
 
+import pytz
+import ical
+reload(ical)
+import datetime, shelve, re
+import cPickle as pickle
+
 class Webcal(callbacks.Plugin):
-    """@schedule <timezone>: display the schedule in your timezone"""
+    """@schedule <timezone>
+    display the schedule in your timezone
+    """
     threaded = True
+    noIgnore = True
 
     def __init__(self, irc):
-        callbacks.Privmsg.__init__(self, irc)
+        parent = super(Webcal, self)
+        parent.__init__(irc)
+        self.log = LoggerWrapper(self)
         self.irc = irc
+        self.cache = {}
+        self.firstevent = {}
         try:
             schedule.removeEvent(self.name())
             schedule.removeEvent(self.name() + 'b')
-        except Exception: # Oh well
+        except AssertionError:
+            pass
+        except KeyError:
             pass
         try:
             schedule.addPeriodicEvent(self.refresh_cache,  60 * 20, name=self.name())
             schedule.addPeriodicEvent(self.autotopics,     60, name=self.name() + 'b')
-        except Exception: # Just work
+        except AssertionError:
             pass
-        self.cache = {}
-        self.firstevent = {}
 
     def die(self):
         try:
@@ -116,22 +132,38 @@ class Webcal(callbacks.Plugin):
     def filter(self, events, channel):
         now = datetime.datetime.now(pytz.UTC)
         fword = self.registryValue('filter', channel)
-        return [x for x in events if fword.lower() in x.raw_data.lower() and x.seconds_ago() < 1800]
-        
+        ret = [x for x in events if fword.lower() in x.raw_data.lower() and x.seconds_ago() < 1800]
+        ret = [x for x in ret if self.filterChannel(x)]
+        ret.sort()
+        ret.sort()
+        return ret
+
+    def filterChannel(self, event):
+        desc = event['description']
+        where = u'#ubuntu-meeting'
+        if "Location\\:" in desc:
+            where = desc.split('<')[1].split()[-1]
+            if where[0] != u'#':
+                where = u'#ubuntu-meeting'
+        return where == u'#ubuntu-meeting'
+
     def maketopic(self, c, tz=None, template='%s', num_events=6):
         url = self.registryValue('url',c)
+        if not tz:
+            tz = 'UTC'
         if url not in self.cache.keys():
             self.update(url)
 
         now = datetime.datetime.now(pytz.UTC)
         events = self.filter(self.cache[url],c)[:num_events]
+#        events.sort()
         preamble = ''
         if not len(events):
             return template % "No meetings scheduled"
         # The standard slack of 30 minutes after the meeting will be an
         # error if there are 2 conscutive meetings, so remove the first 
         # one in that case
-        if len(events) > 1 and events[1].startDate < now:
+        if len(events) > 1 and events[1].startTime() < now:
                 events = events[1:]
         ev0 = events[0]
         if ev0.seconds_to_go() < 600:
@@ -149,6 +181,9 @@ class Webcal(callbacks.Plugin):
         
     # Now the commands
     def topic(self, irc, msg, args):
+        """No args
+        Updates the topics in the channel
+        """
         c = msg.args[0]
         url = self.registryValue('url', c)
         if not url or not self.registryValue('doTopic',channel=c):
@@ -156,14 +191,14 @@ class Webcal(callbacks.Plugin):
         self.update(url)
 
         events = self.filter(self.cache[url], c)
-        if events[0].is_on():
+        if events and events[0].is_on():
             irc.error("Won't update topic while a meeting is in progress")
             return
             
         newtopic = self.maketopic(c, template=self.registryValue('topic',c))
         if not (newtopic.strip() == irc.state.getTopic(c).strip()):
             irc.queueMsg(ircmsgs.topic(c, newtopic))
-    topic = wrap(topic)
+    topic = wrap(topic, [('checkCapability', 'admin')])
 
     def _tzfilter(self, tz, ud):
         if tz == ud:
@@ -186,7 +221,9 @@ class Webcal(callbacks.Plugin):
         return False
 
     def schedule(self, irc, msg, args, tz):
-        """ Retrieve the date/time of scheduled meetings in a specific timezone """
+        """[<timezone>]
+        Retrieve the date/time of scheduled meetings in a specific timezone, defaults to UTC
+        """
         if not tz:
             tz = 'utc'
         if irc.isChannel(msg.args[0]):
@@ -197,14 +234,17 @@ class Webcal(callbacks.Plugin):
                 return
         url = self.registryValue('url', c)
         if not url:
+            c = self.registryValue('defaultChannel')
+            url = self.registryValue('url', c)
+        if not url:
             return
         tzs = filter(lambda x: self._tzfilter(x.lower(),tz.lower()), pytz.all_timezones)
         if not tzs:
-            irc.error('Unknown timezone: %s - Full list: %s' % (tz, self.config.registryValue('tzUrl') or 'Value not set'))
+            irc.error('Unknown timezone: %s - Full list: %s' % (tz, self.registryValue('tzUrl') or 'Value not set'))
             return
         newtopic = self.maketopic(c,tz=tzs[0])
         events = self.filter(self.cache[url], msg.args[0])
-        if events[0].is_on(): # FIXME channel filter
+        if events and events[0].is_on(): # FIXME channel filter
             irc.error('Please don\'t use @schedule during a meeting')
             irc.reply('Schedule for %s: %s' % (tzs[0], newtopic), private=True)
         else:
@@ -212,7 +252,9 @@ class Webcal(callbacks.Plugin):
     schedule = wrap(schedule, [additional('text')])
 
     def now(self, irc, msg, args, tz):
-        """ Display the current time """
+        """[<timezone>]
+        Display the current time, <timezone> defaults to UTC
+        """
         if not tz:
             tz = 'utc'
         if irc.isChannel(msg.args[0]):
@@ -223,10 +265,13 @@ class Webcal(callbacks.Plugin):
                 return
         url = self.registryValue('url', c)
         if not url:
+            c = self.registryValue('defaultChannel')
+            url = self.registryValue('url', c)
+        if not url:
             return
         tzs = filter(lambda x: self._tzfilter(x.lower(),tz.lower()), pytz.all_timezones)
         if not tzs:
-            irc.error('Unknown timezone: %s - Full list: %s' % (tz, self.config.registryValue('tzUrl') or 'Value not set'))
+            irc.error('Unknown timezone: %s - Full list: %s' % (tz, self.registryValue('tzUrl') or 'Value not set'))
             return
         now = datetime.datetime.now(pytz.UTC)
         newtopic = self.maketopic(c,tz=tzs[0],num_events=1)
@@ -234,7 +279,7 @@ class Webcal(callbacks.Plugin):
         newtopic = 'Current time in %s: %s - %s' % \
             (tzs[0], datetime.datetime.now(pytz.UTC).astimezone(pytz.timezone(tzs[0])).strftime("%B %d %Y, %H:%M:%S"), newtopic)
 
-        if events[0].is_on(): # Fixme -- channel filter
+        if events and events[0].is_on(): # Fixme -- channel filter
             irc.error('Please don\'t use @schedule during a meeting')
             irc.reply(newtopic, private=True)
         else:
@@ -270,7 +315,7 @@ class Webcal(callbacks.Plugin):
             return msg
         try:
             id = ircdb.users.getUserId(msg.prefix)
-            user = users.getUser(id)
+            user = ircdb.users.getUser(id)
             return msg
         except:
             pass
@@ -281,6 +326,5 @@ class Webcal(callbacks.Plugin):
             tokens = callbacks.tokenize(s, channel=msg.args[0])
             self.Proxy(irc, msg, tokens)
         return msg
-#        self._callCommand([cmd], irc, msg, [])
 
 Class = Webcal

@@ -165,8 +165,14 @@ launchpad"""
                     if not user:
                         irc.error(conf.supybot.replies.incorrectAuthentication())
                         return
+        try:
         user.addAuth(msg.prefix)
-        ircdb.users.setUser(user, flush=False)
+        except:
+            pass
+        try:
+            ircdb.users.setUser(user, flush=False)
+        except:
+            pass
         irc.replySuccess()
     login = wrap(login)
 

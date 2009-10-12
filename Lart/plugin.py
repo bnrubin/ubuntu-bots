@@ -35,9 +35,41 @@ import supybot.plugins as plugins
 import supybot.ircutils as ircutils
 import supybot.callbacks as callbacks
 import supybot.ircdb as ircdb
-import supybot.plugin as plugin
 import supybot.conf as conf
 import random
+
+def checkIgnored(hostmask, recipient='', users=ircdb.users, channels=ircdb.channels):
+    if ircdb.ignores.checkIgnored(hostmask):
+        return True
+    try:
+        id = ircdb.users.getUserId(hostmask)
+        user = users.getUser(id)
+    except KeyError:
+        # If there's no user...
+        if ircutils.isChannel(recipient):
+            channel = channels.getChannel(recipient)
+            if channel.checkIgnored(hostmask):
+                return True
+            else:
+                return False
+        else:
+            return False
+    if user._checkCapability('owner'):
+        # Owners shouldn't ever be ignored.
+        return False
+    elif user.ignore:
+        return True
+    elif recipient:
+        if ircutils.isChannel(recipient):
+            channel = ircdb.channels.getChannel(recipient)
+            if channel.checkIgnored(hostmask):
+                return True
+            else:
+                return False
+        else:
+            return False
+    else:
+        return False
 
 class Lart(plugins.ChannelIdDatabasePlugin):
     _meRe = re.compile(r'\bme\b', re.I)
@@ -64,7 +96,7 @@ class Lart(plugins.ChannelIdDatabasePlugin):
             (target, reason) = map(str.strip, text.split(' for ', 1))
         else:
             (target, reason) = (text, '')
-        print target
+
         if id is not None:
             try:
                 lart = self.db.get(channel, id)
@@ -78,9 +110,11 @@ class Lart(plugins.ChannelIdDatabasePlugin):
                                  'for %s.', channel))
                 return
         text = self._replaceFirstPerson(lart.text, msg.nick)
-        if ircutils.strEqual(target, irc.nick) or \
-            irc.nick.lower() in ircutils.stripFormatting(target).lower() or \
-            random.uniform(0,100) < 25:
+        formatText = ircutils.stripFormatting(target).lower()
+        if (ircutils.strEqual(target, irc.nick) or 'Evilrockbot' in formatText) and random.uniform(0,100) < 25):
+            target = msg.nick
+            reason = ''
+        elif 'stdin' in formatText or 'tsimpson' in formatText:
             target = msg.nick
             reason = ''
         else:
@@ -97,7 +131,6 @@ class Lart(plugins.ChannelIdDatabasePlugin):
         irc.reply(text, action=True)
     lart = wrap(lart, ['channeldb', optional('id'), 'text'])
     pity = lart
-    slander = lart
 
     def callPrecedence(self, irc):
         before = []
@@ -129,7 +162,6 @@ class Lart(plugins.ChannelIdDatabasePlugin):
             tokens = callbacks.tokenize(s, channel=msg.args[0])
             self.Proxy(irc, msg, tokens)
         return msg
-#        self._callCommand([cmd], irc, msg, [])
 
 Class = Lart
 

@@ -23,6 +23,11 @@ import supybot.utils as utils
 import supybot.ircutils as ircutils
 import sys, os, re, md5, random, time
 
+if sys.version_info >= (2, 5, 0):
+  import re
+else:
+  import sre as re
+
 def checkIgnored(hostmask, recipient='', users=ircdb.users, channels=ircdb.channels):
     if ircdb.ignores.checkIgnored(hostmask):
         return True
@@ -128,6 +133,7 @@ class Encyclopedia(callbacks.Plugin):
     def __init__(self, irc):
         callbacks.Plugin.__init__(self, irc)
         self.databases = {}
+        self.times = {}
         self.edits = {}
         self.alert = False
 
@@ -180,25 +186,35 @@ class Encyclopedia(callbacks.Plugin):
     def get_target(self, nick, text, orig_target):
         target = orig_target
         retmsg = ''
+        rettext = text[:]
+        hasPipe = False
+        hasRedir = False
         
         if text.startswith('tell '):
             text = ' ' + text
 
-        if '|' in text:
-            if not retmsg:
-                retmsg = text[text.find('|')+1:].strip() + ': '
-            text = text[:text.find('|')].strip()
+        if '|' in text and not text.strip().endswith('|'):
+            hasPipe = True
+            retmsg = text[text.find('|')+1:].strip() + ': '
+            rettext = text[:text.find('|')].strip()
 
-        if '>' in text:
-            target = text[text.rfind('>')+1:].strip().split()[0]
-            text = text[:text.rfind('>')].strip()
-            retmsg = "%s wants you to know: " % nick
-
-        elif ' tell ' in text and ' about ' in text:
+        if ' tell ' in text and ' about ' in text:
             target = text[text.find(' tell ')+6:].strip().split(None,1)[0]
-            text = text[text.find(' about ')+7:].strip()
+            rettext = text[text.find(' about ')+7:].strip()
             retmsg = "<%s> wants you to know: " % nick
             
+        if '>' in text:
+            if hasPipe:
+                if text.index('|') > text.index('>'):
+                    target = text[text.rfind('>')+1:].strip().split()[0]
+                    rettext = text[:text.rfind('>')].strip()
+                    retmsg = "<%s> wants you to know: " % nick
+            else:
+                target = text[text.rfind('>')+1:].strip().split()[0]
+                rettext = text[:text.rfind('>')].strip()
+                retmsg = "<%s> wants you to know: " % nick
+
+
         if target == 'me':
             target = nick
         if target.lower() != orig_target.lower() and target.startswith('#'):
@@ -209,7 +225,7 @@ class Encyclopedia(callbacks.Plugin):
             target = nick
             retmsg = '(In the future, please use a private message to investigate) '
 
-        return (text, target, retmsg)
+        return (rettext, target, retmsg)
 
     def get_db(self, channel):
         db = self.registryValue('database',channel)
@@ -221,7 +237,23 @@ class Encyclopedia(callbacks.Plugin):
             self.databases[channel] = sqlite.connect(os.path.join(self.registryValue('datadir'), '%s.db' % db))
             self.databases[channel].name = db
             self.databases[channel].time = time.time()
-        #self.log.info(os.path.join(self.registryValue('datadir'), '%s.db' % db))
+        return self.databases[channel]
+
+    def get_log_db(self, channel=None):
+        db = "%s-log" % self.registryValue('database',channel)
+        db_path = os.path.join(self.registryValue('datadir'), "%s.db" % db)
+        if not os.access(db_path, os.R_OK | os.W_OK):
+            self.log.warning("Could not access log database at '%s.db'" % db_path)
+            return None
+        channel = "%s-log" % channel
+        if channel in self.databases:
+            if self.databases[channel].time < time.time() - 3600 or self.databases[channel].name != db:
+                self.databases[channel].close()
+                self.databases.pop(channel)
+        if channel not in self.databases:
+            self.databases[channel] = sqlite.connect(db_path)
+            self.databases[channel].name = db
+            self.databases[channel].time = time.time()
         return self.databases[channel]
 
     def addressed(self, recipients, text, irc):
@@ -402,7 +434,7 @@ class Encyclopedia(callbacks.Plugin):
         elif term[0] == "seen" or term[0].startswith("seen "):
             ret = "I have no seen command"
             retmsg = term[2] and "%s: " % msg.prefix.split('!', 1)[0] or ''
-        elif term[0] in ("what", "whats", "what's") or term[0].startswith("what ") or term[0].startswith("what ") or term[0].startswith("whats ") or term[0].startswith("what's "): # Try and catch people saying "what is ...?"
+        elif term[0] in ("what", "whats", "what's") or term[0].startswith("what ") or term[0].startswith("what ") or term[0].startswith("whats ") or term[0].startswith("what's "): # Try and catch people saying "ubottu: what is ...?"
             ret = "I am only a bot, please don't think I'm intelligent :)"
             retmsg = term[2]
         elif beginswith(lower_text, self.registryValue('ignores', channel)):
@@ -418,9 +450,10 @@ class Encyclopedia(callbacks.Plugin):
                               self.registryValue('relaychannel',channel),private=True)
                     irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel',channel), "In %s, %s said: %s" %
                                                  (msg.args[0], msg.nick, msg.args[1])))
+                    self.logRequest(msg.args[0], msg.nick, text)
                     return
                 ret = self.factoid_edit(text, channel, msg.prefix)
-            elif ' is ' in lower_text and '|' in lower_text and lower_text.index('|') > lower_text.index(' is '):
+            elif (' is ' in lower_text and '|' in lower_text and lower_text.index('|') > lower_text.index(' is ')) or (' is ' in lower_text and '|' not in lower_text):
                 if not capab(msg.prefix, 'editfactoids'):
                     if len(text[:text.find('is')]) > 15:
                         irc.error("I am only a bot, please don't think I'm intelligent :)")
@@ -429,17 +462,7 @@ class Encyclopedia(callbacks.Plugin):
                                   self.registryValue('relaychannel',channel),private=True)
                         irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel',channel), "In %s, %s said: %s" %
                                                      (msg.args[0], msg.nick, msg.args[1])))
-                    return
-                ret = self.factoid_add(text, channel, msg.prefix)
-            elif ' is ' in lower_text:
-                if not capab(msg.prefix, 'editfactoids'):
-                    if len(text[:text.find('is')]) > 15:
-                        irc.error("I am only a bot, please don't think I'm intelligent :)")
-                    else:
-                        irc.reply("Your edit request has been forwarded to %s.  Thank you for your attention to detail" %
-                                  self.registryValue('relaychannel',channel),private=True)
-                        irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel',channel), "In %s, %s said: %s" %
-                                                     (msg.args[0], msg.nick, msg.args[1])))
+                        self.logRequest(msg.args[0], msg.nick, text)
                     return
                 ret = self.factoid_add(text, channel, msg.prefix)
             else:
@@ -456,6 +479,11 @@ class Encyclopedia(callbacks.Plugin):
             ret = self.registryValue('notfoundmsg')
             if ret.count('%') == ret.count('%s') == 1:
                 ret = ret % repr(text)
+            if channel.lower() == irc.nick.lower():
+                queue(irc, msg.nick, ret)
+                return
+            queue(irc, channel, ret)
+            return
         if doChanMsg and channel.lower() != irc.nick.lower() and target[0] != '#': # not /msg
             if target in irc.state.channels[channel].users:
                 queue(irc, channel, "%s, please see my private message" % target)
@@ -608,6 +636,51 @@ class Encyclopedia(callbacks.Plugin):
                         break
         return ret
 
+    def sanatizeRequest(self, channel, msg):
+        def normalize(s):
+            while s.count("  "):
+                s = s.replace("  ", '')
+            return s.strip()
+
+        msg = normalize(msg)
+        if msg[0] == self.registryValue('prefixchar', channel):
+            msg = msg[1:]
+        if msg.startswith("no "):
+            msg = msg[3:]
+        if " is " in msg:
+            msg = msg.replace(" is ", " ", 1)
+        (name, msg) = msg.split(None, 1)
+        factoid = self.get_single_factoid(channel, name)
+        oldval = ''
+        if factoid:
+            oldval = factoid.value
+        return (name, msg, oldval)
+
+    def logRequest(self, channel, nick, msg):
+        (name, msg, oldval) = self.sanatizeRequest(channel, msg)
+        if msg.strip() == oldval.strip():
+            return
+        if oldval:
+            self.doLogRequest(0, channel, nick, name, msg, oldval)
+        else:
+            self.doLogRequest(1, channel, nick, name, msg)
+
+    def doLogRequest(self, tp, channel, nick, name, msg, oldval = ''):
+        db = self.get_log_db(channel)
+        if not db:
+            return
+        cur = db.cursor()
+        now = str(datetime.datetime.now(pytz.timezone("UTC")))
+        cur.execute("SELECT value FROM requests WHERE name = %s", name)
+        items = cur.fetchall()
+        if len(items):
+            for item in items:
+                if item[0] == msg:
+                    return
+        cur.execute("INSERT INTO requests (type, name, value, oldval, who, date, rank) VALUES (%i, %s, %s, %s, %s, %s, 0)",
+            (int(bool(tp)), name, msg, oldval, nick, now))
+        db.commit()
+
     def search_factoid(self, factoid, channel):
         keys = factoid.split()[:5]
         db = self.get_db(channel)
@@ -667,6 +740,9 @@ class Encyclopedia(callbacks.Plugin):
                 os.rename(tmp_db, dpath)
                 try:
                     self.databases[channel].close()
+                except:
+                    pass
+                try:
                     self.databases.pop(channel)
                 except:
                     pass
@@ -710,5 +786,180 @@ class Encyclopedia(callbacks.Plugin):
             return
 
     sync = wrap(sync, [optional("somethingWithoutSpaces")])
+
+    def lookup(self, irc, msg, args, author):
+        """--Future Command-- [<author>]
+
+        Looks up factoids created or edited by <author>,
+        <author> defaults to you.
+        """
+        if not capab(msg.prefix, "editfactoids"):
+            irc.error("Sorry, you can't do that")
+            return
+        channel = self.registryValue('database')
+        if not channel:
+            irc.reply("Umm, I don't know")
+            return
+        if not author:
+            author = msg.prefix
+        def isLastEdit(name, id):
+            cur.execute("SELECT MAX(id) FROM log WHERE name=%s", (name,))
+            return int(cur.fetchall()[0][0]) == id
+        author = author.split('!', 1)[0]
+        db = self.get_db(channel)
+        cur = db.cursor()
+        ret = {}
+        log_ret = {}
+        cur.execute("SELECT name,value FROM facts WHERE author LIKE '%s%%'" % (author,))
+        res = cur.fetchall()
+        cur.execute("SELECT id, name, oldvalue FROM log WHERE author LIKE '%s%%'" % (author,))
+        log_res = cur.fetchall()
+        for r in res:
+            val = r[1]
+            d = r[1].startswith('<deleted>')
+            a = r[1].startswith('<alias>')
+            r = r[0]
+            if d:
+                r += '*'
+            if a:
+                r += '@' + val[7:].strip()
+            try:
+                ret[r] += 1
+            except:
+                ret[r] = 1
+
+        for r in log_res:
+            if isLastEdit(r[1], r[0]):
+                val = r[2]
+                d = r[2].startswith('<deleted>')
+                a = r[2].startswith('<alias>')
+                r = r[1]
+                if d:
+                    r += '*'
+                if a:
+                    r += '@' + val[7:].strip()
+                try:
+                    log_ret[r] += 1
+                except:
+                    log_ret[r] = 1
+
+        if not ret:
+            rmsg = "Authored: None found"
+        else:
+            rmsg = 'Authored Found: %s' % ', '.join(sorted(ret.keys(), lambda x, y: cmp(ret[x], ret[y]))[:10])
+        if not log_ret:
+            log_rmsg = "Edited: None found"
+        else:
+            log_rmsg = 'Edited Found: %s' % ', '.join(sorted(log_ret.keys(), lambda x, y: cmp(log_ret[x], log_ret[y]))[:10])
+        irc.reply(rmsg)
+        irc.reply(log_rmsg)
+    lookup = wrap(lookup, [optional('otherUser')])
+
+    def ftlogin(self, irc, msg, args):
+        """--Future Command-- Takes no arguments
+
+        Login to the Factoid Edit System
+        """
+        user = None
+        if not msg.tagged('identified'):
+            irc.error("Not identified")
+            return
+        try:
+            user = ircdb.users.getUser(msg.prefix)
+        except:
+            irc.error(conf.supybot.replies.incorrectAuthentication())
+            return
+
+        if not capab(msg.prefix, "editfactoids"):
+            irc.error(conf.supybot.replies.noCapability() % "editfactoids")
+            return
+
+        if not user:
+            return
+
+        db = self.get_log_db()
+        if not db:
+            irc.error("Could not open database, contact stdin")
+            return
+        cur = db.cursor()
+
+        sessid = md5.new('%s%s%d' % (msg.prefix, time.time(), random.randint(1,100000))).hexdigest()
+        cur.execute("INSERT INTO sessions (session_id, user, time) VALUES (%s, %s, %d)",
+            (sessid, msg.nick, int(time.mktime(time.gmtime())) ))
+        db.commit()
+        irc.reply("Login at http://jussi01.com/stdin/test/facts.cgi?sessid=%s" % sessid, private=True)
+
+    ftlogin = wrap(ftlogin)
+
+    def ignore(self, irc, msg, args, banmask, expires, channel):
+        """<hostmask|nick> [<expires>] [<channel>]
+
+        Ignores commands/requests from <hostmask> or <nick>. If <expires> is
+        given the ignore will expire after that ammount of seconds. If
+        <channel> is given, the ignore will only apply in that channel.
+        """
+        if not capab(msg.prefix, "editfactoids"):
+            irc.errorNoCapability("editfactoids")
+            return
+        if channel:
+            c = ircdb.channels.getChannel(channel)
+            c.addIgnore(banmask, expires)
+            ircdb.channels.setChannel(channel, c)
+            irc.replySuccess()
+        else:
+            ircdb.ignores.add(banmask, expires)
+            irc.replySuccess()
+
+    ignore = wrap(ignore, ['hostmask', optional("expiry", 0), optional("channel", None)])
+
+    def unignore(self, irc, msg, args, banmask, channel):
+        """<hostmask|nick> [<channel>]
+
+        Remove an ignore previously set by @ignore. If <channel> was given
+        in the origional @ignore command it must be given here.
+        """
+        if not capab(msg.prefix, "editfactoids"):
+            irc.errorNoCapability("editfactoids")
+            return
+        if channel:
+            c = ircdb.channels.getChannel(channel)
+            try:
+                c.removeIgnore(banmask)
+                ircdb.channels.setChannel(channel, c)
+                irc.replySuccess()
+            except KeyError:
+                irc.error('There are no ignores for that hostmask in %s.' % channel)
+        else:
+            try:
+                ircdb.ignores.remove(banmask)
+                irc.replySuccess()
+            except KeyError:
+                irc.error("%s wasn't in the ignores database." % banmask)
+
+    unignore = wrap(unignore, ['hostmask', optional("channel", None)])
+
+    def ignorelist(self, irc, msg, args, channel):
+        """<hostmask|nick> [<channel>]
+
+        Lists all ignores set by @ignore. If <channel> is given this will
+        only list ignores set in that channel.
+        """
+        if not capab(msg.prefix, "editfactoids"):
+            irc.errorNoCapability("editfactoids")
+            return
+        if channel:
+            c = ircdb.channels.getChannel(channel)
+            if len(c.ignores) == 0:
+                irc.reply("I'm not currently ignoring any hostmasks in '%s'" % channel)
+            else:
+                L = sorted(c.ignores)
+                irc.reply(utils.str.commaAndify(map(repr, L)))
+        else:
+            if ircdb.ignores.hostmasks:
+                irc.reply(format('%L', (map(repr,ircdb.ignores.hostmasks))))
+            else:
+                irc.reply("I'm not currently globally ignoring anyone.")
+
+    ignorelist = wrap(ignorelist, [optional("channel", None)])
 
 Class = Encyclopedia

@@ -22,6 +22,6 @@ Bantracker = conf.registerPlugin('Bantracker')
 conf.registerChannelValue(conf.supybot.plugins.Bantracker, 'enabled',
         registry.Boolean(False, """Enable the bantracker"""))
 conf.registerGlobalValue(conf.supybot.plugins.Bantracker, 'database',
-        registry.String('', "Filename of the bans database",private=True))
+        registry.String('', "Filename of the bans database", private=True))
 conf.registerGlobalValue(conf.supybot.plugins.Bantracker, 'bansite',
         registry.String('', "Web site for the bantracker, without the 'bans.cgi' appended", private=True))
