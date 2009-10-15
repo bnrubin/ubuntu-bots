@@ -498,8 +498,12 @@ class Bantracker(callbacks.Plugin):
             self(irc, m)
         return msg
         
-    def callPrecedence(self, irc):
-        return (['IRCLogin'], [])
+#    def callPrecedence(self, irc):
+#        before = []
+#        for cb in irc.callbacks:
+#            if cb.name() == 'IRCLogin':
+#                return (['IRCLogin'], [])
+#        return ([], [])
 
     def check_auth(self, irc, msg, args, cap='bantracker'):
         hasIRCLogin = False
@@ -623,7 +627,7 @@ class Bantracker(callbacks.Plugin):
                             match.append((e[0], e[1]))
         return match
 
-    def bansearch(self, irc, msg, args, target, channel, from_reply=False, reply=None):
+    def bansearch_real(self, irc, msg, args, target, channel, from_reply=False, reply=None):
         """<nick|hostmask> [<channel>]
 
         Search bans database for a ban on <nick|hostmask>,
