@@ -715,7 +715,7 @@ class Bantracker(callbacks.Plugin):
         the nick/host has to have an active ban/mute against it.
         If channel is not given search all channel bans.
         """
-        user = self.check_auth(irc, msg, args):
+        user = self.check_auth(irc, msg, args)
         if not user:
             return
 
