@@ -166,7 +166,7 @@ launchpad"""
                         irc.error(conf.supybot.replies.incorrectAuthentication())
                         return
         try:
-        user.addAuth(msg.prefix)
+            user.addAuth(msg.prefix)
         except:
             pass
         try:
