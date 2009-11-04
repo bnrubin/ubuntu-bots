@@ -22,3 +22,5 @@ def configure(advanced):
 IRCLogin = conf.registerPlugin('IRCLogin')
 conf.registerGlobalValue(IRCLogin, 'UserList',
     registry.String('', """Filename of file with list of users""",private=True))
+conf.registerGloblalValue(IRCLogin, "teamname",
+    registry.String('ubuntu-irc', "Name of the Launchpad team to get users from", private=True))

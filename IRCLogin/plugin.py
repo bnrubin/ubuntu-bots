@@ -77,7 +77,7 @@ launchpad"""
         irc.reply('Running...')
         user2nick = {}
         nick2user = {}
-        users = lp.getUsers()
+        users = lp.getUsers(self.registryValue("teamname"))
         for user in users:
             lpuser = lp.getIRCNick(user, False)
             if not lpuser:

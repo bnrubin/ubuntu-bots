@@ -138,6 +138,12 @@ class Ban(object):
     def __repr__(self):
         return '<%s object "%s" at 0x%x>' % (self.__class__.__name__, self, id(self))
 
+    def op(self):
+        return self.mask.split('!')[0]
+
+    def time(self):
+        return datetime.datetime.fromtimestamp(self.when)
+
 class Bantracker(callbacks.Plugin):
     """Plugin to manage bans.
        See '@list Bantracker' and '@help <command>' for commands"""
