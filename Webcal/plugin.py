@@ -22,12 +22,6 @@ import supybot.ircmsgs as ircmsgs
 import supybot.ircdb as ircdb
 import supybot.conf as conf
 
-try:
-    import supybot.plugin as plugin
-    LoggerWrapper = plugin.loadPluginModule("IRCLog", False).LoggerWrapper
-except Exception, e:
-    def LoggerWrapper(self): return self.log
-
 def checkIgnored(hostmask, recipient='', users=ircdb.users, channels=ircdb.channels):
     if ircdb.ignores.checkIgnored(hostmask):
         return True
@@ -77,7 +71,6 @@ class Webcal(callbacks.Plugin):
     def __init__(self, irc):
         parent = super(Webcal, self)
         parent.__init__(irc)
-        self.log = LoggerWrapper(self)
         self.irc = irc
         self.cache = {}
         self.firstevent = {}
@@ -314,9 +307,8 @@ class Webcal(callbacks.Plugin):
         if checkIgnored(msg.prefix):
             return msg
         try:
-            id = ircdb.users.getUserId(msg.prefix)
-            user = ircdb.users.getUser(id)
-            return msg
+            if ircdb.users.getUser(msg.prefix):
+                return msg
         except:
             pass
         cmd, args = (s.split(None, 1) + [None])[:2]

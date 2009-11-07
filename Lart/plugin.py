@@ -150,9 +150,8 @@ class Lart(plugins.ChannelIdDatabasePlugin):
         if checkIgnored(msg.prefix):
             return msg
         try:
-            id = ircdb.users.getUserId(msg.prefix)
-            user = users.getUser(id)
-            return msg
+            if ircdb.users.getUser(msg.prefix):
+                return msg
         except:
             pass
         cmd, args = (s.split(None, 1) + [None])[:2]
