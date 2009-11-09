@@ -203,16 +203,31 @@ launchpad"""
         self.log.info("Calling login for %s" % msg.prefix)
         self._callCommand(["login"], irc, msg, [])
 
-    def do290(self, irc, msg):
-        assert 'IDENTIFY-MSG' in msg.args[1]
-        irc.getRealIrc()._Freenode_capabed = True
+    def doCap(self, irc, msg):
+        self.log.info("Got CAP message %r" % msg)
+        if msg.args[1].lower() == "ack":
+            if "identify-msg" in msg.args[2].lower():
+                irc.getRealIrc()._Freenode_capabed = True
+
+        if msg.args[1].lower() == 'nak':
+            if "identify-msg" in msg.args[2].lower():
+                irc.getRealIrc()._Freenode_capabed = False
 
     def do376(self, irc, msg):
-        irc.queueMsg(ircmsgs.IrcMsg('CAPAB IDENTIFY-MSG'))
+        irc.queueMsg(ircmsgs.IrcMsg('CAP REQ IDENTIFY-MSG'))
+
     def do422(self, irc, msg): # MOTD missing
-        irc.queueMsg(ircmsgs.IrcMsg('CAPAB IDENTIFY-MSG'))
+        irc.queueMsg(ircmsgs.IrcMsg('CAP REQ IDENTIFY-MSG'))
 
     def inFilter(self, irc, msg):
+        """
+        The new freenode ircd-seven requires using the 'CAP' command
+        to set capabilities, rather than hyperirons 'CAPAB' command.
+        You request "CAP REQ IDENTIFY-MSG" and the server will respond
+        with either "CAP <nick> ACK :identify-msg" to acknowledge, or
+        "CAP <nick> NAK :identify-msg" to indicate failure.
+        Other than that, it's the same.
+        """
         if not msg.command == "PRIVMSG":
             return msg
         if getattr(irc,'_Freenode_capabed',None) and msg.command == 'PRIVMSG':
