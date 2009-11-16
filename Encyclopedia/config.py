@@ -36,3 +36,6 @@ conf.registerChannelValue(Encyclopedia, 'remotedb',
     registry.String('http://ubottu.com/ubuntu.db', 'Remote location of the master database', private=True))
 conf.registerChannelValue(Encyclopedia, 'ignores',
     registry.SpaceSeparatedListOfStrings(['find', 'info'], 'factoid name(s) to ignore', private=True))
+conf.registerChannelValue(Encyclopedia, 'privateNotFound',
+    registry.Boolean(False, "If set to True, send notfoundmsg in private rather than in the channel"))
+

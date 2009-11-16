@@ -481,8 +481,10 @@ class Encyclopedia(callbacks.Plugin):
                 ret = ret % repr(text)
             if channel.lower() == irc.nick.lower():
                 queue(irc, msg.nick, ret)
-                return
-            queue(irc, channel, ret)
+            elif self.registryValue('privateNotFound', channel):
+                queue(irc, msg.nick, ret)
+            else:
+                queue(irc, channel, ret)
             return
         if doChanMsg and channel.lower() != irc.nick.lower() and target[0] != '#': # not /msg
             if target in irc.state.channels[channel].users:
