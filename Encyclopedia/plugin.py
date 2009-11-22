@@ -657,7 +657,7 @@ class Encyclopedia(callbacks.Plugin):
                         n = factoid.name
                         if '-#' in n:
                             n = n[:n.find('-#')]
-                        ret.append('%s is %s' % (n, subvars(factoid.value))
+                        ret.append('%s is %s' % (n, subvars(factoid.value)))
                     if not display_info:
                         break
         return ret
