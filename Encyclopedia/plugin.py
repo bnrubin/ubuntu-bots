@@ -613,6 +613,30 @@ class Encyclopedia(callbacks.Plugin):
         return "I'll remember that, %s" % editor[:editor.find('!')]
 
     def factoid_lookup(self, text, channel, display_info):
+        def subvars(val):
+            curStable = self.registryValue('curStable')
+            curStableLong = self.registryValue('curStableLong')
+            curStableNum = self.registryValue('curStableNum')
+            curLTS = self.registryValue('curLTS')
+            curLTSLong = self.registryValue('curLTSLong')
+            curLTSNum = self.registryValue('curLTSNum')
+            curDevel = self.registryValue('curDevel')
+            curDevelLong = self.registryValue('curDevelLong')
+            curDevelNum = self.registryValue('curDevelNum')
+            val = val.replace('$chan',channel)
+            val = val.replace('$curStableLong',curStableLong)
+            val = val.replace('$curStableNum',curStableNum)
+            val = val.replace('$curStableLower',curStable.lower())
+            val = val.replace('$curStable',curStable)
+            val = val.replace('$curLTSLong',curLTSLong)
+            val = val.replace('$curLTSNum',curLTSNum)
+            val = val.replace('$curLTSLower',curLTS.lower())
+            val = val.replace('$curLTS',curLTS)
+            val = val.replace('$curDevelLong',curDevelLong)
+            val = val.replace('$curDevelNum',curDevelNum)
+            val = val.replace('$curDevelLower',curDevel.lower())
+            val = val.replace('$curDevel',curDevel)
+            return val
         db = self.get_db(channel)
         factoids = self.get_factoids(text.lower(), channel, resolve = not display_info, info = display_info)
         ret = []
@@ -626,14 +650,14 @@ class Encyclopedia(callbacks.Plugin):
                         cur.execute("UPDATE FACTS SET popularity = %d WHERE name = %s", factoid.popularity+1, factoid.name)
                         db.commit()
                     if factoid.value.startswith('<reply>'):
-                        ret.append(factoid.value[7:].strip().replace('$chan',channel))
+                        ret.append(subvars(factoid.value[7:].strip()))
                     elif order == 'secondary':
-                        ret.append(factoid.value.strip().replace('$chan',channel))
+                        ret.append(subvars(factoid.value.strip()))
                     else:
                         n = factoid.name
                         if '-#' in n:
                             n = n[:n.find('-#')]
-                        ret.append('%s is %s' % (n, factoid.value.replace('$chan',channel)))
+                        ret.append('%s is %s' % (n, subvars(factoid.value))
                     if not display_info:
                         break
         return ret

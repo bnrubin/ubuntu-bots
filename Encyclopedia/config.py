@@ -39,3 +39,23 @@ conf.registerChannelValue(Encyclopedia, 'ignores',
 conf.registerChannelValue(Encyclopedia, 'privateNotFound',
     registry.Boolean(False, "If set to True, send notfoundmsg in private rather than in the channel"))
 
+conf.registerGlobalValue(Encyclopedia, 'curStable',
+    registry.String('Karmic', "Current stable release"))
+conf.registerGlobalValue(Encyclopedia, 'curStableLong',
+    registry.String('Karmic Koala', "Current stable release"))
+conf.registerGlobalValue(Encyclopedia, 'curStableNum',
+    registry.String('9.10', "Current stable release"))
+
+conf.registerGlobalValue(Encyclopedia, 'curDevel',
+    registry.String('Lucid', "Current development release"))
+conf.registerGlobalValue(Encyclopedia, 'curDevelLong',
+    registry.String('Lucid Lynx', "Current development release"))
+conf.registerGlobalValue(Encyclopedia, 'curDevelNum',
+    registry.String('10.04', "Current development release"))
+
+conf.registerGlobalValue(Encyclopedia, 'curLTS',
+    registry.String('Hardy', "Current LTS release"))
+conf.registerGlobalValue(Encyclopedia, 'curLTSLong',
+    registry.String('Hardy Herron', "Current LTS release"))
+conf.registerGlobalValue(Encyclopedia, 'curLTSNum',
+    registry.String('8.04', "Current LTS release"))
