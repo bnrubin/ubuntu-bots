@@ -21,7 +21,7 @@ import supybot.world as world
 __version__ = "0.5"
 __author__ = supybot.Author('Dennis Kaarsemaker','Seveas','dennis@kaarsemaker.net')
 __contributors__ = {}
-__url__ = 'https://bots.ubuntulinux.nl'
+__url__ = 'http://ubottu.com/'
 
 import config
 reload(config)

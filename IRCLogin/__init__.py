@@ -1,5 +1,5 @@
 ###
-# Copyright (c) 2008, Terence Simpson
+# Copyright (c) 2008, Terence Simpson <tsimpson@ubuntu.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -19,10 +19,10 @@ Let nickserv-identified users log in without password via Launchpad
 import supybot
 import supybot.world as world
 
-__version__ = "0.1"
-__author__ = supybot.Author("Terence Simpson","stdin","stdin@stdin.me.uk")
+__version__ = "0.4"
+__author__ = supybot.Author("Terence Simpson","tsimpson","tsimpson@ubuntu.com")
 __contributors__ = {}
-__url__ = 'http://jussi01.com/web/'
+__url__ = 'http://ubottu.com'
 
 import config
 reload(config)
