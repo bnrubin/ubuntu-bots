@@ -177,7 +177,7 @@ launchpad"""
     login = wrap(login)
 
     def doPrivmsg(self, irc, msg):
-        if not conf.supybot.defaultIgnore: # Only do this when defaultIgnore is set
+        if not conf.supybot.defaultIgnore(): # Only do this when defaultIgnore is set
             return
         if chr(1) in msg.args[1]:
             return
