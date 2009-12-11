@@ -177,8 +177,12 @@ for h in [['Channel',0], ['Nick/Mask',1], ['Operator',2], ['Time',6]]:
 print '<th>Log</th></tr>'
 
 # Select and filter bans
-cur.execute("SELECT channel,mask,operator,time,removal,removal_op,id FROM bans ORDER BY id DESC")
-bans = cur.fetchall()
+def getBans(id=None):
+    if id == None:
+        cur.execute("SELECT channel,mask,operator,time,removal,removal_op,id FROM bans ORDER BY id DESC")
+    else:
+        cur.execute("SELECT channel,mask,operator,time,removal,removal_op,id FROM bans ORDER BY id DESC WHERE id = %d", id)
+    return cur.fetchall()
 
 def myfilter(item, regex, kick, ban, oldban, mute, oldmute, floods, operator, channel):
     if operator:
@@ -213,22 +217,29 @@ def getQueryTerm(query, term):
         return (query, ret)
     return (query, None)
 
+bans = []
+
 if form.has_key('query'):
-    k = b = ob = m = om = fb = False
-    oper = chan = False
-    if form.has_key('kicks'):    k  = True
-    if form.has_key('oldbans'):  ob = True
-    if form.has_key('bans'):     b  = True
-    if form.has_key('oldmutes'): om = True
-    if form.has_key('mutes'):    m  = True
-    if form.has_key('floods'):   fb = True
-    if "chan:" in form['query'].value:
-        (form['query'].value, chan) = getQueryTerm(form['query'].value, "chan:")
-    if "oper:" in form['query'].value:
-        (form['query'].value, oper) = getQueryTerm(form['query'].value, "oper:")
-    regex = re.compile(re.escape(form['query'].value).replace('\%','.*'), re.DOTALL | re.I)
-    bans = filter(lambda x: myfilter(x, regex, k, b, ob, m, om, fb, oper, chan), bans)
-    start = 0; end = len(bans)
+    try:
+        bans = getBans(int(form['query'].value))
+        start = 0; end = 1
+    except:
+        bans = getBans()
+        k = b = ob = m = om = fb = False
+        oper = chan = False
+        if form.has_key('kicks'):    k  = True
+        if form.has_key('oldbans'):  ob = True
+        if form.has_key('bans'):     b  = True
+        if form.has_key('oldmutes'): om = True
+        if form.has_key('mutes'):    m  = True
+        if form.has_key('floods'):   fb = True
+        if "chan:" in form['query'].value:
+            (form['query'].value, chan) = getQueryTerm(form['query'].value, "chan:")
+        if "oper:" in form['query'].value:
+            (form['query'].value, oper) = getQueryTerm(form['query'].value, "oper:")
+        regex = re.compile(re.escape(form['query'].value).replace('\%','.*'), re.DOTALL | re.I)
+        bans = filter(lambda x: myfilter(x, regex, k, b, ob, m, om, fb, oper, chan), bans)
+        start = 0; end = len(bans)
 else:
     page = 0
     try:
