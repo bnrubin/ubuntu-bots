@@ -446,15 +446,15 @@ class Bantracker(callbacks.Plugin):
                         ' '.join(msg.args[2:])))
             modes = ircutils.separateModes(msg.args[1:])
             for param in modes:
-                if param == '+b':
-                    comment = self.getHostFromBan(irc, msg, msg.args[i])
-                    self.doKickban(irc, channel, msg.nick, msg.args[i], extra_comment=comment)
-                elif param == '-b':
-                    self.doUnban(irc,channel, msg.nick, msg.args[i])
-                elif param == '+d':
-                    self.doKickban(irc, channel, msg.nick, msg.args[i] + ' (realname)')
-                elif param == '-d':
-                    self.doUnban(irc,channel, msg.nick, msg.args[i] + ' (realname)')
+                if param[0] == '+b':
+                    comment = self.getHostFromBan(irc, msg, param[1])
+                    self.doKickban(irc, channel, msg.nick, param[1], extra_comment=comment)
+                elif param[0] == '-b':
+                    self.doUnban(irc,channel, msg.nick, param[1])
+                elif param[0] == '+d':
+                    self.doKickban(irc, channel, msg.nick, param[1] + ' (realname)')
+                elif param[0] == '-d':
+                    self.doUnban(irc,channel, msg.nick, param[1] + ' (realname)')
 
     def getHostFromBan(self, irc, msg, mask):
         if irc not in self.lastStates:
