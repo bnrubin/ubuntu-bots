@@ -204,27 +204,80 @@ launchpad"""
         self._callCommand(["login"], irc, msg, [])
 
     def do290(self, irc, msg):
-        assert 'IDENTIFY-MSG' in msg.args[1]
-        irc.getRealIrc()._Freenode_capabed = True
+        """hyperiron CAPAB reply"""
+        realIrc = irc.getRealIrc()
+        realIrc._Freenode_capabed_notices = False
+        if msg.args[1].lower() == "identify-msg":
+            realIrc._Freenode_capabed = True
+        else:
+            realIrc._Freenode_capabed = False
 
-    def do376(self, irc, msg):
-        irc.queueMsg(ircmsgs.IrcMsg('CAPAB IDENTIFY-MSG'))
-    def do422(self, irc, msg): # MOTD missing
-        irc.queueMsg(ircmsgs.IrcMsg('CAPAB IDENTIFY-MSG'))
+    def doCap(self, irc, msg):
+        """ircd-seven CAP reply"""
+        cmd = msg.args[1].lower()
+        args = msg.args[2].lower()
+        realIrc = irc.getRealIrc()
+        if cmd == "ls": # Got capability listing
+            if "identify-msg" in args: # identify-msg is a capability on this server
+                irc.queueMsg(ircmsgs.IrcMsg('CAP REQ IDENTIFY-MSG')) # Request identify-msg
+
+        if cmd == "ack": # Acknowledge reply
+            if "identify-msg" in args: # identify-msg is set
+                realIrc._Freenode_capabed = True
+                realIrc._Freenode_capabed_notices = True
+
+        if cmd == 'nak': # Failure reply
+            if "identify-msg" in args: # identify-msg is not set
+                realIrc._Freenode_capabed = False
+                realIrc._Freenode_capabed_notices = False
+
+    def do421(self, irc, msg):
+        """Invalid command"""
+        if msg.args[1].lower() == "cap":
+            irc.queueMsg(ircmsgs.IrcMsg("CAPAB IDENTIFY MSG"))
+
+    def do376(self, irc, msg, force=False): # End of /MOTD command.
+        """
+        The new freenode ircd-seven requires using the 'CAP' command
+        to set capabilities, rather than hyperirons 'CAPAB' command.
+        You request "CAP REQ IDENTIFY-MSG" and the server will respond
+        with either "CAP <nick> ACK :identify-msg" to acknowledge, or
+        "CAP <nick> NAK :identify-msg" to indicate failure.
+        Other than that, it's the same.
+        """
+        if not hasattr(irc.getRealIrc(), "_Freenode_capabed") and not force: # Do this only once
+            realIrc = irc.getRealIrc()
+            realIrc._Freenode_capabed = False
+            realIrc._Freenode_capabed_notices = False
+            # Try the CAP command first
+            irc.ququeMsg(ircmsgs.IrcMsg("CAP LS"))
+
+    do422 = do376
 
     def inFilter(self, irc, msg):
-        if not msg.command == "PRIVMSG":
+        """
+        Strip the leading '+' or '-' from each message
+        """
+
+        if msg.command not in ("PRIVMSG", "NOTICE"):
             return msg
-        if getattr(irc,'_Freenode_capabed',None) and msg.command == 'PRIVMSG':
-            if msg.tagged('identified') == None:
-                first = msg.args[1][0]
-                rest = msg.args[1][1:]
-                msg.tag('identified', first == '+')
-                if first in ('+', '-'):
-                    msg = ircmsgs.privmsg(msg.args[0], rest, msg=msg)
-                assert msg.receivedAt and msg.receivedOn and msg.receivedBy
+
+        if not getattr(irc, '_Freenode_capabed', False):
+            return msg
+
+        if msg.command == "NOTICE" and not getattr(irc, '_Freenode_capabed_notices', False):
+            return msg
+
+        if msg.tagged('identified') == None:
+            first = msg.args[1][0]
+            rest = msg.args[1][1:]
+            msg.tag('identified', first == '+')
+            if first in ('+', '-'):
+                msg = ircmsgs.privmsg(msg.args[0], rest, msg=msg)
+            assert msg.receivedAt and msg.receivedOn and msg.receivedBy
+
         if len(msg.args) >= 2 and msg.args[1] and msg.args[1][0] in ('+', '-'):
-            self.do376(irc, msg)
+            self.do376(irc, msg, True)
         return msg
 
 Class = IRCLogin
