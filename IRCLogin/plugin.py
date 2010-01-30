@@ -190,12 +190,17 @@ launchpad"""
             pass
 
         text = callbacks.addressed(irc.nick, msg)
+        cmd = ''
         if not text or text != "login":
             if msg.args[1]:
-                if msg.args[1][0] == '@':
-                    cmd = msg.args[1][1:]
+                if ircutils.isChannel(msg.args[0]):
+                    if msg.args[1][0] == '@':
+                        cmd = msg.args[1][1:]
                 else:
-                    cmd = msg.args[1]
+                    if msg.args[1][0] == '@':
+                        cmd = msg.args[1][1:]
+                    else:
+                        cmd = msg.args[1]
                 if cmd != "login":
                     return
             else:

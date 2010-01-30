@@ -432,10 +432,10 @@ class Bantracker(callbacks.Plugin):
 
     def doPart(self, irc, msg):
         for channel in msg.args[0].split(','):
-            self.doLog(irc, channel, '*** %s (%s) has left %s (%s)\n' % (msg.nick, msg.prefix, channel, msg.args[1]))
-            if msg.args[1].startswith('requested by'):
+            self.doLog(irc, channel, '*** %s (%s) has left %s (%s)\n' % (msg.nick, msg.prefix, channel, len(msg.args) > 1 and msg.args[1] or ''))
+            if len(msg.args) > 1 and msg.args[1].startswith('requested by'):
                 args = msg.args[1].split()
-                self.doKickban(irc, channel, args[2].replace(':',''), msg.nick, ' '.join(args[3:])[1:-1].strip(), extra_comment=msg.prefix)
+                self.doKickban(irc, channel, args[2], msg.nick, ' '.join(args[3:]).strip(), extra_comment=msg.prefix)
 
     def doMode(self, irc, msg):
         channel = msg.args[0]
@@ -446,15 +446,25 @@ class Bantracker(callbacks.Plugin):
                         ' '.join(msg.args[2:])))
             modes = ircutils.separateModes(msg.args[1:])
             for param in modes:
-                if param[0] == '+b':
-                    comment = self.getHostFromBan(irc, msg, param[1])
-                    self.doKickban(irc, channel, msg.nick, param[1], extra_comment=comment)
-                elif param[0] == '-b':
-                    self.doUnban(irc,channel, msg.nick, param[1])
-                elif param[0] == '+d':
-                    self.doKickban(irc, channel, msg.nick, param[1] + ' (realname)')
-                elif param[0] == '-d':
-                    self.doUnban(irc,channel, msg.nick, param[1] + ' (realname)')
+               realname = ''
+                mode = param[0]
+                mask = ''
+                comment=None
+                if param[0] not in ("+b", "-b", "+q", "-q"):
+                    continue
+                mask = param[1]
+                if mask.startswith("$r:"):
+                    mask = mask[3:]
+                    realname = ' (realname)'
+
+                if param[0][1] == 'q':
+                    mask = '%' + mask
+
+                if param[0] in ('+b', '+q'):
+                    comment = self.getHostFromBan(irc, msg, mask)
+                    self.doKickban(irc, channel, msg.nick, mask + realname, extra_comment=comment)
+                elif param[0] in ('-b', '-q'):
+                    self.doUnban(irc,channel, msg.nick, mask + realname)
 
     def getHostFromBan(self, irc, msg, mask):
         if irc not in self.lastStates:
