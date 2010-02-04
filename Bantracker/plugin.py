@@ -54,7 +54,7 @@ import cPickle
 import datetime
 import time
 import random
-import md5
+import hashlib
 import threading
 
 tz = 'UTC'
@@ -554,7 +554,7 @@ class Bantracker(callbacks.Plugin):
         if not self.registryValue('bansite'):
             irc.error("No bansite set, please set supybot.plugins.Bantracker.bansite")
             return
-        sessid = md5.new('%s%s%d' % (msg.prefix, time.time(), random.randint(1,100000))).hexdigest()
+        sessid = hashlib.md5('%s%s%d' % (msg.prefix, time.time(), random.randint(1,100000))).hexdigest()
         self.db_run("INSERT INTO sessions (session_id, user, time) VALUES (%s, %s, %d);",
             ( sessid, msg.nick, int(time.mktime(time.gmtime())) ) )
         irc.reply('Log in at %s/bans.cgi?sess=%s' % (self.registryValue('bansite'), sessid), private=True)
