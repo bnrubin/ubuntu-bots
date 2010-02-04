@@ -21,7 +21,7 @@ import supybot.ircdb as ircdb
 import supybot.conf as conf
 import supybot.utils as utils
 import supybot.ircutils as ircutils
-import sys, os, re, md5, random, time
+import sys, os, re, hashlib, random, time
 
 if sys.version_info >= (2, 5, 0):
   import re
@@ -909,7 +909,7 @@ class Encyclopedia(callbacks.Plugin):
             return
         cur = db.cursor()
 
-        sessid = md5.new('%s%s%d' % (msg.prefix, time.time(), random.randint(1,100000))).hexdigest()
+        sessid = hashlib.md5('%s%s%d' % (msg.prefix, time.time(), random.randint(1,100000))).hexdigest()
         cur.execute("INSERT INTO sessions (session_id, user, time) VALUES (%s, %s, %d)",
             (sessid, msg.nick, int(time.mktime(time.gmtime())) ))
         db.commit()
