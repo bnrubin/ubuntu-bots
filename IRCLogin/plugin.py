@@ -176,6 +176,21 @@ launchpad"""
         irc.replySuccess()
     login = wrap(login)
 
+    @wrap
+    def identifymsg(self, irc, msg, args):
+        """
+        takes no arguments.
+        Sends a requet for the identify-msg capability.
+        """
+        self.do376(irc, msg, True)
+        irc.replySuccess()
+
+    @wrap
+    def haveidentifymsg(self, irc, msg, args):
+        realIrc = hasattr(irc, 'getRealIrc') and irc.getRealIrc() or irc
+        haveCap = getattr(realIrc, "_Freenode_capabed", False)
+        irc.reply("identify-msg is %sabled" % (haveCap and "En" or "Dis")
+
     def doPrivmsg(self, irc, msg):
         if not conf.supybot.defaultIgnore(): # Only do this when defaultIgnore is set
             return
@@ -250,7 +265,7 @@ launchpad"""
         "CAP <nick> NAK :identify-msg" to indicate failure.
         Other than that, it's the same.
         """
-        if not hasattr(irc.getRealIrc(), "_Freenode_capabed") and not force: # Do this only once
+        if not hasattr(irc.getRealIrc(), "_Freenode_capabed") or force: # Do this only once
             realIrc = irc.getRealIrc()
             realIrc._Freenode_capabed = False
             realIrc._Freenode_capabed_notices = False
