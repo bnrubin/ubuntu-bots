@@ -189,7 +189,7 @@ launchpad"""
     def haveidentifymsg(self, irc, msg, args):
         realIrc = hasattr(irc, 'getRealIrc') and irc.getRealIrc() or irc
         haveCap = getattr(realIrc, "_Freenode_capabed", False)
-        irc.reply("identify-msg is %sabled" % (haveCap and "En" or "Dis")
+        irc.reply("identify-msg is %sabled" % (haveCap and "En" or "Dis"))
 
     def doPrivmsg(self, irc, msg):
         if not conf.supybot.defaultIgnore(): # Only do this when defaultIgnore is set
