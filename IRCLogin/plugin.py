@@ -182,7 +182,7 @@ launchpad"""
         takes no arguments.
         Sends a requet for the identify-msg capability.
         """
-        self.do376(irc, msg, True)
+        self.do376(irc, msg, force=True)
         irc.replySuccess()
 
     @wrap
@@ -265,12 +265,12 @@ launchpad"""
         "CAP <nick> NAK :identify-msg" to indicate failure.
         Other than that, it's the same.
         """
-        if not hasattr(irc.getRealIrc(), "_Freenode_capabed") or force: # Do this only once
-            realIrc = irc.getRealIrc()
+        realIrc = hasattr(irc, 'getRealIrc') and irc.getRealIrc() or irc
+        if not hasattr(realIrc, "_Freenode_capabed") or force: # Do this only once
             realIrc._Freenode_capabed = False
             realIrc._Freenode_capabed_notices = False
             # Try the CAP command first
-            irc.ququeMsg(ircmsgs.IrcMsg("CAP LS"))
+            irc.queueMsg(ircmsgs.IrcMsg("CAP LS"))
 
     do422 = do376
 
