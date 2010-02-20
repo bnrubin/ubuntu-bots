@@ -46,6 +46,17 @@ class IRCLogin(callbacks.Plugin):
 launchpad"""
     threaded = True
 
+    def __init__(self, irc):
+        super(IRCLogin, self).__init__(irc)
+        self._irc = hasattr(irc, 'getRealIrc') and irc.getRealIrc() or irc
+
+    def die(self):
+        """Disable identify-msg, if possible"""
+        if getattr(self._irc, '_Freenode_capabed', False):
+            # Only the CAP command can disable identify-msg not CAPAB
+            self._irc.queueMsg(ircmsgs.IrcMsg('CAP REQ -IDENTIFY-MSG')) # Disable identify-msg
+            self._irc._Freenode_capabed = self._irc._Freenode_capabed_notices = False
+
     def updateusers(self, irc, msg, args):
         """Takes no arguments
 
