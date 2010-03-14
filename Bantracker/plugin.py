@@ -489,7 +489,11 @@ class Bantracker(callbacks.Plugin):
             self.lastStates[irc] = irc.state.copy()
         if mask[0] == '%':
             mask = mask[1:]
-        (nick, ident, host) = ircutils.splitHostmask(mask)
+        try:
+            (nick, ident, host) = ircutils.splitHostmask(mask)
+        except AssertionError:
+            # not a hostmask
+            return None
         channel = None
         chan = None
         if mask[0] not in ('*', '?'): # Nick ban
