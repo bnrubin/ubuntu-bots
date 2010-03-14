@@ -115,8 +115,9 @@ queue = MsgQueue()
 class Ban(object):
     """Hold my bans"""
     def __init__(self, args=None, **kwargs):
-        object.__init__(self)
+        self.id = None
         if args:
+            # in most ircd: args = (nick, channel, mask, who, when)
             self.mask = args[2]
             self.who = args[3]
             self.when = float(args[4])
@@ -124,6 +125,8 @@ class Ban(object):
             self.mask = kwargs['mask']
             self.who = kwargs['who']
             self.when = float(kwargs['when'])
+            if 'id' in kwargs:
+                self.id = kwargs['id']
         self.ascwhen = time.asctime(time.gmtime(self.when))
 
     def __tuple__(self):
@@ -323,6 +326,19 @@ class Bantracker(callbacks.Plugin):
         self.db.commit()
         return data
 
+    def requestComment(self, irc, channel, ban, type=None):
+        mask = ban.mask
+        if not type:
+            if mask[0] == '%':
+                type = 'quiet'
+                mask = mask[1:]
+            elif ircutils.isUserHostmask(mask) or mask.endswith('(realname)'):
+                type = 'ban'
+            else:
+                type = 'removal'
+        s = "Please comment on the %s of %s in %s with the ID %s" %(type, mask, channel, ban.id)
+        irc.reply(s, to=ban.who, private=True)
+
     def doLog(self, irc, channel, s):
         if not self.registryValue('enabled', channel):
             return
@@ -348,7 +364,9 @@ class Bantracker(callbacks.Plugin):
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, extra_comment, n))
         if channel not in self.bans:
             self.bans[channel] = []
-        self.bans[channel].append(Ban(mask=target, who=nick, when=time.mktime(time.gmtime())))
+        ban = Ban(mask=target, who=nick, when=time.mktime(time.gmtime()), id=id)
+        self.bans[channel].append(ban)
+        self.requestComment(irc, channel, ban)
         return id
 
     def doUnban(self, irc, channel, nick, mask):
