@@ -209,7 +209,7 @@ class Bantracker(callbacks.Plugin):
         mask = "%s!%s@%s" % (nick, msg.args[2].lower(), msg.args[3].lower())
         self.nicks[nick] = mask
         if nick in self.replies:
-            f = getattr(self, "real_%s" % self.replies[nick][0])
+            f = getattr(self, "%s_real" % self.replies[nick][0])
             args = self.replies[nick][1]
             del self.replies[nick]
             kwargs={'from_reply': True, 'reply': "%s!%s@%s" % (msg.args[1], msg.args[2], msg.args[3])}
@@ -222,7 +222,7 @@ class Bantracker(callbacks.Plugin):
         if not nick in self.nicks:
             self.nicks[nick] = mask
         if nick in self.replies:
-            f = getattr(self, "real_%s" % self.replies[nick][0])
+            f = getattr(self, "%s_real" % self.replies[nick][0])
             args = self.replies[nick][1]
             del self.replies[nick]
             kwargs={'from_reply': True, 'reply': "%s!%s@%s" % (msg.args[1], msg.args[2], msg.args[3])}
@@ -236,7 +236,7 @@ class Bantracker(callbacks.Plugin):
         """/whowas faild"""
         nick = msg.args[1].lower()
         if nick in self.replies:
-            f = getattr(self, "real_%s" % self.replies[nick][0])
+            f = getattr(self, "%s_real" % self.replies[nick][0])
             args = self.replies[nick][1]
             del self.replies[nick]
             kwargs = {'from_reply': True, 'reply': None}
