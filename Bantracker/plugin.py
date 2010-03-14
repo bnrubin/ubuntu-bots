@@ -446,7 +446,7 @@ class Bantracker(callbacks.Plugin):
                         ' '.join(msg.args[2:])))
             modes = ircutils.separateModes(msg.args[1:])
             for param in modes:
-               realname = ''
+                realname = ''
                 mode = param[0]
                 mask = ''
                 comment=None
