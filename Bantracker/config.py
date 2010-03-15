@@ -28,5 +28,17 @@ conf.registerGlobalValue(conf.supybot.plugins.Bantracker, 'bansite',
 
 conf.registerChannelValue(Bantracker, 'dontRequestComment',
         registry.SpaceSeparatedListOfStrings([],
-            "List of nicks for which the bot won't request to comment a ban/quiet/removal. "\
-            "Is case insensible and wildcards * ? are accepted."))
+            "List of nicks for which the bot won't request to comment a ban/quiet/removal."\
+            " Is case insensible and wildcards * ? are accepted."))
+
+conf.registerChannelValue(Bantracker, 'forwardRequest',
+        registry.SpaceSeparatedListOfStrings([],
+            "List of nicks for which the bot will forward the comment request to"\
+            " the channels/nicks defined in forwardChannel option."\
+            " Is case insensible and wildcards * ? are accepted."))
+
+conf.registerChannelValue(Bantracker, 'forwardChannels',
+        registry.SpaceSeparatedListOfStrings([],
+            "List of channels/nicks to forward comment request if the op that set the ban/quiet"\
+            " is in the forwardRequest list."))
+

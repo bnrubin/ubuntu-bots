@@ -91,6 +91,16 @@ def hostmaskPatternEqual(pattern, hostmask):
         pattern = pattern[1:]
     return ircutils.hostmaskPatternEqual(pattern, hostmask)
 
+def nickMatch(nick, pattern):
+    """Checks if a given nick matches a pattern or in a list of patterns."""
+    if isinstance(pattern, str):
+        pattern = [pattern]
+    nick = nick.lower()
+    for s in pattern:
+        if fnmatch(nick, s):
+            return True
+    return False
+
 def dequeue(parent, irc):
     global queue
     queue.dequeue(parent, irc)
@@ -329,9 +339,7 @@ class Bantracker(callbacks.Plugin):
 
     def requestComment(self, irc, channel, ban, type=None):
         # check if we should request a comment
-        opnick = ban.who.lower()
-        for pattern in self.registryValue('dontRequestComment', channel=channel):
-            if fnmatch(opnick, pattern):
+        if nickMatch(ban.who, self.registryValue('dontRequestComment', channel=channel)):
                 return
         # check the type of the action taken
         mask = ban.mask
@@ -344,8 +352,20 @@ class Bantracker(callbacks.Plugin):
             else:
                 type = 'removal'
         # send msg
+        prefix = conf.supybot.reply.whenAddressedBy.chars()[0]
+        # check to who send the request
+        if nickMatch(ban.who, self.registryValue('forwardRequest', channel=channel)):
+            channels = self.registryValue('forwardChannels', channel=channel)
+            if channels:
+                s = "Please comment on the %s of %s in %s done by %s, use: %scomment %s <comment>" \
+                        %(type, mask, channel, ban.who, prefix, ban.id)
+                for chan in channels:
+                    msg = ircmsgs.notice(chan, s)
+                    irc.queueMsg(msg)
+                return
+        # send to op
         s = "Please comment on the %s of %s in %s, use: %scomment %s <comment>" \
-                %(type, mask, channel, conf.supybot.reply.whenAddressedBy.chars()[0], ban.id)
+                %(type, mask, channel, prefix, ban.id)
         irc.reply(s, to=ban.who, private=True)
 
     def doLog(self, irc, channel, s):
