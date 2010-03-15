@@ -344,7 +344,8 @@ class Bantracker(callbacks.Plugin):
             else:
                 type = 'removal'
         # send msg
-        s = "Please comment on the %s of %s in %s with the ID %s" %(type, mask, channel, ban.id)
+        s = "Please comment on the %s of %s in %s, use: %scomment %s <comment>" \
+                %(type, mask, channel, conf.supybot.reply.whenAddressedBy.chars()[0], ban.id)
         irc.reply(s, to=ban.who, private=True)
 
     def doLog(self, irc, channel, s):
