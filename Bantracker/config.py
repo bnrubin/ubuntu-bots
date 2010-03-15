@@ -25,3 +25,8 @@ conf.registerGlobalValue(conf.supybot.plugins.Bantracker, 'database',
         registry.String('', "Filename of the bans database", private=True))
 conf.registerGlobalValue(conf.supybot.plugins.Bantracker, 'bansite',
         registry.String('', "Web site for the bantracker, without the 'bans.cgi' appended", private=True))
+
+conf.registerChannelValue(Bantracker, 'dontRequestComment',
+        registry.SpaceSeparatedListOfStrings([],
+            "List of nicks for which the bot won't request to comment a ban/quiet/removal. "\
+            "Is case insensible and wildcards * ? are accepted."))

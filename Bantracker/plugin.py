@@ -48,6 +48,7 @@ import supybot.callbacks as callbacks
 import supybot.ircmsgs as ircmsgs
 import supybot.conf as conf
 import supybot.ircdb as ircdb
+from fnmatch import fnmatch
 import sqlite
 import pytz
 import cPickle
@@ -327,6 +328,12 @@ class Bantracker(callbacks.Plugin):
         return data
 
     def requestComment(self, irc, channel, ban, type=None):
+        # check if we should request a comment
+        opnick = ban.who.lower()
+        for pattern in self.registryValue('dontRequestComment', channel=channel):
+            if fnmatch(opnick, pattern):
+                return
+        # check the type of the action taken
         mask = ban.mask
         if not type:
             if mask[0] == '%':
@@ -336,6 +343,7 @@ class Bantracker(callbacks.Plugin):
                 type = 'ban'
             else:
                 type = 'removal'
+        # send msg
         s = "Please comment on the %s of %s in %s with the ID %s" %(type, mask, channel, ban.id)
         irc.reply(s, to=ban.who, private=True)
 
