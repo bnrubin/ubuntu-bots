@@ -339,7 +339,7 @@ class Bantracker(callbacks.Plugin):
 
     def requestComment(self, irc, channel, ban, type=None):
         # check if we should request a comment
-        if nickMatch(ban.who, self.registryValue('dontRequestComment', channel=channel)):
+        if nickMatch(ban.who, self.registryValue('commentRequest.ignore', channel=channel)):
                 return
         # check the type of the action taken
         mask = ban.mask
@@ -354,8 +354,8 @@ class Bantracker(callbacks.Plugin):
         # send msg
         prefix = conf.supybot.reply.whenAddressedBy.chars()[0]
         # check to who send the request
-        if nickMatch(ban.who, self.registryValue('forwardRequest', channel=channel)):
-            channels = self.registryValue('forwardChannels', channel=channel)
+        if nickMatch(ban.who, self.registryValue('commentRequest.forward', channel=channel)):
+            channels = self.registryValue('commentRequest.forward.channels', channel=channel)
             if channels:
                 s = "Please comment on the %s of %s in %s done by %s, use: %scomment %s <comment>" \
                         %(type, mask, channel, ban.who, prefix, ban.id)
