@@ -97,7 +97,7 @@ def nickMatch(nick, pattern):
         pattern = [pattern]
     nick = nick.lower()
     for s in pattern:
-        if fnmatch(nick, s):
+        if fnmatch(nick, s.lower()):
             return True
     return False
 
