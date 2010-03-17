@@ -19,11 +19,11 @@ def configure(advanced):
     conf.registerPlugin('Bantracker', True)
 
 Bantracker = conf.registerPlugin('Bantracker')
-conf.registerChannelValue(conf.supybot.plugins.Bantracker, 'enabled',
+conf.registerChannelValue(Bantracker, 'enabled',
         registry.Boolean(False, """Enable the bantracker"""))
-conf.registerGlobalValue(conf.supybot.plugins.Bantracker, 'database',
+conf.registerGlobalValue(Bantracker, 'database',
         registry.String('', "Filename of the bans database", private=True))
-conf.registerGlobalValue(conf.supybot.plugins.Bantracker, 'bansite',
+conf.registerGlobalValue(Bantracker, 'bansite',
         registry.String('', "Web site for the bantracker, without the 'bans.cgi' appended", private=True))
 
 conf.registerGroup(Bantracker, 'commentRequest')

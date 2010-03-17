@@ -352,13 +352,13 @@ class Bantracker(callbacks.Plugin):
             else:
                 type = 'removal'
         # send msg
-        prefix = conf.supybot.reply.whenAddressedBy.chars()[0]
+        prefix = conf.supybot.reply.whenAddressedBy.chars()[0] # prefix char for commands
         # check to who send the request
         if nickMatch(ban.who, self.registryValue('commentRequest.forward', channel=channel)):
             channels = self.registryValue('commentRequest.forward.channels', channel=channel)
             if channels:
-                s = "Please comment on the %s of %s in %s done by %s, use: %scomment %s <comment>" \
-                        %(type, mask, channel, ban.who, prefix, ban.id)
+                s = "Please somebody comment on the %s of %s in %s done by %s, use:"\
+                    " %scomment %s <comment>" %(type, mask, channel, ban.who, prefix, ban.id)
                 for chan in channels:
                     msg = ircmsgs.notice(chan, s)
                     irc.queueMsg(msg)
