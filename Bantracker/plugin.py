@@ -351,6 +351,9 @@ class Bantracker(callbacks.Plugin):
                 type = 'ban'
             else:
                 type = 'removal'
+        # check if type is enabled
+        if type not in self.registryValue('commentRequest.type', channel=channel):
+            return
         # send msg
         prefix = conf.supybot.reply.whenAddressedBy.chars()[0] # prefix char for commands
         # check to who send the request

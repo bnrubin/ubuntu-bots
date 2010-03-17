@@ -15,6 +15,14 @@
 import supybot.conf as conf
 import supybot.registry as registry
 
+class ValidTypes(registry.OnlySomeStrings):
+    """Invalid type, valid types are: 'removal', 'ban' or 'quiet'."""
+    validStrings = ('removal', 'ban', 'quiet')
+
+class SpaceSeparatedListOfTypes(registry.SpaceSeparatedListOf):
+    Value = ValidTypes
+
+
 def configure(advanced):
     conf.registerPlugin('Bantracker', True)
 
@@ -27,6 +35,9 @@ conf.registerGlobalValue(Bantracker, 'bansite',
         registry.String('', "Web site for the bantracker, without the 'bans.cgi' appended", private=True))
 
 conf.registerGroup(Bantracker, 'commentRequest')
+conf.registerChannelValue(Bantracker.commentRequest, 'type',
+        SpaceSeparatedListOfTypes(['removal', 'ban', 'quiet'],
+            "List of events for which the bot should request a comment."))
 conf.registerChannelValue(Bantracker.commentRequest, 'ignore',
         registry.SpaceSeparatedListOfStrings([],
             "List of nicks for which the bot won't request to comment a ban/quiet/removal."\
