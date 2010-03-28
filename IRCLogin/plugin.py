@@ -198,8 +198,7 @@ launchpad"""
 
     @wrap
     def haveidentifymsg(self, irc, msg, args):
-        realIrc = hasattr(irc, 'getRealIrc') and irc.getRealIrc() or irc
-        haveCap = getattr(realIrc, "_Freenode_capabed", False)
+        haveCap = getattr(self._irc, "_Freenode_capabed", False)
         irc.reply("identify-msg is %sabled" % (haveCap and "En" or "Dis"))
 
     def doPrivmsg(self, irc, msg):
@@ -236,31 +235,29 @@ launchpad"""
 
     def do290(self, irc, msg):
         """hyperiron CAPAB reply"""
-        realIrc = irc.getRealIrc()
-        realIrc._Freenode_capabed_notices = False
+        self._irc._Freenode_capabed_notices = False
         if msg.args[1].lower() == "identify-msg":
-            realIrc._Freenode_capabed = True
+            self._irc._Freenode_capabed = True
         else:
-            realIrc._Freenode_capabed = False
+            self._irc._Freenode_capabed = False
 
     def doCap(self, irc, msg):
         """ircd-seven CAP reply"""
         cmd = msg.args[1].lower()
         args = msg.args[2].lower()
-        realIrc = irc.getRealIrc()
         if cmd == "ls": # Got capability listing
             if "identify-msg" in args: # identify-msg is a capability on this server
                 irc.queueMsg(ircmsgs.IrcMsg('CAP REQ IDENTIFY-MSG')) # Request identify-msg
 
         if cmd == "ack": # Acknowledge reply
             if "identify-msg" in args: # identify-msg is set
-                realIrc._Freenode_capabed = True
-                realIrc._Freenode_capabed_notices = True
+                self._irc._Freenode_capabed = True
+                self._irc._Freenode_capabed_notices = True
 
         if cmd == 'nak': # Failure reply
             if "identify-msg" in args: # identify-msg is not set
-                realIrc._Freenode_capabed = False
-                realIrc._Freenode_capabed_notices = False
+                self._irc._Freenode_capabed = False
+                self._irc._Freenode_capabed_notices = False
 
     def do421(self, irc, msg):
         """Invalid command"""
@@ -276,10 +273,9 @@ launchpad"""
         "CAP <nick> NAK :identify-msg" to indicate failure.
         Other than that, it's the same.
         """
-        realIrc = hasattr(irc, 'getRealIrc') and irc.getRealIrc() or irc
-        if not hasattr(realIrc, "_Freenode_capabed") or force: # Do this only once
-            realIrc._Freenode_capabed = False
-            realIrc._Freenode_capabed_notices = False
+        if not hasattr(self._irc, "_Freenode_capabed") or force: # Do this only once
+            self._irc._Freenode_capabed = False
+            self._irc._Freenode_capabed_notices = False
             # Try the CAP command first
             irc.queueMsg(ircmsgs.IrcMsg("CAP LS"))
 
