@@ -48,6 +48,7 @@ import supybot.callbacks as callbacks
 import supybot.ircmsgs as ircmsgs
 import supybot.conf as conf
 import supybot.ircdb as ircdb
+from fnmatch import fnmatch
 import sqlite
 import pytz
 import cPickle
@@ -91,6 +92,16 @@ def hostmaskPatternEqual(pattern, hostmask):
         pattern = pattern[1:]
     return ircutils.hostmaskPatternEqual(pattern, hostmask)
 
+def nickMatch(nick, pattern):
+    """Checks if a given nick matches a pattern or in a list of patterns."""
+    if isinstance(pattern, str):
+        pattern = [pattern]
+    nick = nick.lower()
+    for s in pattern:
+        if fnmatch(nick, s.lower()):
+            return True
+    return False
+
 def dequeue(parent, irc):
     global queue
     queue.dequeue(parent, irc)
@@ -116,8 +127,9 @@ queue = MsgQueue()
 class Ban(object):
     """Hold my bans"""
     def __init__(self, args=None, **kwargs):
-        object.__init__(self)
+        self.id = None
         if args:
+            # in most ircd: args = (nick, channel, mask, who, when)
             self.mask = args[2]
             self.who = args[3]
             self.when = float(args[4])
@@ -125,6 +137,8 @@ class Ban(object):
             self.mask = kwargs['mask']
             self.who = kwargs['who']
             self.when = float(kwargs['when'])
+            if 'id' in kwargs:
+                self.id = kwargs['id']
         self.ascwhen = time.asctime(time.gmtime(self.when))
 
     def __tuple__(self):
@@ -207,7 +221,7 @@ class Bantracker(callbacks.Plugin):
         mask = "%s!%s@%s" % (nick, msg.args[2].lower(), msg.args[3].lower())
         self.nicks[nick] = mask
         if nick in self.replies:
-            f = getattr(self, "real_%s" % self.replies[nick][0])
+            f = getattr(self, "%s_real" % self.replies[nick][0])
             args = self.replies[nick][1]
             del self.replies[nick]
             kwargs={'from_reply': True, 'reply': "%s!%s@%s" % (msg.args[1], msg.args[2], msg.args[3])}
@@ -220,7 +234,7 @@ class Bantracker(callbacks.Plugin):
         if not nick in self.nicks:
             self.nicks[nick] = mask
         if nick in self.replies:
-            f = getattr(self, "real_%s" % self.replies[nick][0])
+            f = getattr(self, "%s_real" % self.replies[nick][0])
             args = self.replies[nick][1]
             del self.replies[nick]
             kwargs={'from_reply': True, 'reply': "%s!%s@%s" % (msg.args[1], msg.args[2], msg.args[3])}
@@ -234,7 +248,7 @@ class Bantracker(callbacks.Plugin):
         """/whowas faild"""
         nick = msg.args[1].lower()
         if nick in self.replies:
-            f = getattr(self, "real_%s" % self.replies[nick][0])
+            f = getattr(self, "%s_real" % self.replies[nick][0])
             args = self.replies[nick][1]
             del self.replies[nick]
             kwargs = {'from_reply': True, 'reply': None}
@@ -324,6 +338,40 @@ class Bantracker(callbacks.Plugin):
         self.db.commit()
         return data
 
+    def requestComment(self, irc, channel, ban, type=None):
+        # check if we should request a comment
+        if nickMatch(ban.who, self.registryValue('commentRequest.ignore', channel=channel)):
+                return
+        # check the type of the action taken
+        mask = ban.mask
+        if not type:
+            if mask[0] == '%':
+                type = 'quiet'
+                mask = mask[1:]
+            elif ircutils.isUserHostmask(mask) or mask.endswith('(realname)'):
+                type = 'ban'
+            else:
+                type = 'removal'
+        # check if type is enabled
+        if type not in self.registryValue('commentRequest.type', channel=channel):
+            return
+        # send msg
+        prefix = conf.supybot.reply.whenAddressedBy.chars()[0] # prefix char for commands
+        # check to who send the request
+        if nickMatch(ban.who, self.registryValue('commentRequest.forward', channel=channel)):
+            channels = self.registryValue('commentRequest.forward.channels', channel=channel)
+            if channels:
+                s = "Please somebody comment on the %s of %s in %s done by %s, use:"\
+                    " %scomment %s <comment>" %(type, mask, channel, ban.who, prefix, ban.id)
+                for chan in channels:
+                    msg = ircmsgs.notice(chan, s)
+                    irc.queueMsg(msg)
+                return
+        # send to op
+        s = "Please comment on the %s of %s in %s, use: %scomment %s <comment>" \
+                %(type, mask, channel, prefix, ban.id)
+        irc.reply(s, to=ban.who, private=True)
+
     def doLog(self, irc, channel, s):
         if not self.registryValue('enabled', channel):
             return
@@ -350,7 +398,9 @@ class Bantracker(callbacks.Plugin):
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, extra_comment, n))
         if channel not in self.bans:
             self.bans[channel] = []
-        self.bans[channel].append(Ban(mask=target, who=nick, when=time.mktime(time.gmtime())))
+        ban = Ban(mask=target, who=nick, when=time.mktime(time.gmtime()), id=id)
+        self.bans[channel].append(ban)
+        self.requestComment(irc, channel, ban)
         return id
 
     def doUnban(self, irc, channel, nick, mask):
@@ -448,7 +498,7 @@ class Bantracker(callbacks.Plugin):
                         ' '.join(msg.args[2:])))
             modes = ircutils.separateModes(msg.args[1:])
             for param in modes:
-               realname = ''
+                realname = ''
                 mode = param[0]
                 mask = ''
                 comment=None
@@ -473,7 +523,11 @@ class Bantracker(callbacks.Plugin):
             self.lastStates[irc] = irc.state.copy()
         if mask[0] == '%':
             mask = mask[1:]
-        (nick, ident, host) = ircutils.splitHostmask(mask)
+        try:
+            (nick, ident, host) = ircutils.splitHostmask(mask)
+        except AssertionError:
+            # not a hostmask
+            return None
         channel = None
         chan = None
         if mask[0] not in ('*', '?'): # Nick ban
