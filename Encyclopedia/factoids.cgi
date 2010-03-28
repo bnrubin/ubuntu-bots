@@ -113,6 +113,7 @@ def link(match):
 i = 0
 for f in factoids:
     f = list(f)
+    name = f[0]
     f[2] = f[2][:30]
     if '.' in f[3]:
         f[3] = f[3][:f[3].find('.')]
@@ -122,10 +123,19 @@ for f in factoids:
         f[1] += ' $hr$' + ' $hr$'.join([x[0] for x in more])
     cur.execute("SELECT name FROM facts WHERE value LIKE %s", '<alias> ' + f[0])
     f[0] += ' \n' + ' \n'.join([x[0] for x in cur.fetchall()])
+    data = [ q(x) for x in f ]
+    cur.execute("SELECT author, added FROM log WHERE name = %s ORDER BY id DESC LIMIT 1", name)
+    edit = cur.fetchall()
+    if edit:
+        who, when = edit[0]
+        who = who[:who.find('!')]
+        when = when[:when.find('.')]
+        edit = "<br />Last edited by %s:<br />%s" %(q(who), q(when))
+        data[3] += edit
     print '<tr'
     if i % 2: print ' class="bg2"'
     i += 1
-    print '><td>%s</td><td>%s</td><td>%s<br />Added on: %s<br />Requested %s times</td>' % tuple([q(x) for x in f])
+    print '><td>%s</td><td>%s</td><td>%s<br />Added on: %s<br />Requested %s times</td>' % tuple(data)
 
 print '</table>'
 
