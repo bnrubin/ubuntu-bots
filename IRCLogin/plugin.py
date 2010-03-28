@@ -300,7 +300,11 @@ launchpad"""
             rest = msg.args[1][1:]
             msg.tag('identified', first == '+')
             if first in ('+', '-'):
-                msg = ircmsgs.privmsg(msg.args[0], rest, msg=msg)
+                if msg.command == "NOTICE":
+                    msg = ircmsgs.notice(msg.args[0], rest, msg=msg)
+                else:
+                    msg = ircmsgs.privmsg(msg.args[0], rest, msg=msg)
+
             assert msg.receivedAt and msg.receivedOn and msg.receivedBy
 
         if len(msg.args) >= 2 and msg.args[1] and msg.args[1][0] in ('+', '-'):
