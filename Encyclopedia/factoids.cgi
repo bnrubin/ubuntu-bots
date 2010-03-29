@@ -38,6 +38,45 @@ search = ''
 factoids = []
 total = 0
 
+class Factoid:
+    def __init__(self, name, value, author, added, popularity):
+        self.name, self.value, self._author, self._added, self.popularity = (name, value, author, added, popularity)
+
+    @property
+    def author(self):
+        if '!' in self._author:
+            return self._author[:self._author.find('!')]
+        return self._author
+
+    @property
+    def added(self):
+        if '.' in self._added:
+            return self._added[:self._added.find('.')]
+        return self._added
+
+    def __iter__(self):
+        yield self.name
+        yield self.value
+        yield self.author
+        yield self.added
+        yield self.popularity
+
+class Log:
+    def __init__(self, author, added):
+        self._author, self._added = (author, added)
+
+    @property
+    def author(self):
+        if '!' in self._author:
+            return self._author[:self._author.find('!')]
+        return self._author
+
+    @property
+    def added(self):
+        if '.' in self._added:
+            return self._added[:self._added.find('.')]
+        return self._added
+
 # Read POST
 if 'db' in form:
     database = form['db'].value
@@ -74,12 +113,12 @@ if search:
 
     query1 += ') ORDER BY %s LIMIT %d, %d' % (order_by, NUM_PER_PAGE*page, NUM_PER_PAGE)
     cur.execute(query1)
-    factoids = cur.fetchall()
+    factoids = [Factoid(x) for x in cur.fetchall()]
     cur.execute(query2)
     total = cur.fetchall()[0][0]
 else:
     cur.execute("SELECT name, value, author, added, popularity FROM facts WHERE value NOT LIKE '<alias>%%' AND name NOT LIKE '%%-also' ORDER BY %s LIMIT %d, %d" % (order_by, page*NUM_PER_PAGE, NUM_PER_PAGE))
-    factoids = cur.fetchall()
+    factoids = [Factoid(*x) for x in cur.fetchall()]
     cur.execute("""SELECT COUNT(*) FROM facts WHERE value NOT LIKE '<alias>%%'""")
     total = cur.fetchall()[0][0]
 
@@ -97,7 +136,16 @@ print ' <a href="factoids.cgi?db=%s&search=%s&order=%s&page=0">%s</a> &middot;' 
 print ' <a href="factoids.cgi?db=%s&search=%s&order=%s&page=0">%s</a> &middot;' % (database, search, 'added ASC', 'Date added +')
 print ' <a href="factoids.cgi?db=%s&search=%s&order=%s&page=0">%s</a> &middot;' % (database, search, 'added DESC', 'Date added -')
 
-print '<table cellspacing="0"><tr><th>Factoid</th><th>Value</th><th>Author</th></tr>'
+print '''
+ <table cellspacing="0">
+  <thead>
+   <tr>
+    <th style="width: 10%;">Factoid</th>
+    <th style="width: 70%;">Value</th>
+    <th style="width: 20%;">Author</th>
+   </tr>
+  </thead>
+  <tbody>'''
 
 url_re = re.compile('(?P<url>(https?://\S+|www\S+))')
 def q(x):
@@ -111,32 +159,37 @@ def link(match):
     return '<a href="%s">%s</a>' % (url, txt)
 
 i = 0
-for f in factoids:
-    f = list(f)
-    name = f[0]
-    f[2] = f[2][:30]
-    if '.' in f[3]:
-        f[3] = f[3][:f[3].find('.')]
-    cur.execute("SELECT value FROM facts WHERE name = %s", f[0] + '-also')
+for fact in factoids:
+    name = fact.name
+    cur.execute("SELECT value FROM facts WHERE name = %s", fact.name + '-also')
     more = cur.fetchall()
     if len(more):
-        f[1] += ' $hr$' + ' $hr$'.join([x[0] for x in more])
-    cur.execute("SELECT name FROM facts WHERE value LIKE %s", '<alias> ' + f[0])
-    f[0] += ' \n' + ' \n'.join([x[0] for x in cur.fetchall()])
-    data = [ q(x) for x in f ]
-    cur.execute("SELECT author, added FROM log WHERE name = %s ORDER BY id DESC LIMIT 1", name)
-    edit = cur.fetchall()
+        name += ' $hr$' + ' $hr$'.join([x[0] for x in more])
+    cur.execute("SELECT name FROM facts WHERE value LIKE %s", '<alias> ' + fact.name)
+    name += ' \n' + ' \n'.join([x[0] for x in cur.fetchall()])
+    data = [ q(x) for x in fact ]
+    cur.execute("SELECT author, added FROM log WHERE name = %s ORDER BY id DESC LIMIT 1", fact.name)
+    edit = [Log(*x) for x in cur.fetchall()]
+#    edit = [Log(author, added) for (author, added) in cur.fetchall()]
     if edit:
-        who, when = edit[0]
-        who = who[:who.find('!')]
-        when = when[:when.find('.')]
-        edit = "<br />Last edited by %s:<br />%s" %(q(who), q(when))
-        data[3] += edit
-    print '<tr'
-    if i % 2: print ' class="bg2"'
+        log = edit[0]
+        data[3] += "<br />Last edited by %s<br />Last modified: %s" % (q(log.author), q(log.added))
+    else:
+        data[3] += "<br />Never edited"
+    fact.name = name
+    sys.stdout.write('   <tr')
+    if i % 2: sys.stdout.write(' class="bg2"')
     i += 1
-    print '><td>%s</td><td>%s</td><td>%s<br />Added on: %s<br />Requested %s times</td>' % tuple(data)
+    print '''>
+    <td>%s</td>
+    <td>%s</td>
+    <td>%s<br />
+        Added on: %s<br />
+        Requested %s times</td>
+   </tr>''' % tuple(data)
 
-print '</table>'
+print '''
+  </tbody>
+ </table>'''
 
 send_page('factoids.tmpl')
