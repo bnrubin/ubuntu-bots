@@ -381,27 +381,35 @@ class Bantracker(callbacks.Plugin):
         irc.reply(s, to=ban.who, private=True)
 
     def reviewBans(self, irc):
-        self.log.debug('Checking for bans that need review ...')
-        now = time.mktime(time.gmtime())
         try:
+            self.log.debug('Checking for bans that need review ...')
+            now = time.mktime(time.gmtime())
+            lastreview = self.registryValue('reviewTime')
+            reviewAfterTime = self.registryValue('reviewAfterTime') * 60 # time in mins
+            if not lastreview:
+                lastreview = now
             for channel, bans in self.bans.iteritems():
                 for ban in bans:
-                    age = now - ban.when
-                    self.log.debug('  channel %s ban %s (%s)', channel, ban.mask, age)
-                    # FIXME doesn't check if op is not online
-                    # FIXME doesn't mark if the review was sent
-                    if age > 120: # lets use mins for now
+                    banTime = now - ban.when
+                    reviewTime = lastreview - ban.when
+                    self.log.debug('  channel %s ban %s (%s/%s/%s)', channel, ban.mask, reviewTime,
+                            reviewAfterTime, banTime)
+                    if reviewTime <= reviewAfterTime < banTime:
                         op = ban.who
-                        op = op[:op.find('!')]
+                        # ban.who can be a nick or IRC hostmask
+                        if ircutils.isUserHostmask(op):
+                            op = op[:op.find('!')]
                         s = "Please review ban '%s' in %s" %(ban.mask, channel)
+                        # FIXME doesn't check if op is not online
                         msg = ircmsgs.privmsg(op, s)
                         irc.queueMsg(msg)
-                    else:
+                    elif banTime < reviewAfterTime:
                         # the bans left are even more recent
                         break
+            self.setRegistryValue('reviewTime', now) # update last time reviewed
         except Exception, e:
             # I need to catch exceptions as they are silenced
-            self.log.error('Except: %s' %e)
+            self.log.debug('Except: %s' %e)
 
     def doLog(self, irc, channel, s):
         if not self.registryValue('enabled', channel):

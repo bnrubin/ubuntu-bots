@@ -52,3 +52,9 @@ conf.registerChannelValue(Bantracker.commentRequest.forward, 'channels',
             "List of channels/nicks to forward the request if the op that set the ban/quiet"\
             " is in the forward list."))
 
+
+# temp config
+conf.registerGlobalValue(Bantracker, 'reviewTime',
+        registry.Integer(0, "", ))
+conf.registerGlobalValue(Bantracker, 'reviewAfterTime',
+        registry.Integer(2, "", ))
