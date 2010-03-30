@@ -383,10 +383,13 @@ class Bantracker(callbacks.Plugin):
 
     def reviewBans(self):
         try:
+            reviewAfterTime = self.registryValue('reviewAfterTime')
+            if not reviewAfterTime:
+                # time is zero, do nothing
+                return
             self.log.debug('Checking for bans that need review ...')
             now = time.mktime(time.gmtime())
             lastreview = self.registryValue('reviewTime')
-            reviewAfterTime = self.registryValue('reviewAfterTime') * 60 # time in mins
             if not lastreview:
                 # initialize last time reviewed timestamp
                 lastreview = now - reviewAfterTime

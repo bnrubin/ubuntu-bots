@@ -23,6 +23,20 @@ class SpaceSeparatedListOfTypes(registry.SpaceSeparatedListOf):
     Value = ValidTypes
 
 
+# This registry translates days to seconds
+# storing seconds instead of days is more convenient for testing
+class DaysToSeconds(registry.Integer):
+    """Value must be an integer and not higher than 100"""
+    def set(self, s):
+        try:
+            n = int(s)
+            if n > 100:
+                raise ValueError
+            self.setValue(n*84600)
+        except ValueError:
+            self.error()
+
+
 def configure(advanced):
     conf.registerPlugin('Bantracker', True)
 
@@ -57,4 +71,6 @@ conf.registerChannelValue(Bantracker.commentRequest.forward, 'channels',
 conf.registerGlobalValue(Bantracker, 'reviewTime',
         registry.Integer(0, "", ))
 conf.registerGlobalValue(Bantracker, 'reviewAfterTime',
-        registry.Integer(2, "", ))
+        DaysToSeconds(7*84600,
+            "Days after which the bot will request for review a ban. NOTE: the number of days is"
+            " stored in seconds, but when configuring it the time unit is in days."))
