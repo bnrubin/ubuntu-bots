@@ -188,7 +188,7 @@ class Bantracker(callbacks.Plugin):
             self.db = None
         self.get_bans(irc)
         self.get_nicks(irc)
-        # schedule
+        # add scheduled event for check bans that need review
         schedule.addPeriodicEvent(lambda : self.reviewBans(irc), 20,
                 name=self.name)
 
@@ -387,7 +387,8 @@ class Bantracker(callbacks.Plugin):
             lastreview = self.registryValue('reviewTime')
             reviewAfterTime = self.registryValue('reviewAfterTime') * 60 # time in mins
             if not lastreview:
-                lastreview = now
+                # initialize last time reviewed timestamp
+                lastreview = now - reviewAfterTime
             for channel, bans in self.bans.iteritems():
                 for ban in bans:
                     banTime = now - ban.when
@@ -395,6 +396,7 @@ class Bantracker(callbacks.Plugin):
                     self.log.debug('  channel %s ban %s (%s/%s/%s)', channel, ban.mask, reviewTime,
                             reviewAfterTime, banTime)
                     if reviewTime <= reviewAfterTime < banTime:
+                        # ban is old enough, and inside the "review window"
                         op = ban.who
                         # ban.who can be a nick or IRC hostmask
                         if ircutils.isUserHostmask(op):
