@@ -189,8 +189,9 @@ class Bantracker(callbacks.Plugin):
         self.get_bans(irc)
         self.get_nicks(irc)
         # add scheduled event for check bans that need review
-        schedule.addPeriodicEvent(lambda : self.reviewBans(irc), 20,
+        schedule.addPeriodicEvent(self.reviewBans, 20,
                 name=self.name)
+        self.pendingReviews = ircutils.IrcDict()
 
     def get_nicks(self, irc):
         self.hosts.clear()
@@ -380,7 +381,7 @@ class Bantracker(callbacks.Plugin):
                 %(type, mask, channel, prefix, ban.id)
         irc.reply(s, to=ban.who, private=True)
 
-    def reviewBans(self, irc):
+    def reviewBans(self):
         try:
             self.log.debug('Checking for bans that need review ...')
             now = time.mktime(time.gmtime())
@@ -401,10 +402,19 @@ class Bantracker(callbacks.Plugin):
                         # ban.who can be a nick or IRC hostmask
                         if ircutils.isUserHostmask(op):
                             op = op[:op.find('!')]
+                        elif not ircutils.isNick(op, strictRfc=True):
+                            # probably a ban restored by IRC server
+                            continue
+                        if nickMatch(op, self.registryValue('commentRequest.ignore'):
+                            # in the ignore list
+                            continue
                         s = "Please review ban '%s' in %s" %(ban.mask, channel)
-                        # FIXME doesn't check if op is not online
                         msg = ircmsgs.privmsg(op, s)
-                        irc.queueMsg(msg)
+                        self.log.debug('  adding ban to the pending review list ...')
+                        if op in self.pendingReviews:
+                            self.pendingReviews[op].append(msg)
+                        else:
+                            self.pendingReviews[op] = [msg]
                     elif banTime < reviewAfterTime:
                         # the bans left are even more recent
                         break
@@ -412,6 +422,13 @@ class Bantracker(callbacks.Plugin):
         except Exception, e:
             # I need to catch exceptions as they are silenced
             self.log.debug('Except: %s' %e)
+
+    def _sendReviews(self, irc, msg):
+        if msg.nick in self.pendingReviews:
+            op = msg.nick
+            for m in self.pendingReviews[op]:
+                irc.queueMsg(m)
+            del self.pendingReviews[op]
 
     def doLog(self, irc, channel, s):
         if not self.registryValue('enabled', channel):
@@ -470,6 +487,7 @@ class Bantracker(callbacks.Plugin):
                                '* %s %s\n' % (nick, ircmsgs.unAction(msg)))
                 else:
                     self.doLog(irc, channel, '<%s> %s\n' % (nick, text))
+        self._sendReviews(irc, msg)
 
     def doNotice(self, irc, msg):
         (recipients, text) = msg.args
