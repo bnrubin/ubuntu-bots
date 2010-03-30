@@ -190,7 +190,7 @@ class Bantracker(callbacks.Plugin):
         self.get_nicks(irc)
         # add scheduled event for check bans that need review
         schedule.addPeriodicEvent(self.reviewBans, 20,
-                name=self.name)
+                name=self.name())
         self.pendingReviews = ircutils.IrcDict()
 
     def get_nicks(self, irc):
@@ -299,7 +299,7 @@ class Bantracker(callbacks.Plugin):
             pass
         queue.clear()
         try:
-            schedule.removeEvent(self.name)
+            schedule.removeEvent(self.name())
         except:
             pass
 
@@ -405,7 +405,7 @@ class Bantracker(callbacks.Plugin):
                         elif not ircutils.isNick(op, strictRfc=True):
                             # probably a ban restored by IRC server
                             continue
-                        if nickMatch(op, self.registryValue('commentRequest.ignore'):
+                        if nickMatch(op, self.registryValue('commentRequest.ignore')):
                             # in the ignore list
                             continue
                         s = "Please review ban '%s' in %s" %(ban.mask, channel)
