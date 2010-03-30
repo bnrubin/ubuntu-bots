@@ -48,6 +48,7 @@ import supybot.callbacks as callbacks
 import supybot.ircmsgs as ircmsgs
 import supybot.conf as conf
 import supybot.ircdb as ircdb
+import supybot.schedule as schedule
 from fnmatch import fnmatch
 import sqlite
 import pytz
@@ -187,6 +188,9 @@ class Bantracker(callbacks.Plugin):
             self.db = None
         self.get_bans(irc)
         self.get_nicks(irc)
+        # schedule
+        schedule.addPeriodicEvent(lambda : self.reviewBans(irc), 20,
+                name=self.name)
 
     def get_nicks(self, irc):
         self.hosts.clear()
@@ -293,6 +297,10 @@ class Bantracker(callbacks.Plugin):
         except:
             pass
         queue.clear()
+        try:
+            schedule.removeEvent(self.name)
+        except:
+            pass
 
     def reset(self):
         global queue
@@ -371,6 +379,29 @@ class Bantracker(callbacks.Plugin):
         s = "Please comment on the %s of %s in %s, use: %scomment %s <comment>" \
                 %(type, mask, channel, prefix, ban.id)
         irc.reply(s, to=ban.who, private=True)
+
+    def reviewBans(self, irc):
+        self.log.debug('Checking for bans that need review ...')
+        now = time.mktime(time.gmtime())
+        try:
+            for channel, bans in self.bans.iteritems():
+                for ban in bans:
+                    age = now - ban.when
+                    self.log.debug('  channel %s ban %s (%s)', channel, ban.mask, age)
+                    # FIXME doesn't check if op is not online
+                    # FIXME doesn't mark if the review was sent
+                    if age > 120: # lets use mins for now
+                        op = ban.who
+                        op = op[:op.find('!')]
+                        s = "Please review ban '%s' in %s" %(ban.mask, channel)
+                        msg = ircmsgs.privmsg(op, s)
+                        irc.queueMsg(msg)
+                    else:
+                        # the bans left are even more recent
+                        break
+        except Exception, e:
+            # I need to catch exceptions as they are silenced
+            self.log.error('Except: %s' %e)
 
     def doLog(self, irc, channel, s):
         if not self.registryValue('enabled', channel):
