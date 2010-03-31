@@ -34,7 +34,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         ban = ircmsgs.ban('#test', 'asd!*@*', prefix='op!user@host.net')
         self.irc.feedMsg(ban)
         self.irc.takeMsg() # ignore comment request comment
-        bConf.reviewAfterTime.setValue(1)
+        bConf.reviewAfterTime.setValue(1.0/84600) # one second
         cb.reviewBans()
         self.assertFalse(cb.pendingReviews)
         print 'waiting 2 secs..'

@@ -383,7 +383,7 @@ class Bantracker(callbacks.Plugin):
 
     def reviewBans(self):
         try:
-            reviewAfterTime = self.registryValue('reviewAfterTime')
+            reviewAfterTime = int(self.registryValue('reviewAfterTime') * 84600)
             if not reviewAfterTime:
                 # time is zero, do nothing
                 return

@@ -23,16 +23,21 @@ class SpaceSeparatedListOfTypes(registry.SpaceSeparatedListOf):
     Value = ValidTypes
 
 
-# This registry translates days to seconds
-# storing seconds instead of days is more convenient for testing
-class DaysToSeconds(registry.Integer):
-    """Value must be an integer and not higher than 100"""
+# This little hack allows me to store last time bans were checked for review
+# and guarantee that nobody will edit it.
+# I'm using a registry option instead of the SQL db because this is much simpler.
+class ReadOnlyValue(registry.Integer):
+    """This is a read only option."""
+    def __init__(self, *args, **kwargs):
+        super(ReadOnlyValue, self).__init__(*args, **kwargs)
+        self.value = None
+
     def set(self, s):
         try:
-            n = int(s)
-            if n > 100:
+            if not self.value:
+                self.setValue(int(s))
+            else:
                 raise ValueError
-            self.setValue(n*84600)
         except ValueError:
             self.error()
 
@@ -69,8 +74,8 @@ conf.registerChannelValue(Bantracker.commentRequest.forward, 'channels',
 
 # temp config
 conf.registerGlobalValue(Bantracker, 'reviewTime',
-        registry.Integer(0, "", ))
+        ReadOnlyValue(0,
+            "Timestamp used internally for identify bans that need review. Can't and shouldn't be edited."))
 conf.registerGlobalValue(Bantracker, 'reviewAfterTime',
-        DaysToSeconds(7*84600,
-            "Days after which the bot will request for review a ban. NOTE: the number of days is"
-            " stored in seconds, but when configuring it the time unit is in days."))
+        registry.Float(7,
+            "Days after which the bot will request for review a ban. Can be an integer or decimal value."))
