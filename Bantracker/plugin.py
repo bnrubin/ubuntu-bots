@@ -160,6 +160,14 @@ class Ban(object):
     def time(self):
         return datetime.datetime.fromtimestamp(self.when)
 
+def guessBanType(mask):
+    if mask[0] == '%':
+        return 'quiet'
+    elif ircutils.isUserHostmask(mask) or mask.endswith('(realname)'):
+        return 'ban'
+    return 'removal'
+
+
 class Bantracker(callbacks.Plugin):
     """Plugin to manage bans.
        See '@list Bantracker' and '@help <command>' for commands"""
@@ -327,6 +335,7 @@ class Bantracker(callbacks.Plugin):
             self.lastMsgs[irc] = msg
 
     def db_run(self, query, parms, expect_result = False, expect_id = False):
+        self.log.debug("SQL: %q %s", query, parms)
         if not self.db:
             self.log.error("Bantracker database not open")
             return
@@ -334,7 +343,8 @@ class Bantracker(callbacks.Plugin):
         try:
             cur = self.db.cursor()
             cur.execute(query, parms)
-        except:
+        except Exception, e:
+            self.log.error('error: %s', e)
             cur = None
             if n_tries > 5:
                 print "Tried more than 5 times, aborting"
@@ -345,6 +355,7 @@ class Bantracker(callbacks.Plugin):
         if expect_result and cur: data = cur.fetchall()
         if expect_id: data = self.db.insert_id()
         self.db.commit()
+        self.log.debug("SQL return: %q", data)
         return data
 
     def requestComment(self, irc, channel, ban, type=None):
@@ -354,13 +365,9 @@ class Bantracker(callbacks.Plugin):
         # check the type of the action taken
         mask = ban.mask
         if not type:
-            if mask[0] == '%':
-                type = 'quiet'
+            type = guessBanType(mask)
+            if type == 'quiet':
                 mask = mask[1:]
-            elif ircutils.isUserHostmask(mask) or mask.endswith('(realname)'):
-                type = 'ban'
-            else:
-                type = 'removal'
         # check if type is enabled
         if type not in self.registryValue('commentRequest.type', channel=channel):
             return
@@ -379,7 +386,11 @@ class Bantracker(callbacks.Plugin):
         # send to op
         s = "Please comment on the %s of %s in %s, use: %scomment %s <comment>" \
                 %(type, mask, channel, prefix, ban.id)
-        irc.reply(s, to=ban.who, private=True)
+        try:
+            op = ircutils.nickFromHostmask(ban.who)
+        except:
+            op = ban.who
+        irc.reply(s, to=op, private=True)
 
     def reviewBans(self):
         try:
@@ -395,8 +406,9 @@ class Bantracker(callbacks.Plugin):
                 lastreview = now - reviewAfterTime
             for channel, bans in self.bans.iteritems():
                 for ban in bans:
-                    if ban.mask[0] == '%':
-                        # skip mutes
+                    type = guessBanType(ban.mask)
+                    if type in ('quiet', 'removal'):
+                        # skip mutes and kicks
                         continue
                     banTime = now - ban.when
                     reviewTime = lastreview - ban.when
@@ -404,12 +416,13 @@ class Bantracker(callbacks.Plugin):
                             reviewAfterTime, banTime)
                     if reviewTime <= reviewAfterTime < banTime:
                         # ban is old enough, and inside the "review window"
-                        op = ban.who
-                        # ban.who can be a nick or IRC hostmask
-                        if ircutils.isUserHostmask(op):
-                            op = op[:op.find('!')]
-                        elif not ircutils.isNick(op, strictRfc=True):
-                            # probably a ban restored by IRC server
+                        try:
+                            # ban.who should be a user hostmask
+                            op = ircutils.nickFromHostmask(ban.who)
+                            host = ircutils.hostFromHostmask(ban.who)
+                        except:
+                            # probably a ban restored by IRC server in a netsplit
+                            # XXX see if something can be done about this
                             continue
                         if nickMatch(op, self.registryValue('commentRequest.ignore')):
                             # in the ignore list
@@ -419,12 +432,11 @@ class Bantracker(callbacks.Plugin):
                         s = "Hi, please review the ban '%s' that you set on %s in %s,"\
                         " link: %s/bans.cgi?log=%s" %(ban.mask, ban.ascwhen, channel,
                                 self.registryValue('bansite'), ban.id)
-                        msg = ircmsgs.privmsg(op, s)
                         self.log.debug('  adding ban to the pending review list ...')
-                        if op in self.pendingReviews:
-                            self.pendingReviews[op].append(msg)
+                        if host in self.pendingReviews:
+                            self.pendingReviews[host].append((op, s))
                         else:
-                            self.pendingReviews[op] = [msg]
+                            self.pendingReviews[host] = [(op, s)]
                     elif banTime < reviewAfterTime:
                         # the bans left are even more recent
                         break
@@ -435,12 +447,22 @@ class Bantracker(callbacks.Plugin):
             self.log.error('Except: %s' %e)
             self.log.error(traceback.format_exc())
 
-    def _sendReviews(self, irc, msg):
-        if msg.nick in self.pendingReviews:
-            op = msg.nick
-            for m in self.pendingReviews[op]:
-                irc.queueMsg(m)
-            del self.pendingReviews[op]
+    def _sendReviews(self, irc, msg=None):
+        if msg is None:
+            # try to send them all
+            for host, values in self.pendingReviews.iteritems():
+                op, s = values
+                msg = ircmsgs.privmsg(op, s)
+                irc.queueMsg(msg)
+            self.pendingReviews.clear()
+        else:
+            host = ircutils.hostFromHostmask(msg.prefix)
+            if host in self.pendingReviews:
+                op = msg.nick
+                for _, s in self.pendingReviews[host]:
+                    msg = ircmsgs.privmsg(op, s)
+                    irc.queueMsg(msg)
+                del self.pendingReviews[host]
 
     def doLog(self, irc, channel, s):
         if not self.registryValue('enabled', channel):
@@ -454,12 +476,13 @@ class Bantracker(callbacks.Plugin):
 #        self.logs[channel] = self.logs[channel][-199:] + [s.strip()]
         self.logs[channel].append(s.strip())
 
-    def doKickban(self, irc, channel, nick, target, kickmsg = None, use_time = None, extra_comment = None):
+    def doKickban(self, irc, channel, operator, target, kickmsg = None, use_time = None, extra_comment = None):
         if not self.registryValue('enabled', channel):
             return
         n = now()
         if use_time:
             n = fromTime(use_time)
+        nick = ircutils.nickFromHostmask(operator)
         id = self.db_run("INSERT INTO bans (channel, mask, operator, time, log) values(%s, %s, %s, %s, %s)", 
                           (channel, target, nick, n, '\n'.join(self.logs[channel])), expect_id=True)
         if kickmsg and id and not (kickmsg == nick):
@@ -468,7 +491,7 @@ class Bantracker(callbacks.Plugin):
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, extra_comment, n))
         if channel not in self.bans:
             self.bans[channel] = []
-        ban = Ban(mask=target, who=nick, when=time.mktime(time.gmtime()), id=id)
+        ban = Ban(mask=target, who=operator, when=time.mktime(time.gmtime()), id=id)
         self.bans[channel].append(ban)
         self.requestComment(irc, channel, ban)
         return id
@@ -551,14 +574,14 @@ class Bantracker(callbacks.Plugin):
         else:
             self.doLog(irc, channel,
                        '*** %s was kicked by %s\n' % (target, msg.nick))
-        self.doKickban(irc, channel, msg.nick, target, kickmsg, extra_comment=host)
+        self.doKickban(irc, channel, msg.prefix, target, kickmsg, extra_comment=host)
 
     def doPart(self, irc, msg):
         for channel in msg.args[0].split(','):
             self.doLog(irc, channel, '*** %s (%s) has left %s (%s)\n' % (msg.nick, msg.prefix, channel, len(msg.args) > 1 and msg.args[1] or ''))
             if len(msg.args) > 1 and msg.args[1].startswith('requested by'):
                 args = msg.args[1].split()
-                self.doKickban(irc, channel, args[2], msg.nick, ' '.join(args[3:]).strip(), extra_comment=msg.prefix)
+                self.doKickban(irc, channel, args[2], msg.prefix, ' '.join(args[3:]).strip(), extra_comment=msg.prefix)
 
     def doMode(self, irc, msg):
         channel = msg.args[0]
@@ -585,7 +608,7 @@ class Bantracker(callbacks.Plugin):
 
                 if param[0] in ('+b', '+q'):
                     comment = self.getHostFromBan(irc, msg, mask)
-                    self.doKickban(irc, channel, msg.nick, mask + realname, extra_comment=comment)
+                    self.doKickban(irc, channel, msg.prefix, mask + realname, extra_comment=comment)
                 elif param[0] in ('-b', '-q'):
                     self.doUnban(irc,channel, msg.nick, mask + realname)
 
@@ -721,7 +744,7 @@ class Bantracker(callbacks.Plugin):
         hostmask = self.nick_to_host(irc, target)
 
         self.doLog(irc, channel.lower(), '*** %s requested a mark for %s\n' % (msg.nick, target))
-        self.doKickban(irc, channel.lower(), msg.nick, hostmask, kickmsg)
+        self.doKickban(irc, channel.lower(), msg.prefix, hostmask, kickmsg)
         irc.replySuccess()
 
     mark = wrap(mark, [optional('channel'), 'something', additional('text')])
