@@ -424,7 +424,9 @@ class Bantracker(callbacks.Plugin):
             self.setRegistryValue('reviewTime', now) # update last time reviewed
         except Exception, e:
             # I need to catch exceptions as they are silenced
-            self.log.debug('Except: %s' %e)
+            import traceback
+            self.log.error('Except: %s' %e)
+            self.log.error(traceback.format_exc())
 
     def _sendReviews(self, irc, msg):
         if msg.nick in self.pendingReviews:
@@ -726,8 +728,10 @@ class Bantracker(callbacks.Plugin):
         return mutes + bans
 
     def get_banId(self, mask, channel):
-        data = self.db_run("SELECT MAX(id) FROM bans WHERE mask=%s AND channel=%s", (mask, channel), True)[0]
-        if not data[0]:
+        data = self.db_run("SELECT MAX(id) FROM bans WHERE mask=%s AND channel=%s", (mask, channel), True)
+        if data:
+            data = data[0]
+        if not data or not data[0]:
             return
         return int(data[0])
 
