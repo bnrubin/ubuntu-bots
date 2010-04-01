@@ -395,9 +395,12 @@ class Bantracker(callbacks.Plugin):
                 lastreview = now - reviewAfterTime
             for channel, bans in self.bans.iteritems():
                 for ban in bans:
+                    if ban.mask[0] == '%':
+                        # skip mutes
+                        continue
                     banTime = now - ban.when
                     reviewTime = lastreview - ban.when
-                    self.log.debug('  channel %s ban %s (%s/%s/%s)', channel, ban.mask, reviewTime,
+                    self.log.debug('  channel %s ban %s (%s/%s/%s)', channel, str(ban), reviewTime,
                             reviewAfterTime, banTime)
                     if reviewTime <= reviewAfterTime < banTime:
                         # ban is old enough, and inside the "review window"
