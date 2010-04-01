@@ -411,7 +411,11 @@ class Bantracker(callbacks.Plugin):
                         if nickMatch(op, self.registryValue('commentRequest.ignore')):
                             # in the ignore list
                             continue
-                        s = "Please review ban '%s' in %s" %(ban.mask, channel)
+                        if not ban.id:
+                            ban.id = self.get_banId(ban.mask, channel)
+                        s = "Hi, please review the ban '%s' that you set on %s in %s,"\
+                        " link: %s/bans.cgi?log=%s" %(ban.mask, ban.ascwhen, channel,
+                                self.registryValue('bansite'), ban.id)
                         msg = ircmsgs.privmsg(op, s)
                         self.log.debug('  adding ban to the pending review list ...')
                         if op in self.pendingReviews:
