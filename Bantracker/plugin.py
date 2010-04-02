@@ -271,7 +271,9 @@ class Bantracker(callbacks.Plugin):
         """Got ban"""
         if msg.args[1] not in self.bans.keys():
             self.bans[msg.args[1]] = []
-        self.bans[msg.args[1]].append(Ban(msg.args))
+        bans = self.bans[msg.args[1]]
+        bans.append(Ban(msg.args))
+        bans.sort(key=lambda x: x.when)
 
     def nick_to_host(self, irc=None, target='', with_nick=True, reply_now=True):
         target = target.lower()
