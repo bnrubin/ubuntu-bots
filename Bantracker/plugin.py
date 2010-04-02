@@ -1050,4 +1050,16 @@ class Bantracker(callbacks.Plugin):
             irc.reply("%s/bans.cgi?log=%s&mark=%s" % (self.registryValue('bansite'), id, highlight), private=True)
     banlink = wrap(banlink, ['id', optional('somethingWithoutSpaces')])
 
+    def banReview(self, irc, msg, args):
+        """Lists pending ban reviews."""
+        count = []
+        for reviews in self.pendingReviews.itervalues():
+            count.append((reviews[0][0], len(reviews)))
+        total = sum([ x[1] for x in count ])
+        s = ' '.join([ '%s:%s' %pair for pair in count ])
+        s = 'Pending ban reviews (%s): %s' %(total, s)
+        irc.reply(s)
+
+    banreview = wrap(banReview)
+
 Class = Bantracker
