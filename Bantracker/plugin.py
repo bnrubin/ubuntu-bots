@@ -197,7 +197,7 @@ class Bantracker(callbacks.Plugin):
         self.get_bans(irc)
         self.get_nicks(irc)
         # add scheduled event for check bans that need review
-        schedule.addPeriodicEvent(self.reviewBans, 20,
+        schedule.addPeriodicEvent(self.reviewBans, 60*10,
                 name=self.name())
         self.pendingReviews = ircutils.IrcDict()
 
