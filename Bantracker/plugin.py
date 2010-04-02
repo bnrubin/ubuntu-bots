@@ -167,6 +167,48 @@ def guessBanType(mask):
         return 'ban'
     return 'removal'
 
+class PersistentCache(dict):
+    def __init__(self, filename):
+        self.filename = conf.supybot.directories.data.dirize(filename)
+
+    def open(self):
+        import csv
+        try:
+            reader = csv.reader(open(self.filename, 'rb'))
+        except IOError:
+            return
+        for row in reader:
+            host, value = self.deserialize(*row)
+            try:
+                self[host].append(value)
+            except KeyError:
+                self[host] = [value]
+
+    def close(self):
+        import csv
+        try:
+            writer = csv.writer(open(self.filename, 'wb'))
+        except IOError:
+            return
+        for host, values in self.iteritems():
+            for v in values:
+                writer.writerow(self.serialize(host, v))
+
+    def deserialize(self, host, nick, command, channel, text):
+        if command == 'PRIVMSG':
+            msg = ircmsgs.privmsg(channel, text)
+        elif command == 'NOTICE':
+            msg = ircmsgs.notice(channel, text)
+        else:
+            return
+        return (host, (nick, msg))
+
+    def serialize(self, host, value):
+        nick, msg = value
+        command, channel, text = msg.command, msg.args[0], msg.args[1]
+        return (host, nick, command, channel, text)
+
+
 
 class Bantracker(callbacks.Plugin):
     """Plugin to manage bans.
@@ -199,7 +241,8 @@ class Bantracker(callbacks.Plugin):
         # add scheduled event for check bans that need review
         schedule.addPeriodicEvent(self.reviewBans, 60*10,
                 name=self.name())
-        self.pendingReviews = ircutils.IrcDict()
+        self.pendingReviews = PersistentCache('bt.reviews.db')
+        self.pendingReviews.open()
 
     def get_nicks(self, irc):
         self.hosts.clear()
@@ -312,6 +355,7 @@ class Bantracker(callbacks.Plugin):
             schedule.removeEvent(self.name())
         except:
             pass
+        self.pendingReviews.close()
 
     def reset(self):
         global queue
