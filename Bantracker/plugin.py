@@ -181,10 +181,10 @@ class Bantracker(callbacks.Plugin):
         self.lastMsgs = {}
         self.lastStates = {}
         self.replies = {}
-        self.logs = {}
+        self.logs = ircutils.IrcDict()
         self.nicks = {}
         self.hosts = {}
-        self.bans = {}
+        self.bans = ircutils.IrcDict()
 
         self.thread_timer = threading.Timer(10.0, dequeue, args=(self,irc))
         self.thread_timer.start()
