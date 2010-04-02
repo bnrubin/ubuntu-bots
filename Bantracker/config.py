@@ -29,7 +29,7 @@ class SpaceSeparatedListOfTypes(registry.SpaceSeparatedListOf):
 class ReadOnlyValue(registry.Integer):
     """This is a read only option."""
     def __init__(self, *args, **kwargs):
-        super(ReadOnlyValue, self).__init__(*args, **kwargs)
+        registry.Integer.__init__(self, *args, **kwargs)
         self.value = None
 
     def set(self, s):
@@ -39,7 +39,8 @@ class ReadOnlyValue(registry.Integer):
             else:
                 raise ValueError
         except ValueError:
-            self.error()
+            #self.error() # commented, this causes a lot of trouble.
+            pass
 
 
 def configure(advanced):
