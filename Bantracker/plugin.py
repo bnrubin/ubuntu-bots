@@ -170,6 +170,7 @@ def guessBanType(mask):
 class PersistentCache(dict):
     def __init__(self, filename):
         self.filename = conf.supybot.directories.data.dirize(filename)
+        self.time = 0
 
     def open(self):
         import csv
@@ -177,6 +178,7 @@ class PersistentCache(dict):
             reader = csv.reader(open(self.filename, 'rb'))
         except IOError:
             return
+        self.time = int(reader.next()[1])
         for row in reader:
             host, value = self.deserialize(*row)
             try:
@@ -190,6 +192,7 @@ class PersistentCache(dict):
             writer = csv.writer(open(self.filename, 'wb'))
         except IOError:
             return
+        writer.writerow(('time', str(int(self.time))))
         for host, values in self.iteritems():
             for v in values:
                 writer.writerow(self.serialize(host, v))
@@ -238,11 +241,11 @@ class Bantracker(callbacks.Plugin):
             self.db = None
         self.get_bans(irc)
         self.get_nicks(irc)
+        self.pendingReviews = PersistentCache('bt.reviews.db')
+        self.pendingReviews.open()
         # add scheduled event for check bans that need review
         schedule.addPeriodicEvent(self.reviewBans, 60*10,
                 name=self.name())
-        self.pendingReviews = PersistentCache('bt.reviews.db')
-        self.pendingReviews.open()
 
     def get_nicks(self, irc):
         self.hosts.clear()
@@ -448,7 +451,7 @@ class Bantracker(callbacks.Plugin):
                 return
             self.log.debug('Checking for bans that need review ...')
             now = time.mktime(time.gmtime())
-            lastreview = self.registryValue('reviewTime')
+            lastreview = self.pendingReviews.time
             bansite = self.registryValue('bansite')
             if not lastreview:
                 # initialize last time reviewed timestamp
@@ -501,7 +504,7 @@ class Bantracker(callbacks.Plugin):
                     elif banTime < reviewAfterTime:
                         # since we made sure bans are sorted by time, the bans left are more recent
                         break
-            self.setRegistryValue('reviewTime', now) # update last time reviewed
+            self.pendingReviews.time = now # update last time reviewed
         except Exception, e:
             # I need to catch exceptions as they are silenced
             import traceback
