@@ -21,7 +21,8 @@ class BantrackerTestCase(ChannelPluginTestCase):
     def setUp(self):
         super(BantrackerTestCase, self).setUp()
         self.setDb()
-        pluginConf.commentRequest.ignore.set('*') # disable comments
+        pluginConf.request.ignore.set('*') # disable comments
+        pluginConf.request.forward.set('')
 
     def setDb(self):
         import sqlite, os
@@ -81,10 +82,16 @@ class BantrackerTestCase(ChannelPluginTestCase):
             ban = ircmsgs.ban(channel, hostmask, prefix=prefix)
         elif mode == 'q':
             ban = quiet(channel, hostmask, prefix=prefix)
+        elif mode == 'k':
+            ban = ircmsgs.kick(channel, hostmask, s='kthxbye!', prefix=prefix)
+        elif mode == 'p':
+            ban = ircmsgs.part(channel, prefix=hostmask,
+                    s='requested by %s (kthxbye!)' %prefix[:prefix.find('!')])
         self.irc.feedMsg(ban)
+        return ban
 
     def testCommentRequest(self):
-        pluginConf.commentRequest.ignore.set('')
+        pluginConf.request.ignore.set('')
         # test bans
         self.feedBan('asd!*@*')
         msg = self.irc.takeMsg()
@@ -97,13 +104,37 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertEqual(str(msg).strip(), 
             "PRIVMSG op :Please comment on the quiet of dude!*@* in #test, use: @comment 2"
             " <comment>")
+        # test kick/part
+        self.feedBan('dude', mode='k')
+        msg = self.irc.takeMsg()
+        self.assertEqual(str(msg).strip(), 
+            "PRIVMSG op :Please comment on the removal of dude in #test, use: @comment 3"
+            " <comment>")
+        self.feedBan('dude', mode='p')
+        msg = self.irc.takeMsg()
+        self.assertEqual(str(msg).strip(), 
+            "PRIVMSG op :Please comment on the removal of dude in #test, use: @comment 4"
+            " <comment>")
+        # test forwards
+        pluginConf.request.forward.set('bot')
+        pluginConf.request.forward.channels.set('#channel')
+        self.feedBan('qwe!*@*')
+        msg = self.irc.takeMsg()
+        self.assertEqual(str(msg).strip(), 
+            "PRIVMSG op :Please comment on the ban of qwe!*@* in #test, use: @comment 5"
+            " <comment>")
+        self.feedBan('zxc!*@*', prefix='bot!user@host.com')
+        msg = self.irc.takeMsg()
+        self.assertEqual(str(msg).strip(), 
+            "NOTICE #channel :Please somebody comment on the ban of zxc!*@* in #test done by bot,"
+            " use: @comment 6 <comment>")
 
-    def testReviewResquest(self):
-        pluginConf.commentRequest.ignore.set('')
+    def testReviewRequest(self):
+        pluginConf.request.ignore.set('')
         cb = self.getCallback()
         self.feedBan('asd!*@*')
         self.irc.takeMsg() # ignore comment request comment
-        pluginConf.reviewAfterTime.setValue(1.0/84600) # one second
+        pluginConf.request.review.setValue(1.0/86400) # one second
         cb.reviewBans()
         self.assertFalse(cb.pendingReviews)
         print 'waiting 4 secs..'
@@ -133,6 +164,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.feedMsg('Hi!', frm='op!user@fakehost.net') 
         msg = self.irc.takeMsg()
         self.assertEqual(msg, None)
+        self.assertResponse('banreview', 'Pending ban reviews (2): otherop:1 op:1')
         self.feedMsg('Hi!', frm='mynickissocreative!user@home.net') 
         msg = self.irc.takeMsg()
         self.assertEqual(str(msg).strip(),
@@ -145,6 +177,26 @@ class BantrackerTestCase(ChannelPluginTestCase):
             "PRIVMSG op :Hi, please review the ban 'asd2!*@*' that you set on %s in #test, link: "\
             "%s/bans.cgi?log=2" %(cb.bans['#test'][1].ascwhen, pluginConf.bansite()))
 
+    def testPersistentCache(self):
+        msg1 = ircmsgs.privmsg('nick', 'Hello World')
+        msg2 = ircmsgs.privmsg('nick', 'Hello World')
+        msg3 = ircmsgs.notice('#chan', 'Hello World')
+        msg4 = ircmsgs.privmsg('nick_', 'Hello World')
+        cb = self.getCallback()
+        pr = cb.pendingReviews
+        pr['host.net'] = [('op', msg1), ('op', msg2), ('op_', msg3)]
+        pr['home.net'] = [('dude', msg4)]
+        self.assertResponse('banreview', 'Pending ban reviews (4): dude:1 op:3')
+        pr.close()
+        pr.clear()
+        pr.open()
+        self.assertResponse('banreview', 'Pending ban reviews (4): dude:1 op:3')
+        items = pr['host.net']
+        self.assertTrue(items[0][0] == 'op' and items[0][1] == msg1)
+        self.assertTrue(items[1][0] == 'op' and items[1][1] == msg2)
+        self.assertTrue(items[2][0] == 'op_' and items[2][1] == msg3)
+        items = pr['home.net']
+        self.assertTrue(items[0][0] == 'dude' and items[0][1] == msg4)
 
     def testBan(self):
         self.feedBan('asd!*@*')
@@ -155,6 +207,17 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.feedBan('asd!*@*', mode='q')
         fetch = self.query("SELECT id,channel,mask,operator FROM bans")
         self.assertEqual((1, '#test', '%asd!*@*', 'op'), fetch[0])
+
+    def testKick(self):
+        self.feedBan('troll', mode='k')
+        fetch = self.query("SELECT id,channel,mask,operator FROM bans")
+        self.assertEqual((1, '#test', 'troll', 'op'), fetch[0])
+
+    def testPart(self):
+        self.feedBan('troll!user@trollpit.net', mode='p')
+        fetch = self.query("SELECT id,channel,mask,operator FROM bans")
+        self.assertEqual((1, '#test', 'troll!user@trollpit.net', 'op'), fetch[0])
+
 
 
 
