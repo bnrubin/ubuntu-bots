@@ -212,6 +212,7 @@ class PersistentCache(dict):
         return (host, nick, command, channel, text)
 
 
+
 class Bantracker(callbacks.Plugin):
     """Plugin to manage bans.
        See '@list Bantracker' and '@help <command>' for commands"""
@@ -443,72 +444,66 @@ class Bantracker(callbacks.Plugin):
         irc.reply(s, to=op, private=True)
 
     def reviewBans(self):
-        try:
-            self.log.debug('Checking for bans that need review ...')
-            now = time.mktime(time.gmtime())
-            lastreview = self.pendingReviews.time
-            bansite = self.registryValue('bansite')
-            if not lastreview:
-                # initialize last time reviewed timestamp
-                lastreview = now - self.registryValue('request.review')
-            for channel, bans in self.bans.iteritems():
-                reviewAfterTime = int(self.registryValue('request.review', channel=channel) * 86400)
-                if not reviewAfterTime:
-                    # time is zero, do nothing
+        self.log.debug('Checking for bans that need review ...')
+        now = time.mktime(time.gmtime())
+        lastreview = self.pendingReviews.time
+        bansite = self.registryValue('bansite')
+        if not lastreview:
+            # initialize last time reviewed timestamp
+            lastreview = now - self.registryValue('request.review')
+        for channel, bans in self.bans.iteritems():
+            reviewAfterTime = int(self.registryValue('request.review', channel=channel) * 86400)
+            if not reviewAfterTime:
+                # time is zero, do nothing
+                continue
+            ignore = self.registryValue('request.ignore', channel=channel)
+            forward = self.registryValue('request.forward', channel=channel)
+            fchannels = self.registryValue('request.forward.channels', channel=channel)
+            for ban in bans:
+                type = guessBanType(ban.mask)
+                if type in ('quiet', 'removal'):
+                    # skip mutes and kicks
                     continue
-                ignore = self.registryValue('request.ignore', channel=channel)
-                forward = self.registryValue('request.forward', channel=channel)
-                fchannels = self.registryValue('request.forward.channels', channel=channel)
-                for ban in bans:
-                    type = guessBanType(ban.mask)
-                    if type in ('quiet', 'removal'):
-                        # skip mutes and kicks
+                banTime = now - ban.when
+                reviewTime = lastreview - ban.when
+                self.log.debug('  channel %s ban %s (%s %s %s)', channel, str(ban), reviewTime,
+                        reviewAfterTime, reviewAfterTime-reviewTime)
+                if reviewTime <= reviewAfterTime < banTime:
+                    # ban is old enough, and inside the "review window"
+                    try:
+                        # ban.who should be a user hostmask
+                        op = ircutils.nickFromHostmask(ban.who)
+                        host = ircutils.hostFromHostmask(ban.who)
+                    except:
+                        # probably a ban restored by IRC server in a netsplit
+                        # XXX see if something can be done about this
                         continue
-                    banTime = now - ban.when
-                    reviewTime = lastreview - ban.when
-                    self.log.debug('  channel %s ban %s (%s %s %s)', channel, str(ban), reviewTime,
-                            reviewAfterTime, reviewAfterTime-reviewTime)
-                    if reviewTime <= reviewAfterTime < banTime:
-                        # ban is old enough, and inside the "review window"
-                        try:
-                            # ban.who should be a user hostmask
-                            op = ircutils.nickFromHostmask(ban.who)
-                            host = ircutils.hostFromHostmask(ban.who)
-                        except:
-                            # probably a ban restored by IRC server in a netsplit
-                            # XXX see if something can be done about this
-                            continue
-                        if nickMatch(op, ignore):
-                            # in the ignore list
-                            continue
-                        self.log.debug('  adding ban to the pending review list ...')
-                        if not ban.id:
-                            ban.id = self.get_banId(ban.mask, channel)
-                        if nickMatch(op, forward):
-                            msgs = []
-                            s = "Hi, please somebody review the ban '%s' set by %s on %s in"\
-                            " %s, link: %s/bans.cgi?log=%s" %(ban.mask, op, ban.ascwhen, channel,
-                                    bansite, ban.id)
-                            for chan in fchannels:
-                                msgs.append(ircmsgs.notice(chan, s))
-                                # FIXME forwards should be sent now, not later.
-                        else:
-                            s = "Hi, please review the ban '%s' that you set on %s in %s, link:"\
-                            " %s/bans.cgi?log=%s" %(ban.mask, ban.ascwhen, channel, bansite, ban.id)
-                            msgs = [ircmsgs.privmsg(op, s)]
-                        if host not in self.pendingReviews:
-                            self.pendingReviews[host] = []
-                        for msg in msgs:
-                            self.pendingReviews[host].append((op, msg))
-                    elif banTime < reviewAfterTime:
-                        # since we made sure bans are sorted by time, the bans left are more recent
-                        break
-            self.pendingReviews.time = now # update last time reviewed
-        except Exception, e:
-            # I need to catch exceptions as they are silenced
-            import traceback
-            self.log.error('Except: %s' %e)
-            self.log.error(traceback.format_exc())
+                    if nickMatch(op, ignore):
+                        # in the ignore list
+                        continue
+                    self.log.debug('  adding ban to the pending review list ...')
+                    if not ban.id:
+                        ban.id = self.get_banId(ban.mask, channel)
+                    if nickMatch(op, forward):
+                        msgs = []
+                        s = "Hi, please somebody review the ban '%s' set by %s on %s in"\
+                        " %s, link: %s/bans.cgi?log=%s" %(ban.mask, op, ban.ascwhen, channel,
+                                bansite, ban.id)
+                        for chan in fchannels:
+                            msgs.append(ircmsgs.notice(chan, s))
+                            # FIXME forwards should be sent now, not later.
+                    else:
+                        s = "Hi, please review the ban '%s' that you set on %s in %s, link:"\
+                        " %s/bans.cgi?log=%s" %(ban.mask, ban.ascwhen, channel, bansite, ban.id)
+                        msgs = [ircmsgs.privmsg(op, s)]
+                    if host not in self.pendingReviews:
+                        self.pendingReviews[host] = []
+                    for msg in msgs:
+                        self.pendingReviews[host].append((op, msg))
+                elif banTime < reviewAfterTime:
+                    # since we made sure bans are sorted by time, the bans left are more recent
+                    break
+        self.pendingReviews.time = now # update last time reviewed
 
     def _sendReviews(self, irc, msg):
         host = ircutils.hostFromHostmask(msg.prefix)
