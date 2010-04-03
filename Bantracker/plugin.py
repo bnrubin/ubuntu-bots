@@ -471,9 +471,14 @@ class Bantracker(callbacks.Plugin):
                         op = ircutils.nickFromHostmask(ban.who)
                         host = ircutils.hostFromHostmask(ban.who)
                     except:
-                        # probably a ban restored by IRC server in a netsplit
-                        # XXX see if something can be done about this
-                        continue
+                        if ircutils.isNick(ban.who, strictRfc=True):
+                            # ok, op's nick, use it
+                            op = ban.who
+                            host = None
+                        else:
+                            # probably a ban restored by IRC server in a netsplit
+                            # XXX see if something can be done about this
+                            continue
                     if nickMatch(op, ignore):
                         # in the ignore list
                         continue
@@ -505,10 +510,22 @@ class Bantracker(callbacks.Plugin):
         if host in self.pendingReviews:
             op = msg.nick
             for nick, msg in self.pendingReviews[host]:
-                if op != nick:
+                if op != nick and not irc.isChannel(nick): # be extra careful
+                    # correct nick in msg
                     msg = ircmsgs.privmsg(op, msg.args[1])
                 irc.queueMsg(msg)
             del self.pendingReviews[host]
+        # check if we have any reviews by nick to send
+        if None in self.pendingReviews:
+            op = msg.nick
+            L = self.pendingReviews[None]
+            for i, v in enumerate(L):
+                nick, msg = v
+                if nickMatch(op, nick):
+                    irc.queueMsg(msg)
+                    del L[i]
+            if not L:
+                del self.pendingReviews[None]
 
     def doLog(self, irc, channel, s):
         if not self.registryValue('enabled', channel):
@@ -1085,11 +1102,15 @@ class Bantracker(callbacks.Plugin):
 
     def banReview(self, irc, msg, args):
         """Lists pending ban reviews."""
-        count = []
+        count = {}
         for reviews in self.pendingReviews.itervalues():
-            count.append((reviews[0][0], len(reviews)))
-        total = sum([ x[1] for x in count ])
-        s = ' '.join([ '%s:%s' %pair for pair in count ])
+            for nick, msg in reviews:
+                try:
+                    count[nick] += 1
+                except KeyError:
+                    count[nick] = 1
+        total = sum(count.itervalues())
+        s = ' '.join([ '%s:%s' %pair for pair in count.iteritems() ])
         s = 'Pending ban reviews (%s): %s' %(total, s)
         irc.reply(s)
 

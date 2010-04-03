@@ -23,6 +23,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.setDb()
         pluginConf.request.ignore.set('*') # disable comments
         pluginConf.request.forward.set('')
+        pluginConf.request.review.setValue(1.0/86400) # one second
 
     def setDb(self):
         import sqlite, os
@@ -136,7 +137,6 @@ class BantrackerTestCase(ChannelPluginTestCase):
         cb = self.getCallback()
         self.feedBan('asd!*@*')
         self.irc.takeMsg() # ignore comment request comment
-        pluginConf.request.review.setValue(1.0/86400) # one second
         cb.reviewBans()
         self.assertFalse(cb.pendingReviews)
         print 'waiting 4 secs..'
@@ -186,7 +186,6 @@ class BantrackerTestCase(ChannelPluginTestCase):
         cb = self.getCallback()
         self.feedBan('asd!*@*', prefix='bot!user@host.net')
         self.irc.takeMsg() # ignore comment request comment
-        pluginConf.request.review.setValue(1.0/86400) # one second
         cb.reviewBans(self.irc)
         self.assertFalse(cb.pendingReviews)
         print 'waiting 2 secs..'
@@ -199,7 +198,35 @@ class BantrackerTestCase(ChannelPluginTestCase):
             "NOTICE #channel :Hi, please somebody review the ban 'asd!*@*' set by bot on %s in #test, link: "\
             "%s/bans.cgi?log=1" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
 
+    def testReviewNickFallback(self):
+        """If for some reason we don't have ops full hostmask, revert to nick match. This may be
+        needed in the future as hostmasks aren't stored in the db."""
+        pluginConf.request.ignore.set('')
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.irc.takeMsg() # ignore comment request comment
+        cb.bans['#test'][0].who = 'op' # replace hostmask by nick
+        print 'waiting 2 secs..'
+        time.sleep(2)
+        cb.reviewBans()
+        # check is pending
+        self.assertTrue(cb.pendingReviews)
+        self.assertResponse('banreview', 'Pending ban reviews (1): op:1')
+        # send msg if a user with a matching nick says something
+        self.feedMsg('Hi!', frm='op_!user@host.net') 
+        msg = self.irc.takeMsg()
+        self.assertEqual(msg, None)
+        self.feedMsg('Hi!', frm='op!user@host.net') 
+        msg = self.irc.takeMsg()
+        self.assertEqual(str(msg).strip(),
+            "PRIVMSG op :Hi, please review the ban 'asd!*@*' that you set on %s in #test, link: "\
+            "%s/bans.cgi?log=1" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
+        # check not pending anymore
+        self.assertFalse(cb.pendingReviews)
+
     def testPersistentCache(self):
+        """Save pending reviews and when bans were last checked. This is needed for plugin
+        reloads"""
         msg1 = ircmsgs.privmsg('nick', 'Hello World')
         msg2 = ircmsgs.privmsg('nick', 'Hello World')
         msg3 = ircmsgs.notice('#chan', 'Hello World')
@@ -208,11 +235,11 @@ class BantrackerTestCase(ChannelPluginTestCase):
         pr = cb.pendingReviews
         pr['host.net'] = [('op', msg1), ('op', msg2), ('op_', msg3)]
         pr['home.net'] = [('dude', msg4)]
-        self.assertResponse('banreview', 'Pending ban reviews (4): dude:1 op:3')
+        self.assertResponse('banreview', 'Pending ban reviews (4): op_:1 dude:1 op:2')
         pr.close()
         pr.clear()
         pr.open()
-        self.assertResponse('banreview', 'Pending ban reviews (4): dude:1 op:3')
+        self.assertResponse('banreview', 'Pending ban reviews (4): op_:1 dude:1 op:2')
         items = pr['host.net']
         self.assertTrue(items[0][0] == 'op' and items[0][1] == msg1)
         self.assertTrue(items[1][0] == 'op' and items[1][1] == msg2)
