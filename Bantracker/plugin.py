@@ -212,7 +212,6 @@ class PersistentCache(dict):
         return (host, nick, command, channel, text)
 
 
-
 class Bantracker(callbacks.Plugin):
     """Plugin to manage bans.
        See '@list Bantracker' and '@help <command>' for commands"""
@@ -409,7 +408,7 @@ class Bantracker(callbacks.Plugin):
 
     def requestComment(self, irc, channel, ban, type=None):
         # check if we should request a comment
-        if nickMatch(ban.who, self.registryValue('commentRequest.ignore', channel=channel)):
+        if nickMatch(ban.who, self.registryValue('request.ignore', channel=channel)):
                 return
         # check the type of the action taken
         mask = ban.mask
@@ -418,7 +417,7 @@ class Bantracker(callbacks.Plugin):
             if type == 'quiet':
                 mask = mask[1:]
         # check if type is enabled
-        if type not in self.registryValue('commentRequest.type', channel=channel):
+        if type not in self.registryValue('request.type', channel=channel):
             return
         # send msg
         prefix = conf.supybot.reply.whenAddressedBy.chars()[0] # prefix char for commands
@@ -427,8 +426,8 @@ class Bantracker(callbacks.Plugin):
             op = ircutils.nickFromHostmask(ban.who)
         except:
             op = ban.who
-        if nickMatch(op, self.registryValue('commentRequest.forward', channel=channel)):
-            channels = self.registryValue('commentRequest.forward.channels', channel=channel)
+        if nickMatch(op, self.registryValue('request.forward', channel=channel)):
+            channels = self.registryValue('request.forward.channels', channel=channel)
             if channels:
                 s = "Please somebody comment on the %s of %s in %s done by %s, use:"\
                     " %scomment %s <comment>" %(type, mask, channel, op, prefix, ban.id)
@@ -441,25 +440,25 @@ class Bantracker(callbacks.Plugin):
         s = "Please comment on the %s of %s in %s, use: %scomment %s <comment>" \
                 %(type, mask, channel, prefix, ban.id)
         self.log.info('SENDING: %s %s' %(op, s))
-        #irc.reply(s, to=op, private=True)
+        irc.reply(s, to=op, private=True)
 
     def reviewBans(self):
         try:
-            reviewAfterTime = int(self.registryValue('reviewAfterTime') * 86400)
-            if not reviewAfterTime:
-                # time is zero, do nothing
-                return
             self.log.debug('Checking for bans that need review ...')
             now = time.mktime(time.gmtime())
             lastreview = self.pendingReviews.time
             bansite = self.registryValue('bansite')
             if not lastreview:
                 # initialize last time reviewed timestamp
-                lastreview = now - reviewAfterTime
+                lastreview = now - self.registryValue('request.review')
             for channel, bans in self.bans.iteritems():
-                ignore = self.registryValue('commentRequest.ignore', channel=channel)
-                forward = self.registryValue('commentRequest.forward', channel=channel)
-                fchannels = self.registryValue('commentRequest.forward.channels', channel=channel)
+                reviewAfterTime = int(self.registryValue('request.review', channel=channel) * 86400)
+                if not reviewAfterTime:
+                    # time is zero, do nothing
+                    continue
+                ignore = self.registryValue('request.ignore', channel=channel)
+                forward = self.registryValue('request.forward', channel=channel)
+                fchannels = self.registryValue('request.forward.channels', channel=channel)
                 for ban in bans:
                     type = guessBanType(ban.mask)
                     if type in ('quiet', 'removal'):
@@ -521,7 +520,7 @@ class Bantracker(callbacks.Plugin):
                     irc.queueMsg(msg)
                 else:
                     m = ircmsgs.privmsg(op, msg.args[1])
-                    #irc.queueMsg(m)
+                    irc.queueMsg(m)
             del self.pendingReviews[host]
 
     def doLog(self, irc, channel, s):

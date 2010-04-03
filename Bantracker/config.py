@@ -34,26 +34,25 @@ conf.registerGlobalValue(Bantracker, 'database',
 conf.registerGlobalValue(Bantracker, 'bansite',
         registry.String('', "Web site for the bantracker, without the 'bans.cgi' appended", private=True))
 
-conf.registerGroup(Bantracker, 'commentRequest')
-conf.registerChannelValue(Bantracker.commentRequest, 'type',
+conf.registerGroup(Bantracker, 'request')
+conf.registerChannelValue(Bantracker.request, 'type',
         SpaceSeparatedListOfTypes(['removal', 'ban', 'quiet'],
             "List of events for which the bot should request a comment."))
-conf.registerChannelValue(Bantracker.commentRequest, 'ignore',
-        registry.SpaceSeparatedListOfStrings([],
+conf.registerChannelValue(Bantracker.request, 'ignore',
+        registry.SpaceSeparatedListOfStrings(['FloodBot?', 'FloodBotK?', 'ChanServ'],
             "List of nicks for which the bot won't request to comment a ban/quiet/removal."\
             " Is case insensible and wildcards * ? are accepted."))
-conf.registerChannelValue(Bantracker.commentRequest, 'forward',
+conf.registerChannelValue(Bantracker.request, 'forward',
         registry.SpaceSeparatedListOfStrings([],
             "List of nicks for which the bot will forward the request to"\
             " the channels/nicks defined in forwards.channels option."\
             " Is case insensible and wildcards * ? are accepted."))
-conf.registerChannelValue(Bantracker.commentRequest.forward, 'channels',
+conf.registerChannelValue(Bantracker.request.forward, 'channels',
         registry.SpaceSeparatedListOfStrings([],
             "List of channels/nicks to forward the request if the op that set the ban/quiet"\
             " is in the forward list."))
-
-
-# temp config
-conf.registerGlobalValue(Bantracker, 'reviewAfterTime',
+conf.registerChannelValue(Bantracker.request, 'review',
         registry.Float(7,
             "Days after which the bot will request for review a ban. Can be an integer or decimal value."))
+
+
