@@ -21,7 +21,8 @@ class BantrackerTestCase(ChannelPluginTestCase):
     def setUp(self):
         super(BantrackerTestCase, self).setUp()
         self.setDb()
-        pluginConf.request.ignore.set('*') # disable comments
+        pluginConf.request.setValue(False) # disable comments
+        pluginConf.request.ignore.set('')
         pluginConf.request.forward.set('')
         pluginConf.request.review.setValue(1.0/86400) # one second
 
@@ -92,7 +93,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         return ban
 
     def testComment(self):
-        pluginConf.request.ignore.set('')
+        pluginConf.request.setValue(True)
         # test bans
         self.feedBan('asd!*@*')
         msg = self.irc.takeMsg()
@@ -118,7 +119,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
             " <comment>")
 
     def testCommentForward(self):
-        pluginConf.request.ignore.set('')
+        pluginConf.request.setValue(True)
         pluginConf.request.forward.set('bot')
         pluginConf.request.forward.channels.set('#channel')
         self.feedBan('qwe!*@*')
@@ -133,7 +134,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
             " use: @comment 2 <comment>")
 
     def testReview(self):
-        pluginConf.request.ignore.set('')
+        pluginConf.request.setValue(True)
         cb = self.getCallback()
         self.feedBan('asd!*@*')
         self.irc.takeMsg() # ignore comment request comment
@@ -180,7 +181,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
             "%s/bans.cgi?log=2" %(cb.bans['#test'][1].ascwhen, pluginConf.bansite()))
 
     def testReviewForward(self):
-        pluginConf.request.ignore.set('')
+        pluginConf.request.setValue(True)
         pluginConf.request.forward.set('bot')
         pluginConf.request.forward.channels.set('#channel')
         cb = self.getCallback()
@@ -201,7 +202,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
     def testReviewNickFallback(self):
         """If for some reason we don't have ops full hostmask, revert to nick match. This may be
         needed in the future as hostmasks aren't stored in the db."""
-        pluginConf.request.ignore.set('')
+        pluginConf.request.setValue(True)
         cb = self.getCallback()
         self.feedBan('asd!*@*')
         self.irc.takeMsg() # ignore comment request comment

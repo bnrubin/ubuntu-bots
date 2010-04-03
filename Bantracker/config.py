@@ -34,7 +34,9 @@ conf.registerGlobalValue(Bantracker, 'database',
 conf.registerGlobalValue(Bantracker, 'bansite',
         registry.String('', "Web site for the bantracker, without the 'bans.cgi' appended", private=True))
 
-conf.registerGroup(Bantracker, 'request')
+conf.registerChannelValue(Bantracker, 'request',
+        registry.Boolean(False,
+            "Enable message requests from bot"))
 conf.registerChannelValue(Bantracker.request, 'type',
         SpaceSeparatedListOfTypes(['removal', 'ban', 'quiet'],
             "List of events for which the bot should request a comment."))
