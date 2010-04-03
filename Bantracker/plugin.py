@@ -384,7 +384,7 @@ class Bantracker(callbacks.Plugin):
             self.lastMsgs[irc] = msg
 
     def db_run(self, query, parms, expect_result = False, expect_id = False):
-        self.log.debug("SQL: %q %s", query, parms)
+        #self.log.debug("SQL: %q %s", query, parms)
         if not self.db:
             self.log.error("Bantracker database not open")
             return
@@ -404,7 +404,7 @@ class Bantracker(callbacks.Plugin):
         if expect_result and cur: data = cur.fetchall()
         if expect_id: data = self.db.insert_id()
         self.db.commit()
-        self.log.debug("SQL return: %q", data)
+        #self.log.debug("SQL return: %q", data)
         return data
 
     def requestComment(self, irc, channel, ban, type=None):
@@ -429,22 +429,18 @@ class Bantracker(callbacks.Plugin):
             op = ban.who
         if nickMatch(op, self.registryValue('request.forward', channel=channel)):
             channels = self.registryValue('request.forward.channels', channel=channel)
-            if channels:
-                s = "Please somebody comment on the %s of %s in %s done by %s, use:"\
-                    " %scomment %s <comment>" %(type, mask, channel, op, prefix, ban.id)
-                for chan in channels:
-                    msg = ircmsgs.notice(chan, s)
-                    self.log.info('SENDING: %s' %msg)
-                    irc.queueMsg(msg)
-                return
+            s = "Please somebody comment on the %s of %s in %s done by %s, use:"\
+                " %scomment %s <comment>" %(type, mask, channel, op, prefix, ban.id)
+            for chan in channels:
+                msg = ircmsgs.notice(chan, s)
+                irc.queueMsg(msg)
+            return
         # send to op
         s = "Please comment on the %s of %s in %s, use: %scomment %s <comment>" \
                 %(type, mask, channel, prefix, ban.id)
-        self.log.info('SENDING: %s %s' %(op, s))
         irc.reply(s, to=op, private=True)
 
     def reviewBans(self, irc=None):
-        self.log.debug('Checking for bans that need review ...')
         now = time.mktime(time.gmtime())
         lastreview = self.pendingReviews.time
         bansite = self.registryValue('bansite')
@@ -481,7 +477,6 @@ class Bantracker(callbacks.Plugin):
                     if nickMatch(op, ignore):
                         # in the ignore list
                         continue
-                    self.log.debug('  adding ban to the pending review list ...')
                     if not ban.id:
                         ban.id = self.get_banId(ban.mask, channel)
                     if nickMatch(op, forward):
