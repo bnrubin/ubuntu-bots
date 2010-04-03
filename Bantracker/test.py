@@ -90,7 +90,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.irc.feedMsg(ban)
         return ban
 
-    def testCommentRequest(self):
+    def testComment(self):
         pluginConf.request.ignore.set('')
         # test bans
         self.feedBan('asd!*@*')
@@ -115,21 +115,23 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertEqual(str(msg).strip(), 
             "PRIVMSG op :Please comment on the removal of dude in #test, use: @comment 4"
             " <comment>")
-        # test forwards
+
+    def testCommentForward(self):
+        pluginConf.request.ignore.set('')
         pluginConf.request.forward.set('bot')
         pluginConf.request.forward.channels.set('#channel')
         self.feedBan('qwe!*@*')
         msg = self.irc.takeMsg()
         self.assertEqual(str(msg).strip(), 
-            "PRIVMSG op :Please comment on the ban of qwe!*@* in #test, use: @comment 5"
+            "PRIVMSG op :Please comment on the ban of qwe!*@* in #test, use: @comment 1"
             " <comment>")
         self.feedBan('zxc!*@*', prefix='bot!user@host.com')
         msg = self.irc.takeMsg()
         self.assertEqual(str(msg).strip(), 
             "NOTICE #channel :Please somebody comment on the ban of zxc!*@* in #test done by bot,"
-            " use: @comment 6 <comment>")
+            " use: @comment 2 <comment>")
 
-    def testReviewRequest(self):
+    def testReview(self):
         pluginConf.request.ignore.set('')
         cb = self.getCallback()
         self.feedBan('asd!*@*')
@@ -177,6 +179,26 @@ class BantrackerTestCase(ChannelPluginTestCase):
             "PRIVMSG op :Hi, please review the ban 'asd2!*@*' that you set on %s in #test, link: "\
             "%s/bans.cgi?log=2" %(cb.bans['#test'][1].ascwhen, pluginConf.bansite()))
 
+    def testReviewForward(self):
+        pluginConf.request.ignore.set('')
+        pluginConf.request.forward.set('bot')
+        pluginConf.request.forward.channels.set('#channel')
+        cb = self.getCallback()
+        self.feedBan('asd!*@*', prefix='bot!user@host.net')
+        self.irc.takeMsg() # ignore comment request comment
+        pluginConf.request.review.setValue(1.0/86400) # one second
+        cb.reviewBans(self.irc)
+        self.assertFalse(cb.pendingReviews)
+        print 'waiting 2 secs..'
+        time.sleep(2)
+        cb.reviewBans(self.irc)
+        # since it's a forward, it was sent already
+        self.assertFalse(cb.pendingReviews)
+        msg = self.irc.takeMsg()
+        self.assertEqual(str(msg).strip(),
+            "NOTICE #channel :Hi, please somebody review the ban 'asd!*@*' set by bot on %s in #test, link: "\
+            "%s/bans.cgi?log=1" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
+
     def testPersistentCache(self):
         msg1 = ircmsgs.privmsg('nick', 'Hello World')
         msg2 = ircmsgs.privmsg('nick', 'Hello World')
@@ -217,7 +239,6 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.feedBan('troll!user@trollpit.net', mode='p')
         fetch = self.query("SELECT id,channel,mask,operator FROM bans")
         self.assertEqual((1, '#test', 'troll!user@trollpit.net', 'op'), fetch[0])
-
 
 
 

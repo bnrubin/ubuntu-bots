@@ -243,8 +243,8 @@ class Bantracker(callbacks.Plugin):
         self.get_nicks(irc)
         self.pendingReviews = PersistentCache('bt.reviews.db')
         self.pendingReviews.open()
-        # add scheduled event for check bans that need review
-        schedule.addPeriodicEvent(self.reviewBans, 60*10,
+        # add scheduled event for check bans that need review, check every hour
+        schedule.addPeriodicEvent(lambda : self.reviewBans(irc), 60*60,
                 name=self.name())
 
     def get_nicks(self, irc):
@@ -443,7 +443,7 @@ class Bantracker(callbacks.Plugin):
         self.log.info('SENDING: %s %s' %(op, s))
         irc.reply(s, to=op, private=True)
 
-    def reviewBans(self):
+    def reviewBans(self, irc=None):
         self.log.debug('Checking for bans that need review ...')
         now = time.mktime(time.gmtime())
         lastreview = self.pendingReviews.time
@@ -485,20 +485,20 @@ class Bantracker(callbacks.Plugin):
                     if not ban.id:
                         ban.id = self.get_banId(ban.mask, channel)
                     if nickMatch(op, forward):
-                        msgs = []
+                        if not irc:
+                            continue
                         s = "Hi, please somebody review the ban '%s' set by %s on %s in"\
                         " %s, link: %s/bans.cgi?log=%s" %(ban.mask, op, ban.ascwhen, channel,
                                 bansite, ban.id)
                         for chan in fchannels:
-                            msgs.append(ircmsgs.notice(chan, s))
-                            # FIXME forwards should be sent now, not later.
+                            msg = ircmsgs.notice(chan, s)
+                            irc.queueMsg(msg)
                     else:
                         s = "Hi, please review the ban '%s' that you set on %s in %s, link:"\
                         " %s/bans.cgi?log=%s" %(ban.mask, ban.ascwhen, channel, bansite, ban.id)
-                        msgs = [ircmsgs.privmsg(op, s)]
-                    if host not in self.pendingReviews:
-                        self.pendingReviews[host] = []
-                    for msg in msgs:
+                        msg = ircmsgs.privmsg(op, s)
+                        if host not in self.pendingReviews:
+                            self.pendingReviews[host] = []
                         self.pendingReviews[host].append((op, msg))
                 elif banTime < reviewAfterTime:
                     # since we made sure bans are sorted by time, the bans left are more recent
@@ -510,12 +510,9 @@ class Bantracker(callbacks.Plugin):
         if host in self.pendingReviews:
             op = msg.nick
             for nick, msg in self.pendingReviews[host]:
-                if msg.command == 'NOTICE':
-                    self.log.info('SENDING: %s' %msg)
-                    irc.queueMsg(msg)
-                else:
-                    m = ircmsgs.privmsg(op, msg.args[1])
-                    irc.queueMsg(m)
+                if op != nick:
+                    msg = ircmsgs.privmsg(op, msg.args[1])
+                irc.queueMsg(msg)
             del self.pendingReviews[host]
 
     def doLog(self, irc, channel, s):
