@@ -53,7 +53,7 @@ conf.registerChannelValue(Bantracker.request.forward, 'channels',
         registry.SpaceSeparatedListOfStrings([],
             "List of channels/nicks to forward the request if the op that set the ban/quiet"\
             " is in the forward list."))
-conf.registerChannelValue(Bantracker.request, 'review',
+conf.registerGlobalValue(Bantracker.request, 'review',
         registry.Float(7,
             "Days after which the bot will request for review a ban. Can be an integer or decimal value."))
 

@@ -244,6 +244,10 @@ class Bantracker(callbacks.Plugin):
         self.pendingReviews = PersistentCache('bt.reviews.db')
         self.pendingReviews.open()
         # add scheduled event for check bans that need review, check every hour
+        try:
+            schedule.removeEvent(self.name())
+        except:
+            pass
         schedule.addPeriodicEvent(lambda : self.reviewBans(irc), 60*60,
                 name=self.name())
 
@@ -319,7 +323,7 @@ class Bantracker(callbacks.Plugin):
             self.bans[msg.args[1]] = []
         bans = self.bans[msg.args[1]]
         bans.append(Ban(msg.args))
-        bans.sort(key=lambda x: x.when)
+        bans.sort(key=lambda x: x.when) # needed for self.reviewBans
 
     def nick_to_host(self, irc=None, target='', with_nick=True, reply_now=True):
         target = target.lower()
@@ -354,10 +358,7 @@ class Bantracker(callbacks.Plugin):
         except:
             pass
         queue.clear()
-        try:
-            schedule.removeEvent(self.name())
-        except:
-            pass
+        schedule.removeEvent(self.name())
         self.pendingReviews.close()
 
     def reset(self):
@@ -443,16 +444,19 @@ class Bantracker(callbacks.Plugin):
         irc.reply(s, to=op, private=True)
 
     def reviewBans(self, irc=None):
+        reviewTime = int(self.registryValue('request.review') * 86400)
+        if not reviewTime:
+            # time is zero, do nothing
+            return
         now = time.mktime(time.gmtime())
         lastreview = self.pendingReviews.time
-        bansite = self.registryValue('bansite')
         if not lastreview:
             # initialize last time reviewed timestamp
-            lastreview = now - self.registryValue('request.review')
+            lastreview = now - reviewTime
+        bansite = self.registryValue('bansite')
         for channel, bans in self.bans.iteritems():
-            reviewAfterTime = int(self.registryValue('request.review', channel=channel) * 86400)
-            if not reviewAfterTime:
-                # time is zero, do nothing
+            if not self.registryValue('enabled', channel=channel) \
+                    or not self.registryValue('request', channel=channel):
                 continue
             ignore = self.registryValue('request.ignore', channel=channel)
             forward = self.registryValue('request.forward', channel=channel)
@@ -462,11 +466,11 @@ class Bantracker(callbacks.Plugin):
                 if type in ('quiet', 'removal'):
                     # skip mutes and kicks
                     continue
-                banTime = now - ban.when
-                reviewTime = lastreview - ban.when
-                self.log.debug('  channel %s ban %s (%s %s %s)', channel, str(ban), reviewTime,
-                        reviewAfterTime, reviewAfterTime-reviewTime)
-                if reviewTime <= reviewAfterTime < banTime:
+                banAge = now - ban.when
+                reviewWindow = lastreview - ban.when
+                self.log.debug('  channel %s ban %s by %s (%s/%s/%s %s)', channel, ban.mask,
+                        ban.who, reviewWindow, reviewTime, banAge, reviewTime-reviewWindow)
+                if reviewWindow <= reviewTime < banAge:
                     # ban is old enough, and inside the "review window"
                     try:
                         # ban.who should be a user hostmask
@@ -502,7 +506,7 @@ class Bantracker(callbacks.Plugin):
                         if host not in self.pendingReviews:
                             self.pendingReviews[host] = []
                         self.pendingReviews[host].append((op, msg))
-                elif banTime < reviewAfterTime:
+                elif banAge < reviewTime:
                     # since we made sure bans are sorted by time, the bans left are more recent
                     break
         self.pendingReviews.time = now # update last time reviewed
