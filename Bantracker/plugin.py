@@ -385,7 +385,6 @@ class Bantracker(callbacks.Plugin):
             self.lastMsgs[irc] = msg
 
     def db_run(self, query, parms, expect_result = False, expect_id = False):
-        #self.log.debug("SQL: %q %s", query, parms)
         if not self.db:
             self.log.error("Bantracker database not open")
             return
@@ -393,8 +392,7 @@ class Bantracker(callbacks.Plugin):
         try:
             cur = self.db.cursor()
             cur.execute(query, parms)
-        except Exception, e:
-            self.log.error('error: %s', e)
+        except:
             cur = None
             if n_tries > 5:
                 print "Tried more than 5 times, aborting"
@@ -405,7 +403,6 @@ class Bantracker(callbacks.Plugin):
         if expect_result and cur: data = cur.fetchall()
         if expect_id: data = self.db.insert_id()
         self.db.commit()
-        #self.log.debug("SQL return: %q", data)
         return data
 
     def requestComment(self, irc, channel, ban):
