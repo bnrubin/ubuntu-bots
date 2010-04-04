@@ -2,6 +2,7 @@ from supybot.test import *
 
 import supybot.conf as conf
 import supybot.ircmsgs as ircmsgs
+import supybot.world as world
 
 import time
 
@@ -20,11 +21,22 @@ class BantrackerTestCase(ChannelPluginTestCase):
 
     def setUp(self):
         super(BantrackerTestCase, self).setUp()
-        self.setDb()
         pluginConf.request.setValue(False) # disable comments
         pluginConf.request.ignore.set('')
         pluginConf.request.forward.set('')
         pluginConf.request.review.setValue(1.0/86400) # one second
+        self.setDb()
+        # Bantracker for some reason doesn't use Supybot's own methods for check capabilities,
+        # so it doesn't have a clue about testing and screws my tests by default.
+        # This would fix it until I bring myself to take a look
+        cb = self.getCallback()
+        f = cb.check_auth
+        def test_check_auth(*args, **kwargs):
+            if world.testing:
+                return True
+            else:
+                return f(*args, **kwargs)
+        cb.check_auth = test_check_auth
 
     def setDb(self):
         import sqlite, os
@@ -233,8 +245,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         msg2 = ircmsgs.privmsg('nick', 'Hello World')
         msg3 = ircmsgs.notice('#chan', 'Hello World')
         msg4 = ircmsgs.privmsg('nick_', 'Hello World')
-        cb = self.getCallback()
-        pr = cb.pendingReviews
+        pr = self.getCallback().pendingReviews
         pr['host.net'] = [('op', msg1), ('op', msg2), ('op_', msg3)]
         pr['home.net'] = [('dude', msg4)]
         self.assertResponse('banreview', 'Pending ban reviews (4): op_:1 dude:1 op:2')
@@ -248,6 +259,13 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertTrue(items[2][0] == 'op_' and items[2][1] == msg3)
         items = pr['home.net']
         self.assertTrue(items[0][0] == 'dude' and items[0][1] == msg4)
+
+    def testReviewBanreview(self):
+        pr = self.getCallback().pendingReviews
+        m = ircmsgs.privmsg('#test', 'asd')
+        pr['host.net'] = [('op', m), ('op_', m), ('op', m)]
+        pr['home.net'] = [('dude', m)]
+        self.assertResponse('banreview', 'Pending ban reviews (4): op_:1 dude:1 op:2')
 
     def testBan(self):
         self.feedBan('asd!*@*')
