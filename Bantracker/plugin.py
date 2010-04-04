@@ -408,40 +408,33 @@ class Bantracker(callbacks.Plugin):
         #self.log.debug("SQL return: %q", data)
         return data
 
-    def requestComment(self, irc, channel, ban, type=None):
-        if not ban or not self.registryValue('request', channel):
-            return
-        # check if we should request a comment
-        if nickMatch(ban.who, self.registryValue('request.ignore', channel=channel)):
+    def requestComment(self, irc, channel, ban):
+        if not ban or not self.registryValue('request', channel) \
+                or nickMatch(ban.who, self.registryValue('request.ignore', channel)):
             return
         # check the type of the action taken
         mask = ban.mask
-        if not type:
-            type = guessBanType(mask)
-            if type == 'quiet':
-                mask = mask[1:]
+        type = guessBanType(mask)
+        if type == 'quiet':
+            mask = mask[1:]
         # check if type is enabled
-        if type not in self.registryValue('request.type', channel=channel):
+        if type not in self.registryValue('request.type', channel):
             return
-        # send msg
         prefix = conf.supybot.reply.whenAddressedBy.chars()[0] # prefix char for commands
         # check to who send the request
         try:
-            op = ircutils.nickFromHostmask(ban.who)
+            nick = ircutils.nickFromHostmask(ban.who)
         except:
-            op = ban.who
-        if nickMatch(op, self.registryValue('request.forward', channel=channel)):
-            channels = self.registryValue('request.forward.channels', channel=channel)
+            nick = ban.who
+        if nickMatch(nick, self.registryValue('request.forward', channel)):
             s = "Please somebody comment on the %s of %s in %s done by %s, use:"\
-                " %scomment %s <comment>" %(type, mask, channel, op, prefix, ban.id)
-            for chan in channels:
-                msg = ircmsgs.notice(chan, s)
-                irc.queueMsg(msg)
-            return
-        # send to op
-        s = "Please comment on the %s of %s in %s, use: %scomment %s <comment>" \
-                %(type, mask, channel, prefix, ban.id)
-        irc.reply(s, to=op, private=True)
+                " %scomment %s <comment>" %(type, mask, channel, nick, prefix, ban.id)
+            self._sendForward(irc, s, channel)
+        else:
+            # send to op
+            s = "Please comment on the %s of %s in %s, use: %scomment %s <comment>" \
+                    %(type, mask, channel, prefix, ban.id)
+            irc.reply(s, to=nick, private=True)
 
     def reviewBans(self, irc=None):
         reviewTime = int(self.registryValue('request.review') * 86400)
@@ -450,85 +443,85 @@ class Bantracker(callbacks.Plugin):
             return
         now = time.mktime(time.gmtime())
         lastreview = self.pendingReviews.time
+        self.pendingReviews.time = now # update last time reviewed
         if not lastreview:
             # initialize last time reviewed timestamp
             lastreview = now - reviewTime
-        bansite = self.registryValue('bansite')
+
         for channel, bans in self.bans.iteritems():
-            if not self.registryValue('enabled', channel=channel) \
-                    or not self.registryValue('request', channel=channel):
+            if not self.registryValue('enabled', channel) \
+                    or not self.registryValue('request', channel):
                 continue
-            ignore = self.registryValue('request.ignore', channel=channel)
-            forward = self.registryValue('request.forward', channel=channel)
-            fchannels = self.registryValue('request.forward.channels', channel=channel)
+
             for ban in bans:
-                type = guessBanType(ban.mask)
-                if type in ('quiet', 'removal'):
+                if guessBanType(ban.mask) in ('quiet', 'removal'):
                     # skip mutes and kicks
                     continue
                 banAge = now - ban.when
                 reviewWindow = lastreview - ban.when
-                self.log.debug('  channel %s ban %s by %s (%s/%s/%s %s)', channel, ban.mask,
-                        ban.who, reviewWindow, reviewTime, banAge, reviewTime-reviewWindow)
+                #self.log.debug('review ban: %s ban %s by %s (%s/%s/%s %s)', channel, ban.mask,
+                #        ban.who, reviewWindow, reviewTime, banAge, reviewTime - reviewWindow)
                 if reviewWindow <= reviewTime < banAge:
                     # ban is old enough, and inside the "review window"
                     try:
                         # ban.who should be a user hostmask
-                        op = ircutils.nickFromHostmask(ban.who)
+                        nick = ircutils.nickFromHostmask(ban.who)
                         host = ircutils.hostFromHostmask(ban.who)
                     except:
                         if ircutils.isNick(ban.who, strictRfc=True):
                             # ok, op's nick, use it
-                            op = ban.who
+                            nick = ban.who
                             host = None
                         else:
                             # probably a ban restored by IRC server in a netsplit
                             # XXX see if something can be done about this
                             continue
-                    if nickMatch(op, ignore):
+                    if nickMatch(nick, self.registryValue('request.ignore', channel)):
                         # in the ignore list
                         continue
                     if not ban.id:
                         ban.id = self.get_banId(ban.mask, channel)
-                    if nickMatch(op, forward):
-                        if not irc:
-                            continue
+                    if nickMatch(nick, self.registryValue('request.forward', channel)):
                         s = "Hi, please somebody review the ban '%s' set by %s on %s in"\
-                        " %s, link: %s/bans.cgi?log=%s" %(ban.mask, op, ban.ascwhen, channel,
-                                bansite, ban.id)
-                        for chan in fchannels:
-                            msg = ircmsgs.notice(chan, s)
-                            irc.queueMsg(msg)
+                        " %s, link: %s/bans.cgi?log=%s" %(ban.mask, nick, ban.ascwhen, channel,
+                                self.registryValue('bansite'), ban.id)
+                        self._sendForward(irc, s, channel)
                     else:
                         s = "Hi, please review the ban '%s' that you set on %s in %s, link:"\
-                        " %s/bans.cgi?log=%s" %(ban.mask, ban.ascwhen, channel, bansite, ban.id)
-                        msg = ircmsgs.privmsg(op, s)
-                        if host not in self.pendingReviews:
-                            self.pendingReviews[host] = []
-                        self.pendingReviews[host].append((op, msg))
+                        " %s/bans.cgi?log=%s" %(ban.mask, ban.ascwhen, channel,
+                                self.registryValue('bansite'), ban.id)
+                        msg = ircmsgs.privmsg(nick, s)
+                        if host in self.pendingReviews:
+                            self.pendingReviews[host].append((nick, msg))
+                        else:
+                            self.pendingReviews[host] = [(nick, msg)]
                 elif banAge < reviewTime:
                     # since we made sure bans are sorted by time, the bans left are more recent
                     break
-        self.pendingReviews.time = now # update last time reviewed
+
+    def _sendForward(self, irc, s, channel=None):
+        if not irc:
+            return
+        for chan in self.registryValue('request.forward.channels', channel=channel):
+            msg = ircmsgs.notice(chan, s)
+            irc.queueMsg(msg)
 
     def _sendReviews(self, irc, msg):
         host = ircutils.hostFromHostmask(msg.prefix)
         if host in self.pendingReviews:
-            op = msg.nick
-            for nick, msg in self.pendingReviews[host]:
-                if op != nick and not irc.isChannel(nick): # be extra careful
+            for nick, m in self.pendingReviews[host]:
+                if msg.nick != nick and not irc.isChannel(nick): # I'm a bit extra careful here
                     # correct nick in msg
-                    msg = ircmsgs.privmsg(op, msg.args[1])
-                irc.queueMsg(msg)
+                    m = ircmsgs.privmsg(msg.nick, m.args[1])
+                irc.queueMsg(m)
             del self.pendingReviews[host]
         # check if we have any reviews by nick to send
         if None in self.pendingReviews:
-            op = msg.nick
             L = self.pendingReviews[None]
             for i, v in enumerate(L):
-                nick, msg = v
-                if nickMatch(op, nick):
-                    irc.queueMsg(msg)
+                nick, m = v
+                if ircutils.strEqual(msg.nick, nick):
+                    irc.queueMsg(m)
                     del L[i]
             if not L:
                 del self.pendingReviews[None]

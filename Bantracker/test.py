@@ -157,6 +157,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         # don't ask again
         cb.reviewBans()
         self.assertFalse(cb.pendingReviews)
+        # test again with two ops
         self.feedBan('asd2!*@*')
         self.irc.takeMsg()
         self.feedBan('qwe!*@*', prefix='otherop!user@home.net')
