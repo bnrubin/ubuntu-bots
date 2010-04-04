@@ -59,6 +59,8 @@ import hashlib
 import threading
 from collections import deque
 
+isUserHostmask = ircutils.isUserHostmask
+
 tz = 'UTC'
 
 def now():
@@ -842,7 +844,14 @@ class Bantracker(callbacks.Plugin):
 
         def getBans(chan):
             data = self.db_run("SELECT mask, removal FROM bans WHERE channel=%s", chan, expect_result=True)
-            return [i[0] for i in data if i[1] == None and "!" in i[0]]
+            L = []
+            for mask, removal in data:
+                if removal is not None:
+                    continue
+                elif not isUserHostmask(mask) and mask[0] != '$':
+                    continue
+                L.append(mask)
+            return L
 
         def remBans(chan):
             bans = getBans(chan)
