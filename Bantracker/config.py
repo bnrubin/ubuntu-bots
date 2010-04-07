@@ -15,9 +15,11 @@
 import supybot.conf as conf
 import supybot.registry as registry
 
+
 class ValidTypes(registry.OnlySomeStrings):
     """Invalid type, valid types are: 'removal', 'ban' or 'quiet'."""
     validStrings = ('removal', 'ban', 'quiet')
+
 
 class SpaceSeparatedListOfTypes(registry.SpaceSeparatedListOf):
     Value = ValidTypes
@@ -34,23 +36,27 @@ conf.registerGlobalValue(Bantracker, 'database',
 conf.registerGlobalValue(Bantracker, 'bansite',
         registry.String('', "Web site for the bantracker, without the 'bans.cgi' appended", private=True))
 
-conf.registerChannelValue(Bantracker, 'commentRequest',
+conf.registerChannelValue(Bantracker, 'request',
         registry.Boolean(False,
             "Enable message requests from bot"))
-conf.registerChannelValue(Bantracker.commentRequest, 'type',
+conf.registerChannelValue(Bantracker.request, 'type',
         SpaceSeparatedListOfTypes(['removal', 'ban', 'quiet'],
             "List of events for which the bot should request a comment."))
-conf.registerChannelValue(Bantracker.commentRequest, 'ignore',
-        registry.SpaceSeparatedListOfStrings([],
-            "List of nicks for which the bot won't request to comment a ban/quiet/removal."\
+conf.registerChannelValue(Bantracker.request, 'ignore',
+        registry.SpaceSeparatedListOfStrings(['FloodBot?', 'FloodBotK?', 'ChanServ'],
+            "List of nicks for which the bot won't request to comment or review."\
             " Is case insensible and wildcards * ? are accepted."))
-conf.registerChannelValue(Bantracker.commentRequest, 'forward',
+conf.registerChannelValue(Bantracker.request, 'forward',
         registry.SpaceSeparatedListOfStrings([],
             "List of nicks for which the bot will forward the request to"\
             " the channels/nicks defined in forwards.channels option."\
             " Is case insensible and wildcards * ? are accepted."))
-conf.registerChannelValue(Bantracker.commentRequest.forward, 'channels',
+conf.registerChannelValue(Bantracker.request.forward, 'channels',
         registry.SpaceSeparatedListOfStrings([],
-            "List of channels/nicks to forward the request if the op that set the ban/quiet"\
-            " is in the forward list."))
+            "List of channels/nicks to forward the request if the op is in the forward list."))
+conf.registerGlobalValue(Bantracker.request, 'review',
+        registry.Float(7,
+            "Days after which the bot will request for review a ban. Can be an integer or decimal"
+            " value. Zero disables reviews."))
+
 
