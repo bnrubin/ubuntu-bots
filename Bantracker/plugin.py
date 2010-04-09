@@ -58,7 +58,6 @@ import time
 import random
 import hashlib
 import threading
-from collections import deque
 
 isUserHostmask = ircutils.isUserHostmask
 
@@ -530,12 +529,11 @@ class Bantracker(callbacks.Plugin):
             return
         channel = ircutils.toLower(channel) 
         if channel not in self.logs.keys():
-            self.logs[channel] = deque(maxlen=200)
+            self.logs[channel] = []
         format = conf.supybot.log.timestampFormat()
         if format:
             s = time.strftime(format, time.gmtime()) + " " + ircutils.stripFormatting(s)
-#        self.logs[channel] = self.logs[channel][-199:] + [s.strip()]
-        self.logs[channel].append(s.strip())
+        self.logs[channel] = self.logs[channel][-199:] + [s.strip()]
 
     def doKickban(self, irc, channel, *args, **kwargs):
         ban = self._doKickban(irc, channel, *args, **kwargs)
