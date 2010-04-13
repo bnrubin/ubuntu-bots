@@ -130,6 +130,28 @@ class BantrackerTestCase(ChannelPluginTestCase):
             "PRIVMSG op :Please comment on the removal of dude in #test, use: @comment 4"
             " <comment>")
 
+    def testCommentIgnore(self):
+        pluginConf.request.setValue(True)
+        pluginConf.request.ignore.set('FloodBot? FloodBotK?')
+        self.feedBan('asd!*@*', prefix='floodbotk1!bot@botpit.com')
+        msg = self.irc.takeMsg()
+        self.assertEqual(msg, None)
+        self.feedBan('dude!*@*', mode='q', prefix='FloodBot1!bot@botpit.com')
+        msg = self.irc.takeMsg()
+        self.assertEqual(msg, None)
+        self.feedBan('dude', mode='k', prefix='FloodBot2!bot@botbag.com')
+        msg = self.irc.takeMsg()
+        self.assertEqual(msg, None)
+        self.feedBan('dude!dude@trollpit.com', mode='p', prefix='FloodBotK2!bot@botbag.com')
+        msg = self.irc.takeMsg()
+        self.assertEqual(msg, None)
+        self.feedBan('asd!*@*')
+        msg = self.irc.takeMsg()
+        self.assertEqual(str(msg).strip(), 
+            "PRIVMSG op :Please comment on the ban of asd!*@* in #test, use: @comment 5"
+            " <comment>")
+
+
     def testCommentForward(self):
         pluginConf.request.setValue(True)
         pluginConf.request.forward.set('bot')

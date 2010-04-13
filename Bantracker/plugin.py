@@ -407,8 +407,7 @@ class Bantracker(callbacks.Plugin):
         return data
 
     def requestComment(self, irc, channel, ban):
-        if not ban or not self.registryValue('request', channel) \
-                or nickMatch(ban.who, self.registryValue('request.ignore', channel)):
+        if not ban or not self.registryValue('request', channel):
             return
         # check the type of the action taken
         mask = ban.mask
@@ -424,6 +423,8 @@ class Bantracker(callbacks.Plugin):
             nick = ircutils.nickFromHostmask(ban.who)
         except:
             nick = ban.who
+        if nickMatch(nick, self.registryValue('request.ignore', channel)):
+            return
         if nickMatch(nick, self.registryValue('request.forward', channel)):
             s = "Please somebody comment on the %s of %s in %s done by %s, use:"\
                 " %scomment %s <comment>" %(type, mask, channel, nick, prefix, ban.id)
