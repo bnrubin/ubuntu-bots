@@ -20,12 +20,12 @@ class BantrackerTestCase(ChannelPluginTestCase):
     plugins = ('Bantracker',)
 
     def setUp(self):
+        self.setDb()
         super(BantrackerTestCase, self).setUp()
         pluginConf.request.setValue(False) # disable comments
         pluginConf.request.ignore.set('')
         pluginConf.request.forward.set('')
         pluginConf.request.review.setValue(1.0/86400) # one second
-        self.setDb()
         # Bantracker for some reason doesn't use Supybot's own methods for check capabilities,
         # so it doesn't have a clue about testing and screws my tests by default.
         # This would fix it until I bring myself to take a look
