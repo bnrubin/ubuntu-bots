@@ -89,7 +89,7 @@ def hostmaskPatternEqual(pattern, hostmask):
     if pattern.count('!') != 1 or pattern.count('@') != 1:
         return False
     if pattern.count('$') == 1:
-        pattern = "$".join(pattern.split('$')[:-1])
+        pattern = pattern[:pattern.rfind('$')]
     if pattern[0] == '%':
         pattern = pattern[1:]
     return ircutils.hostmaskPatternEqual(pattern, hostmask)
@@ -741,7 +741,7 @@ class Bantracker(callbacks.Plugin):
             irc.error(conf.supybot.replies.incorrectAuthentication())
             return False
         try:
-            user = ircdb.users.getUser(msg.prefix[:msg.prefix.find('!')].lower())
+            user = ircdb.users.getUser(msg.prefix)
         except:
             irc.error(conf.supybot.replies.incorrectAuthentication())
             return False
