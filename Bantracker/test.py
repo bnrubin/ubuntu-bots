@@ -151,7 +151,6 @@ class BantrackerTestCase(ChannelPluginTestCase):
             "PRIVMSG op :Please comment on the ban of asd!*@* in #test, use: @comment 5"
             " <comment>")
 
-
     def testCommentForward(self):
         pluginConf.request.setValue(True)
         pluginConf.request.forward.set('bot')
@@ -233,6 +232,19 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertEqual(str(msg).strip(),
             "NOTICE #channel :Hi, please somebody review the ban 'asd!*@*' set by bot on %s in #test, link: "\
             "%s/bans.cgi?log=1" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
+
+    def testReviewIgnore(self):
+        pluginConf.request.setValue(True)
+        pluginConf.request.ignore.set('FloodBot? FloodBotK?')
+        cb = self.getCallback()
+        self.feedBan('asd!*@*', prefix='floodbotk1!bot@botpit.com')
+        cb.reviewBans(self.irc)
+        self.assertFalse(cb.pendingReviews)
+        print 'waiting 2 secs..'
+        time.sleep(2)
+        cb.reviewBans(self.irc)
+        # since it's was ignored, it should not be queued
+        self.assertFalse(cb.pendingReviews)
 
     def testReviewNickFallback(self):
         """If for some reason we don't have ops full hostmask, revert to nick match. This may be
