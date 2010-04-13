@@ -124,7 +124,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertEqual(str(msg).strip(), 
             "PRIVMSG op :Please comment on the removal of dude in #test, use: @comment 3"
             " <comment>")
-        self.feedBan('dude', mode='p')
+        self.feedBan('dude!dude@trollpit.com', mode='p')
         msg = self.irc.takeMsg()
         self.assertEqual(str(msg).strip(), 
             "PRIVMSG op :Please comment on the removal of dude in #test, use: @comment 4"
@@ -285,7 +285,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
     def testPart(self):
         self.feedBan('troll!user@trollpit.net', mode='p')
         fetch = self.query("SELECT id,channel,mask,operator FROM bans")
-        self.assertEqual((1, '#test', 'troll!user@trollpit.net', 'op'), fetch[0])
+        self.assertEqual((1, '#test', 'troll', 'op'), fetch[0])
 
 
 
