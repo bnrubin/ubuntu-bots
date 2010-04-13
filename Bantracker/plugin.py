@@ -86,10 +86,10 @@ def capab(user, capability):
         return False
 
 def hostmaskPatternEqual(pattern, hostmask):
-    if pattern.count('!') not in (1, 2) or pattern.count('@') != 1:
+    if pattern.count('!') != 1 or pattern.count('@') != 1:
         return False
-    if pattern.count('!') == 2:
-        pattern = "!".join(pattern.split('!')[:-1])
+    if pattern.count('$') == 1:
+        pattern = "$".join(pattern.split('$')[:-1])
     if pattern[0] == '%':
         pattern = pattern[1:]
     return ircutils.hostmaskPatternEqual(pattern, hostmask)
@@ -647,7 +647,7 @@ class Bantracker(callbacks.Plugin):
             self.doLog(irc, channel, '*** %s (%s) has left %s (%s)\n' % (msg.nick, msg.prefix, channel, len(msg.args) > 1 and msg.args[1] or ''))
             if len(msg.args) > 1 and msg.args[1].startswith('requested by'):
                 args = msg.args[1].split()
-                self.doKickban(irc, channel, args[2], msg.prefix, ' '.join(args[3:]).strip(), extra_comment=msg.prefix)
+                self.doKickban(irc, channel, args[2], msg.nick, ' '.join(args[3:]).strip(), extra_comment=msg.prefix)
 
     def doMode(self, irc, msg):
         channel = msg.args[0]
