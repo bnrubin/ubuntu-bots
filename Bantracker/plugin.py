@@ -89,8 +89,8 @@ def hostmaskPatternEqual(pattern, hostmask):
     if pattern.count('!') != 1 or pattern.count('@') != 1:
         return False
     if pattern.count('$') == 1:
-        pattern = pattern[:pattern.rfind('$')]
-    if pattern[0] == '%':
+        pattern = pattern.split('$',1)[0]
+    if pattern.startswith('%'):
         pattern = pattern[1:]
     return ircutils.hostmaskPatternEqual(pattern, hostmask)
 
