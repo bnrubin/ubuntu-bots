@@ -389,17 +389,12 @@ class Bantracker(callbacks.Plugin):
         if not self.db:
             self.log.error("Bantracker database not open")
             return
-        n_tries = 0
         try:
             cur = self.db.cursor()
             cur.execute(query, parms)
         except:
-            cur = None
-            if n_tries > 5:
-                print "Tried more than 5 times, aborting"
-                raise
-            n_tries += 1
-            time.sleep(1)
+            self.log.error("Error while trying to access the Bantracker database.")
+            return None
         data = None
         if expect_result and cur: data = cur.fetchall()
         if expect_id: data = self.db.insert_id()
