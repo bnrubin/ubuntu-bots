@@ -304,6 +304,13 @@ launchpad"""
                     msg = ircmsgs.notice(msg.args[0], rest, msg=msg)
                 else:
                     msg = ircmsgs.privmsg(msg.args[0], rest, msg=msg)
+                    if not ircutils.isChannel(msg.args[0]): # /msg
+                        ##TODO: check here that the user isn't already logged in
+                        cmd = msg.args[1]
+                        if cmd and cmd[0] in str(conf.supybot.reply.whenAddressedBy.chars()):
+                            cmd = cmd[1:]
+                        if cmd.lower() == 'login':
+                            self.doPrivmsg(irc, msg) # If the login command is given in /msg, force it through
 
             assert msg.receivedAt and msg.receivedOn and msg.receivedBy
 
