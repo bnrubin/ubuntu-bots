@@ -310,7 +310,8 @@ launchpad"""
                         if cmd and cmd[0] in str(conf.supybot.reply.whenAddressedBy.chars()):
                             cmd = cmd[1:]
                         if cmd.lower() == 'login':
-                            self.doPrivmsg(irc, msg) # If the login command is given in /msg, force it through
+                            self.doPrivmsg(callbacks.ReplyIrcProxy(irc, msg), msg) # If the login command is given in /msg, force it through
+                            return # Don't return the msg otherwise it'll be processed twice
 
             assert msg.receivedAt and msg.receivedOn and msg.receivedBy
 
