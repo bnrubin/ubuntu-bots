@@ -48,7 +48,9 @@ launchpad"""
 
     def __init__(self, irc):
         super(IRCLogin, self).__init__(irc)
-        self._irc = hasattr(irc, 'getRealIrc') and irc.getRealIrc() or irc
+        self._irc = irc
+        if hasattr(irc, 'getRealIrc'):
+            self._irc = irc.getRealIrc()
 
     def die(self):
         """Disable identify-msg, if possible"""
@@ -312,7 +314,8 @@ launchpad"""
                         if cmd.lower() == 'login':
                             self.doPrivmsg(callbacks.ReplyIrcProxy(irc, msg), msg) # If the login command is given in /msg, force it through
                             return # Don't return the msg otherwise it'll be processed twice
-
+            else:
+                self.do376(irc, msg, True)
             assert msg.receivedAt and msg.receivedOn and msg.receivedBy
 
         if len(msg.args) >= 2 and msg.args[1] and msg.args[1][0] in ('+', '-'):
