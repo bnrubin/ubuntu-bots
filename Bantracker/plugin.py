@@ -388,9 +388,17 @@ class Bantracker(callbacks.Plugin):
             self.lastMsgs[irc] = msg
 
     def db_run(self, query, parms, expect_result = False, expect_id = False):
-        if not self.db:
-            self.log.error("Bantracker database not open")
-            return
+        if not self.db or self.db.closed:
+            db = self.registryValue('database')
+            if db:
+                try:
+                    self.db = sqlite.connect(db)
+                except:
+                    self.log.error("Bantracker: failed to connect to database")
+                    return
+            else:
+                self.log.error("Bantracker: no database")
+                return
         try:
             cur = self.db.cursor()
             cur.execute(query, parms)
