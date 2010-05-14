@@ -276,7 +276,8 @@ class BantrackerTestCase(ChannelPluginTestCase):
         """Save pending reviews and when bans were last checked. This is needed for plugin
         reloads"""
         msg1 = ircmsgs.privmsg('nick', 'Hello World')
-        msg2 = ircmsgs.privmsg('nick', 'Hello World')
+        msg2 = ircmsgs.privmsg('nick', 'Hello World') # duplicate msg, should be ignored
+        msg2 = ircmsgs.privmsg('nick', 'Hello World2')
         msg3 = ircmsgs.notice('#chan', 'Hello World')
         msg4 = ircmsgs.privmsg('nick_', 'Hello World')
         pr = self.getCallback().pendingReviews

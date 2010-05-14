@@ -183,7 +183,9 @@ class PersistentCache(dict):
         for row in reader:
             host, value = self.deserialize(*row)
             try:
-                self[host].append(value)
+                L = self[host]
+                if value not in L:
+                    L.append(value)
             except KeyError:
                 self[host] = [value]
 
@@ -485,7 +487,8 @@ class Bantracker(callbacks.Plugin):
                         " %s/bans.cgi?log=%s" %(ban.mask, ban.ascwhen, channel,
                                 self.registryValue('bansite'), ban.id)
                         msg = ircmsgs.privmsg(nick, s)
-                        if host in self.pendingReviews:
+                        if host in self.pendingReviews \
+                            and (nick, msg) not in self.pendingReviews[host]:
                             self.pendingReviews[host].append((nick, msg))
                         else:
                             self.pendingReviews[host] = [(nick, msg)]
