@@ -793,6 +793,9 @@ class Encyclopedia(callbacks.Plugin):
         # We're moving files and downloading, lots can go wrong so use lots of try blocks.
         try:
             os.rename(dbpath, "%s.backup" % dbpath)
+        except OSError:
+            # file doesn't exist yet, so nothing to backup
+            pass
         except Exception, e:
             self.log.error("Could not rename %s to %s.backup" % (dbpath, dbpath))
             self.log.error(utils.exnToString(e))
