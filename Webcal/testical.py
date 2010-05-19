@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 import datetime, pytz, urllib2, ical
 def filter(events):
     ret = [x for x in events if x.seconds_ago() < 1800]

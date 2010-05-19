@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 from dateutil import rrule
 import re, datetime
 

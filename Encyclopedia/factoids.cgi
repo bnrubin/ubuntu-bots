@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 ###
 # Copyright (c) 2006,2007 Dennis Kaarsemaker
 # Copyright (c) 2008, 2009 Terence Simpson
