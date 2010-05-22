@@ -111,7 +111,7 @@ class Lart(plugins.ChannelIdDatabasePlugin):
                 return
         text = self._replaceFirstPerson(lart.text, msg.nick)
         formatText = ircutils.stripFormatting(target).lower()
-        if (ircutils.strEqual(target, irc.nick) or 'Evilrockbot' in formatText) and random.uniform(0,100) < 25):
+        if (ircutils.strEqual(target, irc.nick) or 'Evilrockbot' in formatText) and random.uniform(0,100) < 25:
             target = msg.nick
             reason = ''
         elif 'stdin' in formatText or 'tsimpson' in formatText:
