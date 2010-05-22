@@ -128,7 +128,6 @@ def safeQuote(s):
 
 class Encyclopedia(callbacks.Plugin):
     """!factoid: show factoid"""
-    threaded = True
 
     def __init__(self, irc):
         callbacks.Plugin.__init__(self, irc)
