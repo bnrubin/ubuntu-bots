@@ -92,6 +92,12 @@ def queue(irc, to, msg):
         irc.queueMsg(ircmsgs.privmsg(to, msg))
 
 def capab(prefix, capability):
+    # too bad people don't use supybot's own methods, 
+    # it would save me the trouble of hacking this up.
+    import supybot.world as world
+    if world.testing:
+        # we're running a testcase, return always True.
+        return True
     capability = capability.lower()
     if prefix.find('!') > 0:
         user = prefix[:prefix.find('!')]
