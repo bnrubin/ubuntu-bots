@@ -257,6 +257,8 @@ class Bantracker(callbacks.Plugin):
     def get_nicks(self, irc):
         self.hosts.clear()
         for (channel, c) in irc.state.channels.iteritems():
+            if not self.registryValue('enabled', channel):
+                continue
             for nick in list(c.users):
                 nick = nick.lower()
                 if not nick in self.nicks:
@@ -271,6 +273,8 @@ class Bantracker(callbacks.Plugin):
     def get_bans(self, irc):
         global queue
         for channel in irc.state.channels.keys():
+            if not self.registryValue('enabled', channel):
+                continue
             if channel not in self.bans:
                 self.bans[channel] = []
             queue.queue(ircmsgs.mode(channel, 'b'))
