@@ -181,9 +181,9 @@ conf.registerGlobalValue(Encyclopedia, 'curStableNum',
     registry.String('10.04', "Current stable release"))
 
 conf.registerGlobalValue(Encyclopedia, 'curDevel',
-    registry.String('Maveric', "Current development release"))
+    registry.String('Maverick', "Current development release"))
 conf.registerGlobalValue(Encyclopedia, 'curDevelLong',
-    registry.String('Maveric Meercat', "Current development release"))
+    registry.String('Maverick Meerkat', "Current development release"))
 conf.registerGlobalValue(Encyclopedia, 'curDevelNum',
     registry.String('10.10', "Current development release"))
 
