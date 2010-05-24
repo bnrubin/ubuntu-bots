@@ -1,5 +1,6 @@
+# -*- Encoding: utf-8 -*-
 ###
-# Copyright (c) 2008, Terence Simpson
+# Copyright (c) 2008-2010 Terence Simpson
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -100,6 +101,10 @@ launchpad"""
 
     @wrap
     def haveidentifymsg(self, irc, msg, args):
+        """"
+        takes no arguments.
+        Displays if identify-msg is enabled or disabled.
+        """
         haveCap = getattr(self._irc, "_Freenode_capabed", False)
         irc.reply("identify-msg is %sabled" % (haveCap and "En" or "Dis"))
 
@@ -131,7 +136,7 @@ launchpad"""
                     return
             else:
                 return
-        self.log.info("Calling login for %s" % msg.prefix)
+        self.log.info("IRCLogin: Calling login for %s" % msg.prefix)
         self._callCommand(["login"], irc, msg, [])
 
     def do290(self, irc, msg):

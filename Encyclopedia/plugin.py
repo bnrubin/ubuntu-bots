@@ -1,5 +1,7 @@
+# -*- Encoding: utf-8 -*-
 ###
 # Copyright (c) 2006-2007 Dennis Kaarsemaker
+# Copyright (c) 2008-2010 Terence Simpson
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -92,6 +94,12 @@ def queue(irc, to, msg):
         irc.queueMsg(ircmsgs.privmsg(to, msg))
 
 def capab(prefix, capability):
+    # too bad people don't use supybot's own methods, 
+    # it would save me the trouble of hacking this up.
+    import supybot.world as world
+    if world.testing:
+        # we're running a testcase, return always True.
+        return True
     capability = capability.lower()
     if prefix.find('!') > 0:
         user = prefix[:prefix.find('!')]
@@ -128,7 +136,6 @@ def safeQuote(s):
 
 class Encyclopedia(callbacks.Plugin):
     """!factoid: show factoid"""
-    threaded = True
 
     def __init__(self, irc):
         callbacks.Plugin.__init__(self, irc)
@@ -243,7 +250,7 @@ class Encyclopedia(callbacks.Plugin):
         db = "%s-log" % self.registryValue('database',channel)
         db_path = os.path.join(self.registryValue('datadir'), "%s.db" % db)
         if not os.access(db_path, os.R_OK | os.W_OK):
-            self.log.warning("Could not access log database at '%s.db'" % db_path)
+            self.log.warning("Encyclopedia: Could not access log database at '%s.db'" % db_path)
             return None
         channel = "%s-log" % channel
         if channel in self.databases:
@@ -797,8 +804,8 @@ class Encyclopedia(callbacks.Plugin):
             # file doesn't exist yet, so nothing to backup
             pass
         except Exception, e:
-            self.log.error("Could not rename %s to %s.backup" % (dbpath, dbpath))
-            self.log.error(utils.exnToString(e))
+            self.log.error("Encyclopedia: Could not rename %s to %s.backup" % (dbpath, dbpath))
+            self.log.error('Encyclopedia: ' + utils.exnToString(e))
             irc.error("Internal error, see log")
             return
 
@@ -808,8 +815,8 @@ class Encyclopedia(callbacks.Plugin):
             download_database(remotedb, dbpath)
             irc.replySuccess()
         except Exception, e:
-            self.log.error("Could not download %s to %s" % (remotedb, dbpath))
-            self.log.error(utils.exnToString(e))
+            self.log.error("Encyclopedia: Could not download %s to %s" % (remotedb, dbpath))
+            self.log.error('Encyclopedia: ' + utils.exnToString(e))
             irc.error("Internal error, see log")
             os.rename("%s.backup" % dbpath, dbpath)
             return

@@ -1,3 +1,4 @@
+# -*- Encoding: utf-8 -*-
 try:
     from zope.interface import Interface, Attribute
 except ImportError:

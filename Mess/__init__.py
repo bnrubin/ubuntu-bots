@@ -1,3 +1,4 @@
+# -*- Encoding: utf-8 -*-
 ###
 # Copyright (c) 2006-2007 Dennis Kaarsemaker
 #
@@ -19,9 +20,11 @@ import supybot
 import supybot.world as world
 
 __version__ = "0.5"
-__author__ = supybot.Author('Dennis Kaarsemaker','Seveas','dennis@kaarsemaker.net')
-__contributors__ = {}
-__url__ = 'http://ubottu.com/'
+__author__ = supybot.Author('Terence Simpson', 'tsimpson', 'tsimpson@ubuntu.com')
+__contributors__ = {
+    supybot.Author('Dennis Kaarsemaker','Seveas','dennis@kaarsemaker.net'): ['Original Author']
+}
+__url__ = 'https://launchpad.net/ubuntu-bots/'
 
 import config
 reload(config)

@@ -1,5 +1,8 @@
+# -*- Encoding: utf-8 -*-
 ###
-# Copyright (c) 2006,2007 Dennis Kaarsemaker
+# Copyright (c) 2005-2007 Dennis Kaarsemaker
+# Copyright (c) 2008-2010 Terence Simpson
+# Copyright (c) 2010 Elián Hanisch
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -10,6 +13,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
+###
 ###
 # Based on the standard supybot logging plugin, which has the following
 # copyright:
@@ -407,7 +411,7 @@ class Bantracker(callbacks.Plugin):
             cur = self.db.cursor()
             cur.execute(query, parms)
         except:
-            self.log.error("Error while trying to access the Bantracker database.")
+            self.log.error("Bantracker: Error while trying to access the Bantracker database.")
             return None
         data = None
         if expect_result and cur: data = cur.fetchall()
@@ -1029,7 +1033,7 @@ class Bantracker(callbacks.Plugin):
                     bans.remove(ban)
 
             for ban in remove_bans:
-                self.log.info("Removing ban %s from %s" % (ban.replace('%', '%%'), chan))
+                self.log.info("Bantracker: Removing ban %s from %s" % (ban.replace('%', '%%'), chan))
                 self.doUnban(irc, channel, "Automated-Removal", ban)
 
             return len(remove_bans)
@@ -1046,7 +1050,7 @@ class Bantracker(callbacks.Plugin):
                 nick = ban.who
                 if nick.endswith('.freenode.net'):
                     nick = "Automated-Addition"
-                self.log.info("Adding ban %s to %s (%s)" % (str(ban).replace('%', '%%'), chan, nick))
+                self.log.info("Bantracker: Adding ban %s to %s (%s)" % (str(ban).replace('%', '%%'), chan, nick))
                 self.doLog(irc, channel.lower(), '*** Ban sync from channel: %s\n' % str(ban).replace('%', '%%'))
                 self._doKickban(irc, chan, nick, ban.mask, use_time = ban.when)
             return len(add_bans)

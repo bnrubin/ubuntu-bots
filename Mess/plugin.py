@@ -1,3 +1,4 @@
+# -*- Encoding: utf-8 -*-
 ###
 # Copyright (c) 2006-2007 Dennis Kaarsemaker
 #
@@ -139,7 +140,7 @@ class Mess(callbacks.PluginRegexp):
         try:
             method(irc, msg, *args, **kwargs)
         except Exception, e:
-            self.log.exception('Uncaught exception in %s.', command)
+            self.log.exception('Mess: Uncaught exception in %s.', command)
             if conf.supybot.reply.error.detailed():
                 irc.error(utils.exnToString(e))
             else:

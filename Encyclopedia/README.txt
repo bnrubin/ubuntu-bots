@@ -52,20 +52,3 @@ The web interface is a simple cgi script with some templates, css and the
 commoncgi.py file from the bzr tree. Make sure you set the variables datadir and
 database in factoids.cgi to the correct values. Also set default_db to the one
 you want to show by default.
-
-To get package lookup working, you need to set the variable
-supybot.plugins.encyclopedia.aptdir to the name of a new, empty directory. In
-this directory, you create sources.list files for every distrorelease you want to
-search. The name of the file is important, since the filename (without the .list
-suffix) is the name that is used to refer to the distrorelease.
-
-Whenever you create a new .list file, it is important to run the update_apt
-and update_apt_file scripts that comes with this plugin. Before you run these,
-you have to edit them to point to your apt dir. It's also useful to run them
-periodically from cron (say, once per week for update_apt and once per moth for
-update_apt_file). You also need to reload the plugin to make it pick up the new
-releases.
-
-It is very useful to set the supybot.plugins.encyclopedia.searchorder value to a
-space separated list of release names. That way you can limit the (expensive)
-searching for packages to a small set of releases.

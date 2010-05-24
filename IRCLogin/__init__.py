@@ -1,5 +1,6 @@
+# -*- Encoding: utf-8 -*-
 ###
-# Copyright (c) 2008, Terence Simpson <tsimpson@ubuntu.com>
+# Copyright (c) 2008-2010 Terence Simpson
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -21,8 +22,9 @@ import supybot.world as world
 
 __version__ = "0.4"
 __author__ = supybot.Author("Terence Simpson","tsimpson","tsimpson@ubuntu.com")
-__contributors__ = {}
-__url__ = 'http://ubottu.com'
+__contributors__ = {
+}
+__url__ = 'https://launchpad.net/ubuntu-bots/'
 
 import config
 reload(config)

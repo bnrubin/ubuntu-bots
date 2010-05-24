@@ -1,3 +1,4 @@
+# -*- Encoding: utf-8 -*-
 ###
 # Copyright (c) 2005, Daniel DiPaolo
 #           (c) 2006, Dennis Kaarsemaker

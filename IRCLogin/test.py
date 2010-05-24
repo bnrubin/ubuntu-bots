@@ -1,5 +1,6 @@
+# -*- Encoding: utf-8 -*-
 ###
-# Copyright (c) 2008, Terence Simpson
+# Copyright (c) 2008-2010 Terence Simpson
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as

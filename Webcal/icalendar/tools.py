@@ -1,3 +1,4 @@
+# -*- Encoding: utf-8 -*-
 from string import ascii_letters, digits
 import random
 

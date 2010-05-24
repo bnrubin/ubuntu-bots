@@ -1,5 +1,8 @@
+# -*- Encoding: utf-8 -*-
 ###
-# Copyright (c) 2006,2007 Dennis Kaarsemaker
+# Copyright (c) 2005-2007 Dennis Kaarsemaker
+# Copyright (c) 2008-2010 Terence Simpson
+# Copyright (c) 2010 Elián Hanisch
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -15,7 +18,6 @@
 import supybot.conf as conf
 import supybot.registry as registry
 
-
 class ValidTypes(registry.OnlySomeStrings):
     """Invalid type, valid types are: 'removal', 'ban' or 'quiet'."""
     validStrings = ('removal', 'ban', 'quiet')
@@ -26,7 +28,143 @@ class SpaceSeparatedListOfTypes(registry.SpaceSeparatedListOf):
 
 
 def configure(advanced):
+    from supybot.question import yn, something, anything, output
+    import sqlite
+    import re
+    import os
+    from supybot.utils.str import format
     conf.registerPlugin('Bantracker', True)
+
+    def getReviewTime():
+        output("How many days should the bot wait before requesting a ban/quiet review?")
+        review = something("Can be an integer or decimal value. Zero disables reviews.", default=str(Bantracker.review._default))
+
+        try:
+            review = float(review)
+            if review < 0:
+                raise TypeError
+        except TypeError:
+            output("%r is an invalid value, it must be an integer or float greater or equal to 0", review)
+            return getReviewTime()
+        else:
+            return review
+
+    enabled = yn("Enable Bantracker for all channels?")
+    database = something("Location of the Bantracker database", default=conf.supybot.directories.data.dirize('bans.db'))
+    bansite = anything("URL of the Bantracker web interface, without the 'bans.cgi'. (leave this blank if you don't want to run a web server)")
+
+    request = yn("Enable review and comment requests from bot?", default=False)
+    if request and advanced:
+        output("Which types would you like the bot to request comments for?")
+        output(format("The available request types are %L", type))
+        types = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.type._default))
+        type = set([])
+        for name in re.split(r',?\s+', types):
+            name = name.lower()
+            if name in ('removal', 'ban', 'quiet'):
+                type.append(name)
+
+        output("Which nicks should be bot not requets comments from?")
+        output("Is case insensitive and wildcards '*' and '?' are accepted.")
+        ignores = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.ignore._default))
+        ignore = set([])
+        for name in re.split(r',?\s+', ignores):
+            name = name.lower()
+            ignore.add(name)
+
+        output("You can set the comment and review requests for some nicks to be forwarded to specific nicks/channels")
+        output("Which nicks should these requests be forwarded for?")
+        output("Is case insensitive and wildcards '*' and '?' are accepted.")
+        forwards = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.forward._default))
+        forward = set([])
+        for name in re.split(r',?\s+', forwards):
+            name = name.lower()
+            forward.add(name)
+
+        output("Which nicks/channels should the requests be forwarded to?")
+        output("Is case insensitive and wildcards '*' and '?' are accepted.")
+        channels_i = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.channels._default))
+        channels = set([])
+        for name in re.split(r',?\s+', channel_i):
+            name = name.lower()
+            channels.add(name)
+
+        review = getReviewTime()
+
+    else:
+        type = Bantracker.type._default
+        ignore = Bantracker.ignore._default
+        forward = Bantracker.forward._default
+        channels = Bantracker.channels._default
+        review = Bantracker.review._default
+
+    Bantracker.enabled.setValue(enabled)
+    Bantracker.database.setValue(database)
+    Bantracker.bansite.setValue(bansite)
+    Bantracker.request.setValue(request)
+    Bantracker.type.setValue(type)
+    Bantracker.ignore.setValue(ignore)
+    Bantracker.forward.setValue(forward)
+    Bantracker.channels.setValue(channels)
+    Bantracker.review.setValue(review)
+
+    # Create the initial database
+    db_file = Bantracker.database()
+    if not db_file:
+        db_file = conf.supybot.directories.data.dirize('bans.db')
+        output("supybot.plugins.Bantracker.database will be set to %r" % db_file)
+        Bantracker.database.setValue(db_file)
+
+    if os.path.exists(db_file):
+        return
+
+    output("Creating an initial database in %r" % db_file)
+    con = sqlite.connect(db_file)
+    cur = con.cursor()
+
+    try:
+        con.begin()
+        cur.execute("""CREATE TABLE 'bans' (
+    id INTEGER PRIMARY KEY,
+    channel VARCHAR(30) NOT NULL,
+    mask VARCHAR(100) NOT NULL,
+    operator VARCHAR(30) NOT NULL,
+    time VARCHAR(300) NOT NULL,
+    removal DATETIME,
+    removal_op VARCHAR(30),
+    log TEXT
+)""")
+#"""
+
+        cur.execute("""CREATE TABLE comments (
+    ban_id INTEGER,
+    who VARCHAR(100) NOT NULL,
+    comment MEDIUMTEXT NOT NULL,
+    time VARCHAR(300) NOT NULL
+)""")
+#"""
+
+        cur.execute("""CREATE TABLE sessions (
+    session_id VARCHAR(50) PRIMARY KEY,
+    user MEDIUMTEXT NOT NULL,
+    time INT NOT NULL
+)""")
+#"""
+
+        cur.execute("""CREATE TABLE users (
+    username VARCHAR(50) PRIMARY KEY,
+    salt VARCHAR(8),
+    password VARCHAR(50)
+)""")
+#"""
+
+    except:
+        con.rollback()
+        raise
+    else:
+        con.commit()
+    finally:
+        con.close()
 
 Bantracker = conf.registerPlugin('Bantracker')
 conf.registerChannelValue(Bantracker, 'enabled',

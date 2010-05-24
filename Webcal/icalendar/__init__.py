@@ -1,3 +1,4 @@
+# -*- Encoding: utf-8 -*-
 # Components
 from icalendar.cal import Calendar, Event, Todo, Journal
 from icalendar.cal import FreeBusy, Timezone, Alarm, ComponentFactory

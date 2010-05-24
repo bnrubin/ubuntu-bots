@@ -1,3 +1,4 @@
+# -*- Encoding: utf-8 -*-
 import unittest, doctest, os
 from icalendar import cal, caselessdict, parser, prop
 
