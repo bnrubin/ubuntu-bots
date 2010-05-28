@@ -17,7 +17,13 @@ import supybot.conf as conf
 import supybot.registry as registry
 
 def configure(advanced):
-    from supybot.questions import expect, anything, something, yn
+    from supybot.questions import expect, something, yn
+
+    def anything(prompt, default=None):
+        """Because supybot is pure fail"""
+        from supybot.questions import expect
+        return expect(prompt, [], default=default)
+
     conf.registerPlugin('IRCLogin', True)
 
 IRCLogin = conf.registerPlugin('IRCLogin')

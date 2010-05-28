@@ -18,10 +18,16 @@ import supybot.conf as conf
 import supybot.registry as registry
 
 def configure(advanced):
-    from supybot.questions import yn, something, anything, output
+    from supybot.questions import yn, something, output
     from supybot.utils.str import format
     import sqlite
     import re
+
+    def anything(prompt, default=None):
+        """Because supybot is pure fail"""
+        from supybot.questions import expect
+        return expect(prompt, [], default=default)
+
     Encyclopedia = conf.registerPlugin('Encyclopedia', True)
 
     enabled = yn("Enable Encyclopedia for all channels?", default=Encyclopedia.enabled._default)

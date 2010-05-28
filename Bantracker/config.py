@@ -28,11 +28,17 @@ class SpaceSeparatedListOfTypes(registry.SpaceSeparatedListOf):
 
 
 def configure(advanced):
-    from supybot.question import yn, something, anything, output
+    from supybot.question import yn, something, output
     import sqlite
     import re
     import os
     from supybot.utils.str import format
+
+    def anything(prompt, default=None):
+        """Because supybot is pure fail"""
+        from supybot.questions import expect
+        return expect(prompt, [], default=default)
+
     conf.registerPlugin('Bantracker', True)
 
     def getReviewTime():
