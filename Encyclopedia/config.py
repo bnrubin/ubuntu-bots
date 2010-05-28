@@ -20,6 +20,7 @@ import supybot.registry as registry
 def configure(advanced):
     from supybot.questions import yn, something, output
     from supybot.utils.str import format
+    import os
     import sqlite
     import re
 
@@ -38,11 +39,11 @@ def configure(advanced):
         ignores = set([])
         output("This plugin can be configured to always ignore certain factoid requests, this is useful when you want another plugin to handle them")
         output("For instance, the PackageInfo plugin responds to !info and !find, so those should be ignored in Encyclopedia to allow this to work")
-        ignores_i = anythnig("Which factoid requets should the bot always ignore?", default=', '.join(Encyclopedia.ignores._default))
-        for name in re.split(r',?\s', +ignore_i):
+        ignores_i = anything("Which factoid requets should the bot always ignore?", default=', '.join(Encyclopedia.ignores._default))
+        for name in re.split(r',?\s', ignores_i):
             ignores.add(name.lower())
 
-        curStabel = something("What is short name of the current stable release?", default=Encyclopedia.curStable._default)
+        curStable = something("What is short name of the current stable release?", default=Encyclopedia.curStable._default)
         curStableLong = something("What is long name of the current stable release?", default=Encyclopedia.curStableLong._default)
         curStableNum = something("What is version number of the current stable release?", default=Encyclopedia.curStableNum._default)
 
@@ -51,14 +52,14 @@ def configure(advanced):
         curDevelNum = something("What is version number of the current development release?", default=Encyclopedia.curDevelNum._default)
 
         curLTS = something("What is short name of the current LTS release?", default=Encyclopedia.curLTS._default)
-        curLTSong = something("What is long name of the current LTS release?", default=Encyclopedia.curLTSLoong._default)
+        curLTSLong = something("What is long name of the current LTS release?", default=Encyclopedia.curLTSLong._default)
         curLTSNum = something("What is version number of the current LTS release?", default=Encyclopedia.curLTSNum._default)
     else:
         datadir = Encyclopedia.datadir._default
         database = Encyclopedia.database._default
         prefixchar = Encyclopedia.prefixchar._default
         ignores = Encyclopedia.ignores._default
-        curStabel = Encyclopedia.curStable._default
+        curStable = Encyclopedia.curStable._default
         curStableLong = Encyclopedia.curStableLong._default
         curStableNum = Encyclopedia.curStableNum._default
         curDevel = Encyclopedia.curDevel._default
@@ -120,7 +121,6 @@ def configure(advanced):
     cur = con.cursor()
 
     try:
-        con.begin()
         cur.execute("""CREATE TABLE facts (
     id INTEGER PRIMARY KEY,
     author VARCHAR(100) NOT NULL,
@@ -144,6 +144,7 @@ def configure(advanced):
     else:
         con.commit()
     finally:
+        cur.close()
         con.close()
 
 Encyclopedia = conf.registerPlugin('Encyclopedia')

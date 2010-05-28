@@ -28,7 +28,7 @@ class SpaceSeparatedListOfTypes(registry.SpaceSeparatedListOf):
 
 
 def configure(advanced):
-    from supybot.question import yn, something, output
+    from supybot.questions import yn, something, output
     import sqlite
     import re
     import os
@@ -43,7 +43,7 @@ def configure(advanced):
 
     def getReviewTime():
         output("How many days should the bot wait before requesting a ban/quiet review?")
-        review = something("Can be an integer or decimal value. Zero disables reviews.", default=str(Bantracker.review._default))
+        review = something("Can be an integer or decimal value. Zero disables reviews.", default=str(Bantracker.request.review._default))
 
         try:
             review = float(review)
@@ -62,17 +62,17 @@ def configure(advanced):
     request = yn("Enable review and comment requests from bot?", default=False)
     if request and advanced:
         output("Which types would you like the bot to request comments for?")
-        output(format("The available request types are %L", type))
-        types = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.type._default))
+        output(format("The available request types are %L", Bantracker.request.type._default))
+        types = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.request.type._default))
         type = set([])
         for name in re.split(r',?\s+', types):
             name = name.lower()
             if name in ('removal', 'ban', 'quiet'):
-                type.append(name)
+                type.add(name)
 
         output("Which nicks should be bot not requets comments from?")
         output("Is case insensitive and wildcards '*' and '?' are accepted.")
-        ignores = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.ignore._default))
+        ignores = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.request.ignore._default))
         ignore = set([])
         for name in re.split(r',?\s+', ignores):
             name = name.lower()
@@ -81,7 +81,7 @@ def configure(advanced):
         output("You can set the comment and review requests for some nicks to be forwarded to specific nicks/channels")
         output("Which nicks should these requests be forwarded for?")
         output("Is case insensitive and wildcards '*' and '?' are accepted.")
-        forwards = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.forward._default))
+        forwards = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.request.forward._default))
         forward = set([])
         for name in re.split(r',?\s+', forwards):
             name = name.lower()
@@ -89,30 +89,30 @@ def configure(advanced):
 
         output("Which nicks/channels should the requests be forwarded to?")
         output("Is case insensitive and wildcards '*' and '?' are accepted.")
-        channels_i = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.channels._default))
+        channels_i = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.request.forward._default))
         channels = set([])
-        for name in re.split(r',?\s+', channel_i):
+        for name in re.split(r',?\s+', channels_i):
             name = name.lower()
             channels.add(name)
 
         review = getReviewTime()
 
     else:
-        type = Bantracker.type._default
-        ignore = Bantracker.ignore._default
-        forward = Bantracker.forward._default
-        channels = Bantracker.channels._default
-        review = Bantracker.review._default
+        type = Bantracker.request.type._default
+        ignore = Bantracker.request.ignore._default
+        forward = Bantracker.request.forward._default
+        channels = Bantracker.request.forward.channels._default
+        review = Bantracker.request.review._default
 
     Bantracker.enabled.setValue(enabled)
     Bantracker.database.setValue(database)
     Bantracker.bansite.setValue(bansite)
     Bantracker.request.setValue(request)
-    Bantracker.type.setValue(type)
-    Bantracker.ignore.setValue(ignore)
-    Bantracker.forward.setValue(forward)
-    Bantracker.channels.setValue(channels)
-    Bantracker.review.setValue(review)
+    Bantracker.request.type.setValue(type)
+    Bantracker.request.ignore.setValue(ignore)
+    Bantracker.request.forward.setValue(forward)
+    Bantracker.request.forward.channels.setValue(channels)
+    Bantracker.request.review.setValue(review)
 
     # Create the initial database
     db_file = Bantracker.database()
@@ -129,7 +129,6 @@ def configure(advanced):
     cur = con.cursor()
 
     try:
-        con.begin()
         cur.execute("""CREATE TABLE 'bans' (
     id INTEGER PRIMARY KEY,
     channel VARCHAR(30) NOT NULL,
@@ -170,6 +169,7 @@ def configure(advanced):
     else:
         con.commit()
     finally:
+        cur.close()
         con.close()
 
 Bantracker = conf.registerPlugin('Bantracker')
