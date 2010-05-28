@@ -62,7 +62,7 @@ def configure(advanced):
         curLTSLong = Encyclopedia.curLTSLong._default
         curLTSNum = Encyclopedia.curLTSNum._default
 
-    relaychannel = anything("What channel/nick should the bot forward alter messages to?", default=Encyclopedia.replaychannel._default)
+    relaychannel = anything("What channel/nick should the bot forward alter messages to?", default=Encyclopedia.relaychannel._default)
     output("What message should the bot reply with when a factoid can not be found?")
     notfoundmsg = something("If you include a '%s' in the message, it will be replaced with the requested factoid", default=Encyclopedia.notfoundmsg._default)
     output("When certain factoids are called an alert can be forwarded to a channel/nick")
