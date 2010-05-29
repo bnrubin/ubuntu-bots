@@ -39,7 +39,7 @@ def configure(advanced):
         from supybot.questions import expect
         return expect(prompt, [], default=default)
 
-    conf.registerPlugin('Bantracker', True)
+    Bantracker = conf.registerPlugin('Bantracker', True)
 
     def getReviewTime():
         output("How many days should the bot wait before requesting a ban/quiet review?")
@@ -50,7 +50,7 @@ def configure(advanced):
             if review < 0:
                 raise TypeError
         except TypeError:
-            output("%r is an invalid value, it must be an integer or float greater or equal to 0", review)
+            output("%r is an invalid value, it must be an integer or float greater or equal to 0" % review)
             return getReviewTime()
         else:
             return review

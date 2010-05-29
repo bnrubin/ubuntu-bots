@@ -44,8 +44,16 @@ def configure(advanced):
         from supybot.questions import expect
         return expect(prompt, [], default=default)
 
-    conf.registerPlugin('Lart', True)
+    Lart = conf.registerPlugin('Lart', True)
 
+    enabled = yn("Enable Lart for all channels?", default=Lart.enabled._default)
+    if advanced:
+        showIds = yn("Show the ID of a lart when it is shown?", default=Lart.showIds._default)
+    else:
+        showIds = Lart.showIds._default
+
+    Lart.enabled.setValue(enabled)
+    Lart.showIds.setValue(showIds)
 
 Lart = conf.registerPlugin('Lart')
 # This is where your configuration variables (if any) should go.  For example:

@@ -24,7 +24,20 @@ def configure(advanced):
         from supybot.questions import expect
         return expect(prompt, [], default=default)
 
-    conf.registerPlugin('IRCLogin', True)
+    IRCLogin = conf.registerPlugin('IRCLogin', True)
+
+    if advanced:
+        ## NOTE: This is currently disabled until rewritten to use launchpadlib
+        #UserList = anything("What file should be used to contains the list of users?", default=conf.supybot.directories.data.dirize("users.db"))
+        #teamname = something("What is the Launchpad team name to get the list of users from?", default=IRCLogin.teamname._default)
+        UserList = IRCLogin.UserList._default
+        teamname = IRCLogin.teamname._default
+    else:
+        UserList = IRCLogin.UserList._default
+        teamname = IRCLogin.teamname._default
+
+    IRCLogin.UserList.setValue(UserList)
+    IRCLogin.teamname.setValue(teamname)
 
 IRCLogin = conf.registerPlugin('IRCLogin')
 conf.registerGlobalValue(IRCLogin, 'UserList',
