@@ -263,7 +263,7 @@ class Encyclopedia(callbacks.Plugin):
             self.databases[channel].time = time.time()
         return self.databases[channel]
 
-    def addressed(self, recipients, text, irc):
+    def addressed(self, recipients, text, irc, msg):
         nlen = len(irc.nick)
         if recipients[0] == '#':
             text = text.strip()
@@ -276,11 +276,11 @@ class Encyclopedia(callbacks.Plugin):
                     if t2 and t2.find('>') != -1 and t2.find('|') != -1:
                         text = text[nlen+1:].strip()
                 return text
-            if text.lower().startswith(irc.nick.lower()) and not text[nlen].isalnum():
+            if text.lower().startswith(irc.nick.lower()) and (len(text) > nlen and not text[nlen].isalnum()):
                 return text[nlen+1:]
             return False
         else: # Private
-            if text.strip()[0] in str(conf.supybot.reply.whenAddressedBy.chars.get(recipients)):
+            if text.strip()[0] in str(conf.supybot.reply.whenAddressedBy.chars.get(msg.args[0])):
                 return False
             if not text.split()[0] == 'search':
                 for c in irc.callbacks:
@@ -393,6 +393,17 @@ class Encyclopedia(callbacks.Plugin):
                 before.append(cb)
         return (before, [])
 
+    def inFilter(self, irc, msg):
+        orig_msg = msg
+        if msg.command == "PRIVMSG" and msg.args[0].lower() == irc.nick.lower():
+            recipient, text = msg.args
+            new_text = self.addressed(recipient, text, irc, msg)
+            if new_text:
+                irc = callbacks.ReplyIrcProxy(irc, msg)
+                if(irc.nick.lower() == msg.args[0]):
+                    self.doPrivmsg(irc, msg)
+        return orig_msg
+
     def doPrivmsg(self, irc, msg):
         def beginswith(text, strings):
             for string in strings:
@@ -408,7 +419,7 @@ class Encyclopedia(callbacks.Plugin):
             return
         # Are we being queried?
         recipient, text = msg.args
-        text = self.addressed(recipient, text, irc)
+        text = self.addressed(recipient, text, irc, msg)
         if not text:
             return
         doChanMsg = True
