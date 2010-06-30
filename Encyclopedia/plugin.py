@@ -523,7 +523,7 @@ class Encyclopedia(callbacks.Plugin):
             return
         # check if retmsg has urls (possible spam)
         if checkUrl(retmsg):
-            if self.alert and target[0] == '#' and not target.endswith('bots'):
+            if self.alert and (target[0] == '#' and not target.endswith('bots')):
                 # !ops factoid called with an url, most likely spam.
                 # we filter the msg, but we still warn in -ops.
                 queue(irc, self.registryValue('relayChannel', channel), '%s called the ops in %s (%s)' % (msg.nick, msg.args[0], retmsg[:-2]))
