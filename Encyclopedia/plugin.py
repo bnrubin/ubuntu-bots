@@ -134,6 +134,23 @@ def safeQuote(s):
         return res
     return s.replace('%', '%%')
 
+# This regexp should match most urls in the format protocol://(domain|ip adress)
+# and the special case when there's no protocol but domain starts with www.
+#
+# We do this so we can filter obvious requests with spam in them
+octet = r'(?:2(?:[0-4]\d|5[0-5])|1\d\d|\d{1,2})' # 0 - 255
+ip_address = r'%s(?:\.%s){3}' % (octet, octet)   # 0.0.0.0 - 255.255.255.255
+# Base domain regex off RFC 1034 and 1738
+label = r'[0-9a-z][-0-9a-z]*[0-9a-z]?'
+domain = r'%s(?:\.%s)*\.[a-z][-0-9a-z]*[a-z]?' % (label, label) # like www.ubuntu.com
+# complete regexp
+urlRe = re.compile(r'(?:\w+://(?:%s|%s)|www\.%s)' % (domain, ip_address, domain), re.I)
+
+def checkUrl(s):
+    """Check if string contains something like an url."""
+    return bool(urlRe.search(s))
+
+
 class Encyclopedia(callbacks.Plugin):
     """!factoid: show factoid"""
 
@@ -503,6 +520,14 @@ class Encyclopedia(callbacks.Plugin):
                 queue(irc, msg.nick, ret)
             else:
                 queue(irc, channel, ret)
+            return
+        # check if retmsg has urls (possible spam)
+        if checkUrl(retmsg):
+            if self.alert and target[0] == '#' and not target.endswith('bots'):
+                # !ops factoid called with an url, most likely spam.
+                # we filter the msg, but we still warn in -ops.
+                queue(irc, self.registryValue('relayChannel', channel), '%s called the ops in %s (%s)' % (msg.nick, msg.args[0], retmsg[:-2]))
+            # do nothing
             return
         if doChanMsg and channel.lower() != irc.nick.lower() and target[0] != '#': # not /msg
             if target in irc.state.channels[channel].users:
