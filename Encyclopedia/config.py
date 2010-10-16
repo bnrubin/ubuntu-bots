@@ -179,6 +179,9 @@ conf.registerChannelValue(Encyclopedia, 'ignores',
 conf.registerChannelValue(Encyclopedia, 'privateNotFound',
     registry.Boolean(False, "If set to True, send notfoundmsg in private rather than in the channel"))
 
+conf.registerChannelValue(Encyclopedia, 'forcedFactoid',
+    registry.Boolean(False, "If True, factoids in kick's reason will be sent to the user in private"))
+
 
 conf.registerGlobalValue(Encyclopedia, 'curStable',
     registry.String('Lucid', "Current stable release"))

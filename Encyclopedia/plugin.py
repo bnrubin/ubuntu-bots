@@ -544,6 +544,39 @@ class Encyclopedia(callbacks.Plugin):
             for r in ret[1:]:
                 queue(irc, target, r)
 
+    def doPart(self, irc, msg):
+        if not msg.args[1].startswith('requested by'):
+            return
+
+        #self.log.debug('msg: %s', msg.args)
+        channel, reason = msg.args
+        reason = reason[reason.find('(')+1:-1] # get the text between ()
+        self._forcedFactoid(irc, channel, msg.nick, reason)
+
+    def doKick(self, irc, msg):
+        #self.log.debug('msg: %s', msg.args)
+        channel, nick, reason = msg.args
+        self._forcedFactoid(irc, channel, nick, reason)
+
+    def _forcedFactoid(self, irc, channel, nick, reason):
+        if not self.registryValue('forcedFactoid', channel):
+            return
+
+        prefix = self.registryValue('prefixchar', channel)
+        if prefix not in reason:
+            # no factoid in reason
+            return
+
+        # get the factoid name, only the first if more than one.
+        factoid = reason[reason.find(prefix):].split()[0].strip(prefix)
+        L = self.factoid_lookup(factoid, channel, False)
+        if not L:
+            return
+
+        s = L[0]
+        msg = ircmsgs.privmsg(nick, s)
+        irc.queueMsg(msg)
+
     def factoid_edit(self, text, channel, editor):
         db = self.get_db(channel)
         cs = db.cursor()
