@@ -563,19 +563,24 @@ class Encyclopedia(callbacks.Plugin):
             return
 
         prefix = self.registryValue('prefixchar', channel)
-        if prefix not in reason:
+        factoidRe = re.compile(r'%s\w+\b' %prefix)
+        factoids = factoidRe.findall(reason)
+        #self.log.debug('factoids in reason: %s', factoids)
+        if not factoids:
             # no factoid in reason
             return
 
-        # get the factoid name, only the first if more than one.
-        factoid = reason[reason.find(prefix):].split()[0].strip(prefix)
-        L = self.factoid_lookup(factoid, channel, False)
+        L = []
+        for factoid in factoids:
+            result = self.factoid_lookup(factoid.strip(prefix), channel, False)
+            L.extend(result)
+            
         if not L:
             return
-
-        s = L[0]
-        msg = ircmsgs.privmsg(nick, s)
-        irc.queueMsg(msg)
+        
+        for s in L:
+            msg = ircmsgs.privmsg(nick, s)
+            irc.queueMsg(msg)
 
     def factoid_edit(self, text, channel, editor):
         db = self.get_db(channel)
