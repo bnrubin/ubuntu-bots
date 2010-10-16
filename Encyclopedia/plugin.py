@@ -545,7 +545,7 @@ class Encyclopedia(callbacks.Plugin):
                 queue(irc, target, r)
 
     def doPart(self, irc, msg):
-        if not msg.args[1].startswith('requested by'):
+        if len(msg.args) < 2 or not msg.args[1].startswith('requested by'):
             return
 
         #self.log.debug('msg: %s', msg.args)
