@@ -524,9 +524,7 @@ class Bantracker(callbacks.Plugin):
         # FIXME workaround until proper fix is done.
         bag = set()
         nodups = set()
-        n = 0
         for host, reviews in self.pendingReviews.iteritems():
-            n += len(reviews)
             for nick, msg in reviews:
                 if nick == 'Automated-Addition':
                     continue
