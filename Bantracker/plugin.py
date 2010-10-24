@@ -250,6 +250,7 @@ class Bantracker(callbacks.Plugin):
         self.get_nicks(irc)
         self.pendingReviews = PersistentCache('bt.reviews.db')
         self.pendingReviews.open()
+        self._banreviewfix()
         # add scheduled event for check bans that need review, check every hour
         try:
             schedule.removeEvent(self.name())
@@ -519,9 +520,34 @@ class Bantracker(callbacks.Plugin):
             msg = ircmsgs.notice(chan, s)
             irc.queueMsg(msg)
 
+    def _banreviewfix(self):
+        # FIXME workaround until proper fix is done.
+        bag = set()
+        nodups = set()
+        n = 0
+        for host, reviews in self.pendingReviews.iteritems():
+            n += len(reviews)
+            for nick, msg in reviews:
+                if nick == 'Automated-Addition':
+                    continue
+                chan, m = msg.args[0], msg.args[1]
+                s = m.rpartition(' ')[0] #remove the url
+                if (nick, chan, s) not in bag:
+                    bag.add((nick, chan, s))
+                    nodups.add((host, nick, msg)) 
+
+        self.pendingReviews.clear()
+
+        for host, nick, msg in nodups:
+            if host in self.pendingReviews:
+                self.pendingReviews[host].append((nick, msg))
+            else:
+                self.pendingReviews[host] = [(nick, msg)]
+
     def _sendReviews(self, irc, msg):
         host = ircutils.hostFromHostmask(msg.prefix)
         if host in self.pendingReviews:
+            self._banreviewfix()
             for nick, m in self.pendingReviews[host]:
                 if msg.nick != nick and not irc.isChannel(nick): # I'm a bit extra careful here
                     # correct nick in msg
