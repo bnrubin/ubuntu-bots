@@ -158,6 +158,10 @@ conf.registerChannelValue(Encyclopedia, 'database',
 conf.registerChannelValue(Encyclopedia, 'relaychannel',
     registry.String('#ubuntu-ops', 'Relay channel for unauthorized edits'))
 
+conf.registerGlobalValue(Encyclopedia, 'editchannel',
+        registry.SpaceSeparatedListOfStrings(['#ubuntu-ops'], 
+            'Channels where unauthorised edits are allowed.'))
+
 conf.registerGlobalValue(Encyclopedia, 'notfoundmsg',
     registry.String('Factoid %s not found', 'Reply when factoid isn\'t found'))
 
