@@ -480,8 +480,9 @@ class Encyclopedia(callbacks.Plugin):
                 ret = self.search_factoid(lower_text[7:].strip(), channel)
             elif (' is ' in lower_text and lower_text[:3] in ('no ', 'no,')) or '<sed>' in lower_text or '=~' in lower_text \
                 or '~=' in lower_text or '<alias>' in lower_text or lower_text.startswith('forget') or lower_text.startswith('unforget'):
-                if not capab(msg.prefix, 'editfactoids') and \
-                        channel not in self.registryValue('editchannel'):
+                if not (capab(msg.prefix, 'editfactoids') \
+                        or channel in self.registryValue('editchannel') \
+                        and capab(msg.prefix, 'restricted-editor')):
                     irc.reply("Your edit request has been forwarded to %s.  Thank you for your attention to detail" %
                               self.registryValue('relaychannel',channel),private=True)
                     irc.queueMsg(ircmsgs.privmsg(self.registryValue('relaychannel',channel), "In %s, %s said: %s" %
@@ -490,8 +491,9 @@ class Encyclopedia(callbacks.Plugin):
                     return
                 ret = self.factoid_edit(text, channel, msg.prefix)
             elif (' is ' in lower_text and '|' in lower_text and lower_text.index('|') > lower_text.index(' is ')) or (' is ' in lower_text and '|' not in lower_text):
-                if not capab(msg.prefix, 'editfactoids') and \
-                        channel not in self.registryValue('editchannel'):
+                if not (capab(msg.prefix, 'editfactoids') \
+                        or channel in self.registryValue('editchannel') \
+                        and capab(msg.prefix, 'restricted-editor')):
                     if len(text[:text.find('is')]) > 15:
                         irc.error("I am only a bot, please don't think I'm intelligent :)")
                     else:
