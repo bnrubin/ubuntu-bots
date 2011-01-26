@@ -441,6 +441,7 @@ class Encyclopedia(callbacks.Plugin):
             return
         doChanMsg = True
         display_info = False
+        display_raw = False
         target = msg.args[0]
         if target[0] != '#':
             target = msg.nick
@@ -449,7 +450,11 @@ class Encyclopedia(callbacks.Plugin):
         # Strip leading nonalnums
         while text and not text[0].isalnum():
             if text[0] == '-':
-                display_info = True
+                if not display_raw:
+                    display_info = True
+            if text[0] == '+':
+                if not display_info:
+                    display_raw = True
             text = text[1:]
         if not text:
             return
@@ -508,7 +513,7 @@ class Encyclopedia(callbacks.Plugin):
                 text, target, retmsg = self.get_target(msg.nick, orig_text, target)
                 if text.startswith('bug ') and text != ('bug 1'):
                     return
-                ret = self.factoid_lookup(text, channel, display_info)
+                ret = self.factoid_lookup(text, channel, display_info, display_raw)
 
         if not ret:
             if len(text) > 15:
@@ -698,7 +703,7 @@ class Encyclopedia(callbacks.Plugin):
         db.commit()
         return "I'll remember that, %s" % editor[:editor.find('!')]
 
-    def factoid_lookup(self, text, channel, display_info):
+    def factoid_lookup(self, text, channel, display_info, display_raw=False):
         def subvars(val):
             curStable = self.registryValue('curStable')
             curStableLong = self.registryValue('curStableLong')
@@ -724,18 +729,20 @@ class Encyclopedia(callbacks.Plugin):
             val = val.replace('$curDevel',curDevel)
             return val
         db = self.get_db(channel)
-        factoids = self.get_factoids(text.lower(), channel, resolve = not display_info, info = display_info)
+        factoids = self.get_factoids(text.lower(), channel, resolve = (not display_info and not display_raw), info = display_info)
         ret = []
         for order in ('primary', 'secondary'):
             for loc in ('channel', 'global'):
                 key = '%s_%s' % (loc, order)
                 if getattr(factoids, key):
                     factoid = getattr(factoids,key)
-                    if not display_info:
+                    if (not display_info and not display_raw):
                         cur = db.cursor()
                         cur.execute("UPDATE FACTS SET popularity = %d WHERE name = %s", factoid.popularity+1, factoid.name)
                         db.commit()
-                    if factoid.value.startswith('<reply>'):
+                    if display_raw:
+                        ret.append(factoid.value)
+                    elif factoid.value.startswith('<reply>'):
                         ret.append(subvars(factoid.value[7:].strip()))
                     elif order == 'secondary':
                         ret.append(subvars(factoid.value.strip()))
