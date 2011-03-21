@@ -314,7 +314,7 @@ class Encyclopedia(callbacks.Plugin):
         factoids.global_secondary  = self.get_single_factoid(channel, name + '-also', deleted=raw)
         factoids.channel_primary   = self.get_single_factoid(channel, name + '-' + channel.lower(), deleted=raw)
         factoids.channel_secondary = self.get_single_factoid(channel, name + '-' + channel.lower() + '-also', delated=raw)
-        if resolve and now raw:
+        if resolve and not raw:
             factoids.global_primary    = self.resolve_alias(channel, factoids.global_primary)
             factoids.global_secondary  = self.resolve_alias(channel, factoids.global_secondary)
             factoids.channel_primary   = self.resolve_alias(channel, factoids.channel_primary)
