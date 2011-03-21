@@ -87,7 +87,7 @@ def queue(irc, to, msg):
             oldmsg = m[2]
             if msg == oldmsg or oldmsg.endswith(msg):
                 break
-            if msg.endswith(oldmsg):
+            if msg.endswith(oldmsg) and ':' in msg:
                 msg = msg[:-len(oldmsg)] + 'please see above'
     else:
         msgcache[(irc, to, msg)] = now
@@ -308,13 +308,13 @@ class Encyclopedia(callbacks.Plugin):
                 return text[1:]
             return text
             
-    def get_factoids(self, name, channel, resolve = True, info = False):
+    def get_factoids(self, name, channel, resolve = True, info = False, raw = False):
         factoids = FactoidSet()
-        factoids.global_primary    = self.get_single_factoid(channel, name)
-        factoids.global_secondary  = self.get_single_factoid(channel, name + '-also')
-        factoids.channel_primary   = self.get_single_factoid(channel, name + '-' + channel.lower())
-        factoids.channel_secondary = self.get_single_factoid(channel, name + '-' + channel.lower() + '-also')
-        if resolve:
+        factoids.global_primary    = self.get_single_factoid(channel, name, deleted=raw)
+        factoids.global_secondary  = self.get_single_factoid(channel, name + '-also', deleted=raw)
+        factoids.channel_primary   = self.get_single_factoid(channel, name + '-' + channel.lower(), deleted=raw)
+        factoids.channel_secondary = self.get_single_factoid(channel, name + '-' + channel.lower() + '-also', delated=raw)
+        if resolve and now raw:
             factoids.global_primary    = self.resolve_alias(channel, factoids.global_primary)
             factoids.global_secondary  = self.resolve_alias(channel, factoids.global_secondary)
             factoids.channel_primary   = self.resolve_alias(channel, factoids.channel_primary)
@@ -732,7 +732,7 @@ class Encyclopedia(callbacks.Plugin):
             val = val.replace('$curDevel',curDevel)
             return val
         db = self.get_db(channel)
-        factoids = self.get_factoids(text.lower(), channel, resolve = (not display_info and not display_raw), info = display_info)
+        factoids = self.get_factoids(text.lower(), channel, resolve = (not display_info and not display_raw), info = display_info, raw = display_raw)
         ret = []
         for order in ('primary', 'secondary'):
             for loc in ('channel', 'global'):
