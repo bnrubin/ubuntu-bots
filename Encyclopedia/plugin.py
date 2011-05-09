@@ -503,7 +503,7 @@ class Encyclopedia(callbacks.Plugin):
                         or channel in self.registryValue('editchannel') \
                         and capab(msg.prefix, 'restricted-editor')):
                     if len(text[:text.find('is')]) > 15:
-                        irc.reply("I am only a bot, please don't think I'm intelligent :)")
+                        irc.reply("I am only a bot, please don't think I'm intelligent :)", prefixNick=True)
                     else:
                         irc.reply("Your edit request has been forwarded to %s.  Thank you for your attention to detail" %
                                   self.registryValue('relaychannel',channel),private=True)
@@ -520,7 +520,7 @@ class Encyclopedia(callbacks.Plugin):
 
         if not ret:
             if len(text) > 15:
-                irc.reply("I am only a bot, please don't think I'm intelligent :)")
+                irc.reply("I am only a bot, please don't think I'm intelligent :)", prefixNick=True)
                 return
             retmsg = ''
             ret = self.registryValue('notfoundmsg')
