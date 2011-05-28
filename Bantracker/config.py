@@ -1,7 +1,7 @@
 # -*- Encoding: utf-8 -*-
 ###
 # Copyright (c) 2005-2007 Dennis Kaarsemaker
-# Copyright (c) 2008-2010 Terence Simpson
+# Copyright (c) 2008-2011 Terence Simpson
 # Copyright (c) 2010 Elián Hanisch
 #
 # This program is free software; you can redistribute it and/or modify
@@ -55,9 +55,10 @@ def configure(advanced):
         else:
             return review
 
+    output("If you choose not to enabled Bantracker for all channels, it can be enabled per-channel with the '@Config channel' command")
     enabled = yn("Enable Bantracker for all channels?")
-    database = something("Location of the Bantracker database", default=conf.supybot.directories.data.dirize('bans.db'))
-    bansite = anything("URL of the Bantracker web interface, without the 'bans.cgi'. (leave this blank if you don't want to run a web server)")
+    database = something("Location of the Bantracker database", default=Bantracker.database._default)
+    bansite = anything("URL of the Bantracker web interface, without the 'bans.cgi'. (leave this blank if you aren't running a web server)")
 
     request = yn("Enable review and comment requests from bot?", default=False)
     if request and advanced:
@@ -67,29 +68,31 @@ def configure(advanced):
         type = set([])
         for name in re.split(r',?\s+', types):
             name = name.lower()
-            if name in ('removal', 'ban', 'quiet'):
+            if name in ValidTypes.validStrings:
                 type.add(name)
 
         output("Which nicks should be bot not requets comments from?")
-        output("Is case insensitive and wildcards '*' and '?' are accepted.")
-        ignores = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.request.ignore._default))
+        output("This is useful if you have automated channel bots that should not be directly asked for reviews")
+        output("Is case-insensitive and the wildcards '*' and '?' are accepted.")
+        ignores = anything("Separate nicks by spaces or commas:", default=', '.join(Bantracker.request.ignore._default))
         ignore = set([])
         for name in re.split(r',?\s+', ignores):
             name = name.lower()
             ignore.add(name)
 
         output("You can set the comment and review requests for some nicks to be forwarded to specific nicks/channels")
+        output("This is useful if you have automated channel bots that should not be directly asked for reviews")
         output("Which nicks should these requests be forwarded for?")
-        output("Is case insensitive and wildcards '*' and '?' are accepted.")
-        forwards = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.request.forward._default))
+        output("Is case-insensitive and the wildcards '*' and '?' are accepted.")
+        forwards = anything("Separate nicks by spaces or commas:", default=', '.join(Bantracker.request.forward._default))
         forward = set([])
         for name in re.split(r',?\s+', forwards):
             name = name.lower()
             forward.add(name)
 
-        output("Which nicks/channels should the requests be forwarded to?")
-        output("Is case insensitive and wildcards '*' and '?' are accepted.")
-        channels_i = anything("Separate types by spaces or commas:", default=', '.join(Bantracker.request.forward._default))
+        output("Which nicks/channels should those requests be forwarded to?")
+        output("Is case-insensitive and wildcards '*' and '?' are accepted.")
+        channels_i = anything("Separate nicks/channels by spaces or commas:", default=', '.join(Bantracker.request.forward._default))
         channels = set([])
         for name in re.split(r',?\s+', channels_i):
             name = name.lower()
@@ -122,6 +125,7 @@ def configure(advanced):
         Bantracker.database.setValue(db_file)
 
     if os.path.exists(db_file):
+        output("%r already exists" % db_file)
         return
 
     output("Creating an initial database in %r" % db_file)
@@ -156,13 +160,6 @@ def configure(advanced):
 )""")
 #"""
 
-        cur.execute("""CREATE TABLE users (
-    username VARCHAR(50) PRIMARY KEY,
-    salt VARCHAR(8),
-    password VARCHAR(50)
-)""")
-#"""
-
     except:
         con.rollback()
         raise
@@ -176,7 +173,7 @@ Bantracker = conf.registerPlugin('Bantracker')
 conf.registerChannelValue(Bantracker, 'enabled',
         registry.Boolean(False, """Enable the bantracker"""))
 conf.registerGlobalValue(Bantracker, 'database',
-        registry.String('', "Filename of the bans database", private=True))
+        registry.String(conf.supybot.directories.data.dirize('bans.db'), "Filename of the bans database", private=True))
 conf.registerGlobalValue(Bantracker, 'bansite',
         registry.String('', "Web site for the bantracker, without the 'bans.cgi' appended", private=True))
 

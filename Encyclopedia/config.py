@@ -105,12 +105,12 @@ def configure(advanced):
     db_file = Encyclopedia.database()
 
     if not db_dir:
-        db_dir = conf.supybot.directories.data()
+        db_dir = Encyclopedia.datadir._default
         output("supybot.plugins.Encyclopedia.datadir will be set to %r" % db_dir)
         Encyclopedia.datadir.setValue(db_dir)
 
     if not db_file:
-        db_file = 'ubuntu'
+        db_file = Encyclopedia.database._default
         output("supybot.plugins.Encyclopedia.database will be set to %r" % db_file)
         Encyclopedia.database.setValue(db_dir)
 

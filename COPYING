@@ -1,10 +1,10 @@
-Most of the code in this package is licensed under the GNU GPL Version 2,
-the exception is the Lart plugin, which has a BSD-style license.
-See Lart/__init__.py for the license.
+Unless otherwise specified, the code in this package is licensed under the
+GNU GPL Version 2 license, Refer to each of the files in plugin directories
+for specifics.
 
 NOTE! The GPL below is copyrighted by the Free Software Foundation, but
-the instance of code that it refers to (the kde programs) are copyrighted
-by the authors who actually wrote it.
+the instance of code that it refers to (the plugins) are copyrighted
+by the authors who actually wrote them.
 
 ---------------------------------------------------------------------------
 

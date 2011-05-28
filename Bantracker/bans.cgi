@@ -31,7 +31,8 @@ user = None
 
 # Delete old sessions
 try:
-    cur.execute("""DELETE FROM sessions WHERE time < %d""", int(time.time()) - 2592000 * 3)
+    session_timeout = int(time.time()) - (2592000 * 3)
+    cur.execute('DELETE FROM sessions WHERE time < %d', (session_timeout,))
 except:
     pass
 
@@ -41,7 +42,7 @@ if form.has_key('sess'):
 if cookie.has_key('sess'):
     try:
         sess = cookie['sess'].value
-        cur.execute("""SELECT user FROM sessions WHERE session_id=%s""",sess)
+        cur.execute('SELECT user FROM sessions WHERE session_id=%s',(sess,))
         user = cur.fetchall()[0][0]
     except:
         con.commit()
@@ -54,7 +55,7 @@ if not user:
 
 # Log
 if form.has_key('log'):
-   cur.execute("""SELECT log FROM bans WHERE id=%s""", form['log'].value)
+   cur.execute('SELECT log FROM bans WHERE id=%s', (form['log'].value,))
    log = cur.fetchall()
    con.commit()
    if form.has_key('mark'):
@@ -72,10 +73,10 @@ if form.has_key('log'):
 # Main page
 # Process comments
 if form.has_key('comment') and form.has_key('comment_id') and user:
-    cur.execute("""SELECT ban_id FROM comments WHERE ban_id=%s and comment=%s""", (form['comment_id'].value, form['comment'].value))
+    cur.execute('SELECT ban_id FROM comments WHERE ban_id=%s and comment=%s', (form['comment_id'].value, form['comment'].value))
     comm = cur.fetchall()
     if not len(comm):
-        cur.execute("""INSERT INTO comments (ban_id, who, comment, time) VALUES (%s, %s, %s, %s)""",
+        cur.execute('INSERT INTO comments (ban_id, who, comment, time) VALUES (%s, %s, %s, %s)',
                     (form['comment_id'].value,user,form['comment'].value,pickle.dumps(datetime.datetime.now(pytz.UTC))))
     con.commit()
 
@@ -178,10 +179,10 @@ print '<th>Log</th></tr>'
 
 # Select and filter bans
 def getBans(id=None):
-    if id == None:
-        cur.execute("SELECT channel,mask,operator,time,removal,removal_op,id FROM bans ORDER BY id DESC")
+    if id is None:
+        cur.execute('SELECT channel,mask,operator,time,removal,removal_op,id FROM bans ORDER BY id DESC')
     else:
-        cur.execute("SELECT channel,mask,operator,time,removal,removal_op,id FROM bans ORDER BY id DESC WHERE id = %d", id)
+        cur.execute('SELECT channel,mask,operator,time,removal,removal_op,id FROM bans ORDER BY id DESC WHERE id = %d', (id,))
     return cur.fetchall()
 
 def myfilter(item, regex, kick, ban, oldban, mute, oldmute, floods, operator, channel):
@@ -302,7 +303,7 @@ for b in bans[start:end]:
         print ' class="bg2"'
     print '>'
     print '<td colspan="5" class="comment">'
-    cur.execute("""SELECT who, comment, time FROM comments WHERE ban_id = %s""" % b[6])
+    cur.execute('SELECT who, comment, time FROM comments WHERE ban_id = %d', (b[6],))
     comments = cur.fetchall()
     if len(comments) == 0:
         print '<span class="removal">(No comments) </span>'

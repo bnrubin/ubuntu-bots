@@ -31,6 +31,7 @@ if cookie.has_key('tz'):
     cookie['tz']['version'] = 1
 
 class IOWrapper:
+    '''Class to wrap default IO, used with templates'''
     def __init__(self):
         self.buf = []
     def write(self, val):
@@ -42,6 +43,7 @@ sys.stdout = IOWrapper()
 sys.stderr = IOWrapper()
 
 def send_page(template):
+    '''Sends a template page and exit'''
     data = sys.stdout.getvalue()
     errdata = sys.stderr.getvalue()
     sys.stdout = sys.__stdout__
@@ -64,5 +66,6 @@ def send_page(template):
     sys.exit(0)
 
 def q(txt):
+    '''Simple HTML entity quoting'''
     return txt.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;')
 

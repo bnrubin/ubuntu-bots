@@ -31,13 +31,14 @@ else:
   import sre as re
 
 def checkIgnored(hostmask, recipient='', users=ircdb.users, channels=ircdb.channels):
-    if ircdb.ignores.checkIgnored(hostmask):
-        return True
     try:
         id = ircdb.users.getUserId(hostmask)
         user = users.getUser(id)
     except KeyError:
         # If there's no user...
+        if ircdb.ignores.checkIgnored(hostmask):
+            return True
+
         if ircutils.isChannel(recipient):
             channel = channels.getChannel(recipient)
             if channel.checkIgnored(hostmask):
@@ -46,9 +47,13 @@ def checkIgnored(hostmask, recipient='', users=ircdb.users, channels=ircdb.chann
                 return False
         else:
             return False
+
     if user._checkCapability('owner'):
         # Owners shouldn't ever be ignored.
         return False
+
+    if ircdb.ignores.checkIgnored(hostmask):
+        return True
     elif user.ignore:
         return True
     elif recipient:
