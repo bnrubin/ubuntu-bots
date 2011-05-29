@@ -185,7 +185,7 @@ conf.registerChannelValue(Bantracker.request, 'type',
             "List of events for which the bot should request a comment."))
 conf.registerChannelValue(Bantracker.request, 'ignore',
         registry.SpaceSeparatedListOfStrings(['FloodBot?', 'FloodBotK?', 'ChanServ'],
-            "List of nicks for which the bot won't request to comment or review."\
+            "List of nicks for which the bot won't request a comment."\
             " Is case insensible and wildcards * ? are accepted."))
 conf.registerChannelValue(Bantracker.request, 'forward',
         registry.SpaceSeparatedListOfStrings([],
@@ -194,10 +194,26 @@ conf.registerChannelValue(Bantracker.request, 'forward',
             " Is case insensible and wildcards * ? are accepted."))
 conf.registerChannelValue(Bantracker.request.forward, 'channels',
         registry.SpaceSeparatedListOfStrings([],
-            "List of channels/nicks to forward the request if the op is in the forward list."))
-conf.registerGlobalValue(Bantracker.request, 'review',
+            "List of channels/nicks to forward the comment request if the op is in the forward list."))
+
+conf.registerChannelValue(Bantracker, 'review',
+        registry.Boolean(True,
+            "Enable/disable reviews per channel."))
+conf.registerGlobalValue(Bantracker.review, 'when',
         registry.Float(7,
             "Days after which the bot will request for review a ban. Can be an integer or decimal"
-            " value. Zero disables reviews."))
+            " value. Zero disables reviews globally."))
+conf.registerChannelValue(Bantracker.review, 'ignore',
+        registry.SpaceSeparatedListOfStrings(['FloodBot?', 'FloodBotK?', 'ChanServ'],
+            "List of nicks for which the bot won't request a review."\
+            " Is case insensible and wildcards * ? are accepted."))
+conf.registerChannelValue(Bantracker.review, 'forward',
+        registry.SpaceSeparatedListOfStrings([],
+            "List of nicks for which the bot will forward the reviews to"\
+            " the channels/nicks defined in forwards.channels option."\
+            " Is case insensible and wildcards * ? are accepted."))
+conf.registerChannelValue(Bantracker.review.forward, 'channels',
+        registry.SpaceSeparatedListOfStrings([],
+            "List of channels/nicks to forward the request if the op is in the forward list."))
 
 

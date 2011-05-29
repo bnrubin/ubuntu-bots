@@ -442,7 +442,7 @@ class Bantracker(callbacks.Plugin):
         if nickMatch(nick, self.registryValue('request.forward', channel)):
             s = "Please somebody comment on the %s of %s in %s done by %s, use:"\
                 " %scomment %s <comment>" %(type, mask, channel, nick, prefix, ban.id)
-            self._sendForward(irc, s, channel)
+            self._sendForward(irc, s, 'request', channel)
         else:
             # send to op
             s = "Please comment on the %s of %s in %s, use: %scomment %s <comment>" \
@@ -450,7 +450,7 @@ class Bantracker(callbacks.Plugin):
             irc.reply(s, to=nick, private=True)
 
     def reviewBans(self, irc=None):
-        reviewTime = int(self.registryValue('request.review') * 86400)
+        reviewTime = int(self.registryValue('review.when') * 86400)
         if not reviewTime:
             # time is zero, do nothing
             return
@@ -463,12 +463,13 @@ class Bantracker(callbacks.Plugin):
 
         for channel, bans in self.bans.iteritems():
             if not self.registryValue('enabled', channel) \
-                    or not self.registryValue('request', channel):
+                    or not self.registryValue('review', channel):
                 continue
 
             for ban in bans:
-                if guessBanType(ban.mask) in ('quiet', 'removal'):
-                    # skip mutes and kicks
+                type = guessBanType(ban.mask)
+                if type == 'removal':
+                    # skip kicks
                     continue
                 banAge = now - ban.when
                 reviewWindow = lastreview - ban.when
@@ -489,20 +490,29 @@ class Bantracker(callbacks.Plugin):
                             # probably a ban restored by IRC server in a netsplit
                             # XXX see if something can be done about this
                             continue
-                    if nickMatch(nick, self.registryValue('request.ignore', channel)):
+                    if nickMatch(nick, self.registryValue('review.ignore', channel)):
                         # in the ignore list
                         continue
                     if not ban.id:
                         ban.id = self.get_banId(ban.mask, channel)
-                    if nickMatch(nick, self.registryValue('request.forward', channel)):
-                        s = "Hi, please somebody review the ban '%s' set by %s on %s in"\
-                        " %s, link: %s/bans.cgi?log=%s" %(ban.mask, nick, ban.ascwhen, channel,
-                                self.registryValue('bansite'), ban.id)
-                        self._sendForward(irc, s, channel)
+                    if nickMatch(nick, self.registryValue('review.forward', channel)):
+                        s = "Hi, please somebody review the %s '%s' set by %s on %s in"\
+                        " %s, link: %s/bans.cgi?log=%s" % (type, 
+                                                           ban.mask,
+                                                           nick, 
+                                                           ban.ascwhen, 
+                                                           channel,
+                                                           self.registryValue('bansite'),
+                                                           ban.id)
+                        self._sendForward(irc, s, 'review', channel)
                     else:
-                        s = "Hi, please review the ban '%s' that you set on %s in %s, link:"\
-                        " %s/bans.cgi?log=%s" %(ban.mask, ban.ascwhen, channel,
-                                self.registryValue('bansite'), ban.id)
+                        s = "Hi, please review the %s '%s' that you set on %s in %s, link:"\
+                        " %s/bans.cgi?log=%s" % (type, 
+                                                 ban.mask,
+                                                 ban.ascwhen,
+                                                 channel,
+                                                 self.registryValue('bansite'),
+                                                 ban.id)
                         msg = ircmsgs.privmsg(nick, s)
                         if host in self.pendingReviews \
                             and (nick, msg) not in self.pendingReviews[host]:
@@ -513,10 +523,10 @@ class Bantracker(callbacks.Plugin):
                     # since we made sure bans are sorted by time, the bans left are more recent
                     break
 
-    def _sendForward(self, irc, s, channel=None):
+    def _sendForward(self, irc, s, setting, channel=None):
         if not irc:
             return
-        for chan in self.registryValue('request.forward.channels', channel=channel):
+        for chan in self.registryValue('%s.forward.channels' % setting, channel=channel):
             msg = ircmsgs.notice(chan, s)
             irc.queueMsg(msg)
 
