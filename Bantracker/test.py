@@ -313,10 +313,20 @@ class BantrackerTestCase(ChannelPluginTestCase):
 
     def testReviewBanreview(self):
         pr = self.getCallback().pendingReviews
-        m = ircmsgs.privmsg('#test', 'asd')
+        m = ircmsgs.privmsg('#test', 'ban review')
         pr['host.net'] = [('op', m), ('op_', m), ('op', m)]
         pr['home.net'] = [('dude', m)]
-        self.assertResponse('banreview', 'Pending ban reviews (4): op_:1 dude:1 op:2')
+        pr[None] = [('dude_', m)]
+        self.assertResponse('banreview', 'Pending ban reviews (5): dude_:1 op_:1 dude:1 op:2')
+        self.assertResponse('banreview --verbose', 
+                'Pending ban reviews (5): op@host.net:2 dude_:1 op_@host.net:1 dude@home.net:1')
+        self.assertRegexp('banreview --flush op@host', '^No reviews for op@host')
+        self.assertResponse('banreview --view dude_', 'ban review')
+        self.assertResponse('banreview', 'Pending ban reviews (5): dude_:1 op_:1 dude:1 op:2')
+        self.assertResponse('banreview --flush op@host.net', 'ban review')
+        #                             love ya supybot ↓
+        self.assertEqual(self.irc.takeMsg().args[1], 'test: ban review')
+        self.assertResponse('banreview', 'Pending ban reviews (3): dude_:1 op_:1 dude:1')
 
     def testBan(self):
         self.feedBan('asd!*@*')

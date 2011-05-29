@@ -1146,23 +1146,64 @@ class Bantracker(callbacks.Plugin):
             irc.reply("%s/bans.cgi?log=%s&mark=%s" % (self.registryValue('bansite'), id, highlight), private=True)
     banlink = wrap(banlink, ['id', optional('somethingWithoutSpaces')])
 
-    def banreview(self, irc, msg, args):
-        """
+    def banreview(self, irc, msg, args, optlist):
+        """[--verbose | --flush <nick@host> | --view <nick@host>]
         Lists pending ban reviews."""
         if not self.check_auth(irc, msg, args):
             return
+        verbose = False
+        flush = view = None
+        for k, v in optlist:
+            if k == 'verbose':
+                verbose = True
+            elif k == 'flush':
+                flush = v
+            elif k == 'view':
+                view = v
+
+        key = view or flush
+        if key:
+            if '@' in key:
+                nick, host = key.split('@', 1)
+            else:
+                nick, host = key, None
+            try:
+                reviews = self.pendingReviews[host]
+            except KeyError:
+                irc.reply('No reviews for %s, use --verbose for check the correct nick@host key.' % key)
+                return
+
+            L = []
+            for _nick, msg in reviews:
+                if nick == _nick:
+                    irc.reply(msg.args[1])
+                elif flush:
+                    L.append((_nick, msg))
+            if flush:
+                if L:
+                    self.pendingReviews[host] = L
+                else:
+                    del self.pendingReviews[host]
+            return
+
         count = {}
-        for reviews in self.pendingReviews.itervalues():
+        for host, reviews in self.pendingReviews.iteritems():
             for nick, msg in reviews:
+                if verbose and host: # host can be None for those "nick only" reviews.
+                    key = '%s@%s' % (nick, host)
+                else:
+                    key = nick
                 try:
-                    count[nick] += 1
+                    count[key] += 1
                 except KeyError:
-                    count[nick] = 1
+                    count[key] = 1
         total = sum(count.itervalues())
         s = ' '.join([ '%s:%s' %pair for pair in count.iteritems() ])
         s = 'Pending ban reviews (%s): %s' %(total, s)
         irc.reply(s)
 
-    banreview = wrap(banreview)
+    banreview = wrap(banreview, [getopts({'verbose':'',
+                                          'flush': 'something',
+                                          'view': 'something'})])
 
 Class = Bantracker
