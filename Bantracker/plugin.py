@@ -503,23 +503,23 @@ class Bantracker(callbacks.Plugin):
                     if type == 'quiet':
                         mask = mask[1:]
                     if nickMatch(nick, self.registryValue('review.forward', channel)):
-                        s = "Hi, please somebody review the %s '%s' set by %s on %s in"\
-                        " %s, link: %s/bans.cgi?log=%s" % (type, 
-                                                           mask,
-                                                           nick, 
-                                                           ban.ascwhen, 
-                                                           channel,
-                                                           self.registryValue('bansite'),
-                                                           ban.id)
+                        s = "Review: %s '%s' set by %s on %s in %s, link: %s/bans.cgi?log=%s" \
+                                % (type, 
+                                   mask,
+                                   nick, 
+                                   ban.ascwhen, 
+                                   channel,
+                                   self.registryValue('bansite'),
+                                   ban.id)
                         self._sendForward(irc, s, 'review', channel)
                     else:
-                        s = "Hi, please review the %s '%s' that you set on %s in %s, link:"\
-                        " %s/bans.cgi?log=%s" % (type, 
-                                                 mask,
-                                                 ban.ascwhen,
-                                                 channel,
-                                                 self.registryValue('bansite'),
-                                                 ban.id)
+                        s = "Review: %s '%s' set on %s in %s, link: %s/bans.cgi?log=%s" \
+                                % (type,
+                                   mask,
+                                   ban.ascwhen,
+                                   channel,
+                                   self.registryValue('bansite'),
+                                   ban.id)
                         msg = ircmsgs.privmsg(nick, s)
                         if host in self.pendingReviews \
                             and (nick, msg) not in self.pendingReviews[host]:

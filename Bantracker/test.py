@@ -198,13 +198,11 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertTrue(cb.pendingReviews)
         # send msg if a user with a matching host says something
         self.feedMsg('Hi!', frm='op!user@fakehost.net') 
-        msg = self.irc.takeMsg()
-        self.assertEqual(msg, None)
+        self.assertEqual(self.irc.takeMsg(), None)
         self.feedMsg('Hi!', frm='op_!user@host.net') 
-        msg = self.irc.takeMsg()
-        self.assertEqual(str(msg).strip(),
-            "PRIVMSG op_ :Hi, please review the ban 'asd!*@*' that you set on %s in #test, link: "\
-            "%s/bans.cgi?log=1" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
+        self.assertEqual(str(self.irc.takeMsg()).strip(),
+                "PRIVMSG op_ :Review: ban 'asd!*@*' set on %s in #test, link: "\
+                "%s/bans.cgi?log=1" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
         # don't ask again
         cb.reviewBans()
         self.assertFalse(cb.pendingReviews)
@@ -217,20 +215,17 @@ class BantrackerTestCase(ChannelPluginTestCase):
         cb.reviewBans()
         self.assertTrue(len(cb.pendingReviews) == 2)
         self.feedMsg('Hi!', frm='op!user@fakehost.net') 
-        msg = self.irc.takeMsg()
-        self.assertEqual(msg, None)
+        self.assertEqual(self.irc.takeMsg(), None)
         self.assertResponse('banreview', 'Pending ban reviews (2): otherop:1 op:1')
         self.feedMsg('Hi!', frm='mynickissocreative!user@home.net') 
-        msg = self.irc.takeMsg()
-        self.assertEqual(str(msg).strip(),
-            "PRIVMSG mynickissocreative :Hi, please review the quiet 'qwe!*@*' that you set on %s in #test, link: "\
-            "%s/bans.cgi?log=3" %(cb.bans['#test'][2].ascwhen, pluginConf.bansite()))
+        self.assertEqual(str(self.irc.takeMsg()).strip(),
+                "PRIVMSG mynickissocreative :Review: quiet 'qwe!*@*' set on %s in #test, link: "\
+                "%s/bans.cgi?log=3" %(cb.bans['#test'][2].ascwhen, pluginConf.bansite()))
         self.feedMsg('ping', to='test', frm='op!user@host.net') # in a query
         self.irc.takeMsg() # drop pong reply
-        msg = self.irc.takeMsg()
-        self.assertEqual(str(msg).strip(),
-            "PRIVMSG op :Hi, please review the ban 'asd2!*@*' that you set on %s in #test, link: "\
-            "%s/bans.cgi?log=2" %(cb.bans['#test'][1].ascwhen, pluginConf.bansite()))
+        self.assertEqual(str(self.irc.takeMsg()).strip(),
+                "PRIVMSG op :Review: ban 'asd2!*@*' set on %s in #test, link: "\
+                "%s/bans.cgi?log=2" %(cb.bans['#test'][1].ascwhen, pluginConf.bansite()))
 
     def testReviewForward(self):
         pluginConf.review.setValue(True)
@@ -247,11 +242,11 @@ class BantrackerTestCase(ChannelPluginTestCase):
         # since it's a forward, it was sent already
         self.assertFalse(cb.pendingReviews)
         self.assertEqual(str(self.irc.takeMsg()).strip(),
-            "NOTICE #channel :Hi, please somebody review the ban 'asd!*@*' set by bot on %s in #test, link: "\
-            "%s/bans.cgi?log=1" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
+                "NOTICE #channel :Review: ban 'asd!*@*' set by bot on %s in #test, link: "\
+                "%s/bans.cgi?log=1" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
         self.assertEqual(str(self.irc.takeMsg()).strip(),
-            "NOTICE #channel :Hi, please somebody review the quiet 'asd!*@*' set by bot on %s in #test, link: "\
-            "%s/bans.cgi?log=2" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
+                "NOTICE #channel :Review: quiet 'asd!*@*' set by bot on %s in #test, link: "\
+                "%s/bans.cgi?log=2" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
 
     def testReviewIgnore(self):
         pluginConf.review.setValue(True)
@@ -286,8 +281,8 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.feedMsg('Hi!', frm='op!user@host.net') 
         msg = self.irc.takeMsg()
         self.assertEqual(str(msg).strip(),
-            "PRIVMSG op :Hi, please review the ban 'asd!*@*' that you set on %s in #test, link: "\
-            "%s/bans.cgi?log=1" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
+                "PRIVMSG op :Review: ban 'asd!*@*' set on %s in #test, link: "\
+                "%s/bans.cgi?log=1" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
         # check not pending anymore
         self.assertFalse(cb.pendingReviews)
 
