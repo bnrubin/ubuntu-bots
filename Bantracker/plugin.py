@@ -475,6 +475,9 @@ class Bantracker(callbacks.Plugin):
                 if type == 'removal':
                     # skip kicks
                     continue
+                if not ('*' in ban.mask or '?' in ban.mask):
+                    # XXX hack over hack, we are supposing these are marks.
+                    continue
                 banAge = now - ban.when
                 reviewWindow = lastreview - ban.when
                 #self.log.debug('review ban: %s ban %s by %s (%s/%s/%s %s)', channel, ban.mask,
