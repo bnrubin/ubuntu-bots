@@ -495,10 +495,13 @@ class Bantracker(callbacks.Plugin):
                         continue
                     if not ban.id:
                         ban.id = self.get_banId(ban.mask, channel)
+                    mask = ban.mask
+                    if type == 'quiet':
+                        mask = mask[1:]
                     if nickMatch(nick, self.registryValue('review.forward', channel)):
                         s = "Hi, please somebody review the %s '%s' set by %s on %s in"\
                         " %s, link: %s/bans.cgi?log=%s" % (type, 
-                                                           ban.mask,
+                                                           mask,
                                                            nick, 
                                                            ban.ascwhen, 
                                                            channel,
@@ -508,7 +511,7 @@ class Bantracker(callbacks.Plugin):
                     else:
                         s = "Hi, please review the %s '%s' that you set on %s in %s, link:"\
                         " %s/bans.cgi?log=%s" % (type, 
-                                                 ban.mask,
+                                                 mask,
                                                  ban.ascwhen,
                                                  channel,
                                                  self.registryValue('bansite'),

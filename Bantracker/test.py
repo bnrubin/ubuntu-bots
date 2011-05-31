@@ -211,7 +211,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         # test again with two ops
         self.feedBan('asd2!*@*')
         self.irc.takeMsg()
-        self.feedBan('qwe!*@*', prefix='otherop!user@home.net')
+        self.feedBan('qwe!*@*', prefix='otherop!user@home.net', mode='q')
         self.irc.takeMsg()
         time.sleep(2)
         cb.reviewBans()
@@ -223,7 +223,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.feedMsg('Hi!', frm='mynickissocreative!user@home.net') 
         msg = self.irc.takeMsg()
         self.assertEqual(str(msg).strip(),
-            "PRIVMSG mynickissocreative :Hi, please review the ban 'qwe!*@*' that you set on %s in #test, link: "\
+            "PRIVMSG mynickissocreative :Hi, please review the quiet 'qwe!*@*' that you set on %s in #test, link: "\
             "%s/bans.cgi?log=3" %(cb.bans['#test'][2].ascwhen, pluginConf.bansite()))
         self.feedMsg('ping', to='test', frm='op!user@host.net') # in a query
         self.irc.takeMsg() # drop pong reply
@@ -238,6 +238,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         pluginConf.review.forward.channels.set('#channel')
         cb = self.getCallback()
         self.feedBan('asd!*@*', prefix='bot!user@host.net')
+        self.feedBan('asd!*@*', prefix='bot!user@host.net', mode='q')
         cb.reviewBans(self.irc)
         self.assertFalse(cb.pendingReviews)
         print 'waiting 2 secs..'
@@ -245,10 +246,12 @@ class BantrackerTestCase(ChannelPluginTestCase):
         cb.reviewBans(self.irc)
         # since it's a forward, it was sent already
         self.assertFalse(cb.pendingReviews)
-        msg = self.irc.takeMsg()
-        self.assertEqual(str(msg).strip(),
+        self.assertEqual(str(self.irc.takeMsg()).strip(),
             "NOTICE #channel :Hi, please somebody review the ban 'asd!*@*' set by bot on %s in #test, link: "\
             "%s/bans.cgi?log=1" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
+        self.assertEqual(str(self.irc.takeMsg()).strip(),
+            "NOTICE #channel :Hi, please somebody review the quiet 'asd!*@*' set by bot on %s in #test, link: "\
+            "%s/bans.cgi?log=2" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
 
     def testReviewIgnore(self):
         pluginConf.review.setValue(True)
