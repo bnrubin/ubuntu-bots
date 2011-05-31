@@ -467,6 +467,10 @@ class Bantracker(callbacks.Plugin):
                 continue
 
             for ban in bans:
+                # XXX this shouldn't be hardcoded, but I'm starting to hate this plugin,
+                # the less I touch it the better.
+                if ban.mask.endswith('$#ubuntu-read-topic'):
+                    continue
                 type = guessBanType(ban.mask)
                 if type == 'removal':
                     # skip kicks
