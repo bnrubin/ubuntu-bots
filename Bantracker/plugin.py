@@ -475,7 +475,7 @@ class Bantracker(callbacks.Plugin):
                 if type == 'removal':
                     # skip kicks
                     continue
-                if not ('*' in ban.mask or '?' in ban.mask):
+                if not ('*' in ban.mask or '?' in ban.mask or '$' in ban.mask):
                     # XXX hack over hack, we are supposing these are marks.
                     continue
                 banAge = now - ban.when
