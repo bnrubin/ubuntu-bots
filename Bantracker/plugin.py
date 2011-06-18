@@ -599,7 +599,8 @@ class Bantracker(callbacks.Plugin):
         self.requestComment(irc, channel, ban)
         return ban
 
-    def _doKickban(self, irc, channel, operator, target, kickmsg = None, use_time = None, extra_comment = None):
+    def _doKickban(self, irc, channel, operator, target, kickmsg = None, use_time = None,
+                   extra_comment = None, add_to_cache = True):
         if not self.registryValue('enabled', channel):
             return
         n = now()
@@ -615,10 +616,11 @@ class Bantracker(callbacks.Plugin):
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, kickmsg, n))
         if extra_comment:
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, extra_comment, n))
-        if channel not in self.bans:
-            self.bans[channel] = []
         ban = Ban(mask=target, who=operator, when=time.mktime(time.gmtime()), id=id)
-        self.bans[channel].append(ban)
+        if add_to_cache:
+            if channel not in self.bans:
+                self.bans[channel] = []
+            self.bans[channel].append(ban)
         return ban
 
     def doUnban(self, irc, channel, nick, mask):
@@ -1096,7 +1098,7 @@ class Bantracker(callbacks.Plugin):
                     nick = "Automated-Addition"
                 self.log.info("Bantracker: Adding ban %s to %s (%s)" % (str(ban).replace('%', '%%'), chan, nick))
                 self.doLog(irc, channel.lower(), '*** Ban sync from channel: %s\n' % str(ban).replace('%', '%%'))
-                self._doKickban(irc, chan, nick, ban.mask, use_time = ban.when)
+                self._doKickban(irc, chan, nick, ban.mask, use_time = ban.when, add_to_cache = False)
             return len(add_bans)
 
         if not self.check_auth(irc, msg, args, 'owner'):
