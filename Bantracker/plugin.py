@@ -697,9 +697,9 @@ class Bantracker(callbacks.Plugin):
             else:
                 self.doLog(irc, channel,
                        '*** %s has joined %s\n' % (msg.prefix, channel))
-            if not channel in self.bans.keys():
-                self.bans[channel] = []
-            if msg.prefix.split('!', 1)[0] == irc.nick:
+            if msg.nick == irc.nick:
+                if channel in self.bans:
+                    del self.bans[channel]
                 queue.queue(ircmsgs.mode(channel, 'b'))
         nick = msg.nick.lower() or msg.prefix.lower().split('!', 1)[0]
         self.nicks[nick] = msg.prefix.lower()
