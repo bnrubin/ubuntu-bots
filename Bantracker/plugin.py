@@ -627,17 +627,15 @@ class Bantracker(callbacks.Plugin):
         if not self.registryValue('enabled', channel):
             return
         data = self.db_run("SELECT MAX(id) FROM bans where channel=%s and mask=%s", (channel, mask), expect_result=True)
-        if len(data) and not (data[0][0] == None):
+        if data and len(data) and not (data[0][0] == None):
             self.db_run("UPDATE bans SET removal=%s , removal_op=%s WHERE id=%s", (now(), nick, int(data[0][0])))
         if not channel in self.bans:
             self.bans[channel] = []
-        idx = None
         for ban in self.bans[channel]:
             if ban.mask == mask:
                 idx = self.bans[channel].index(ban)
-                break
-        if idx != None:
-            del self.bans[channel][idx]
+                del self.bans[channel][idx]
+                # we don't break here because bans might be duplicated.
 
     def doPrivmsg(self, irc, msg):
         (recipients, text) = msg.args
