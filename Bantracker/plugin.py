@@ -962,7 +962,6 @@ class Bantracker(callbacks.Plugin):
         if not hostmask:
             self.sendWhois(irc, target, True, 'bansearch', irc, msg, args, target, channel)
             return
-        match = self.getBans(hostmask, channel)
 
         if capab(user, 'owner'):
             if len(queue.msgcache) > 0:
