@@ -159,6 +159,12 @@ class Ban(object):
     def __repr__(self):
         return '<%s object "%s" at 0x%x>' % (self.__class__.__name__, self, id(self))
 
+    def __eq__(self, ban):
+        return self.mask == ban.mask
+
+    def __ne__(self, ban):
+        return not self.__eq__(ban)
+
     def op(self):
         return self.mask.split('!')[0]
 
@@ -331,11 +337,25 @@ class Bantracker(callbacks.Plugin):
 
     def do367(self, irc, msg):
         """Got ban"""
-        if msg.args[1] not in self.bans.keys():
-            self.bans[msg.args[1]] = []
-        bans = self.bans[msg.args[1]]
-        bans.append(Ban(msg.args))
-        bans.sort(key=lambda x: x.when) # needed for self.reviewBans
+        channel = msg.args[1]
+        try:
+            bans = self.bans[channel]
+        except KeyError:
+            bans = self.bans[channel] = []
+        ban = Ban(msg.args)
+        if ban.mask.startswith("$r:"):
+            ban.mask = ban.mask[3:] + " (realname)"
+        if ban not in bans:
+            bans.append(ban)
+
+    def do368(self, irc, msg):
+        """End of channel ban list."""
+        channel = msg.args[1]
+        try:
+            bans = self.bans[channel]
+            bans.sort(key=lambda x: x.when) # needed for self.reviewBans
+        except KeyError:
+            pass
 
     def nick_to_host(self, irc=None, target='', with_nick=True, reply_now=True):
         target = target.lower()
