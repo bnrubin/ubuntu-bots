@@ -23,14 +23,14 @@ import supybot.conf as conf
 Econf = conf.supybot.plugins.Encyclopedia
 Econf.prefixchar.set('@')
 
-# we use PluginTestCase instead of ChannelPluginTestCase, Encyclopedia does some weird parsing stuff
-# that upset testcases.
-class EncyclopediaTestCase(PluginTestCase):
+
+class EncyclopediaTestCase(ChannelPluginTestCase):
     plugins = ('Encyclopedia',)
 
     def setUp(self):
         super(EncyclopediaTestCase, self).setUp()
         conf.supybot.reply.whenNotCommand.setValue(False)
+        self.createDB()
 
     def createDB(self):
         import sqlite, os
@@ -65,14 +65,19 @@ class EncyclopediaTestCase(PluginTestCase):
                 break
         return cb
 
-    def testSimpleTest(self):
-        self.createDB()
-        self.assertNotError('test is test')
-        self.assertResponse('test', 'test is test')
-        self.assertNotError('no, test is test1')
-        self.assertResponse('test', 'test is test1')
-        self.assertNoResponse('hello is <reply> Hi, welcome to $chan!') # no reply? why?
-        self.assertResponse('hello', 'Hi, welcome to test!')
+    def testAdd(self):
+        self.assertNotError('foo is bar')
+        self.assertResponse('foo', 'foo is bar')
+
+    def testEdit(self):
+        self.assertNotError('foo is bar')
+        self.assertNotError('no, foo is bar1')
+        self.assertResponse('foo', 'foo is bar1')
+
+    def testKeyword(self):
+        self.assertNotError('hello is <reply> Hi, welcome to $chan!')
+        self.assertResponse('hello', 'Hi, welcome to #test!')
+
 
 
 # vim:set shiftwidth=4 softtabstop=4 tabstop=4 expandtab textwidth=100:

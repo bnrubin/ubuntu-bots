@@ -23,6 +23,7 @@ import supybot.ircdb as ircdb
 import supybot.conf as conf
 import supybot.utils as utils
 import supybot.ircutils as ircutils
+import supybot.world as world
 import sys, os, re, hashlib, random, time
 
 if sys.version_info >= (2, 5, 0):
@@ -83,6 +84,11 @@ class FactoidSet:
 # Repeat filtering message queue
 msgcache = {}
 def queue(irc, to, msg):
+    if world.testing:
+        # don't mess up testcases
+        irc.queueMsg(ircmsgs.privmsg(to, msg))
+        return
+
     now = time.time()
     for m in msgcache.keys():
         if msgcache[m] < now - 30:
@@ -101,7 +107,6 @@ def queue(irc, to, msg):
 def capab(prefix, capability):
     # too bad people don't use supybot's own methods, 
     # it would save me the trouble of hacking this up.
-    import supybot.world as world
     if world.testing:
         # we're running a testcase, return always True.
         return True
