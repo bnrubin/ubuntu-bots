@@ -170,6 +170,7 @@ class Encyclopedia(callbacks.Plugin):
         self.times = {}
         self.edits = {}
         self.alert = False
+        self.defaultIrc = irc
 
     def addeditor(self, irc, msg, args, name):
         """<name>
@@ -526,7 +527,7 @@ class Encyclopedia(callbacks.Plugin):
                 text, target, retmsg = self.get_target(msg.nick, orig_text, target)
                 if text.startswith('bug ') and text != ('bug 1'):
                     return
-                ret = self.factoid_lookup(text, channel, display_info, display_raw)
+                ret = self.factoid_lookup(text, channel, display_info, display_raw, msg.nick)
 
         if not ret:
             if len(text) > 15:
@@ -594,7 +595,7 @@ class Encyclopedia(callbacks.Plugin):
 
         L = []
         for factoid in factoids:
-            result = self.factoid_lookup(factoid.strip(prefix), channel, False)
+            result = self.factoid_lookup(factoid.strip(prefix), channel, False, False, nick)
             L.extend(result)
             
         if not L:
@@ -716,7 +717,7 @@ class Encyclopedia(callbacks.Plugin):
         db.commit()
         return "I'll remember that, %s" % editor[:editor.find('!')]
 
-    def factoid_lookup(self, text, channel, display_info, display_raw=False):
+    def factoid_lookup(self, text, channel, display_info, display_raw, msgNick):
         def subvars(val):
             curStable = self.registryValue('curStable')
             curStableLong = self.registryValue('curStableLong')
@@ -727,6 +728,8 @@ class Encyclopedia(callbacks.Plugin):
             curDevel = self.registryValue('curDevel')
             curDevelLong = self.registryValue('curDevelLong')
             curDevelNum = self.registryValue('curDevelNum')
+            val = val.replace('$who',msgNick)
+            val = val.reaplce('$nick',self.defaultIrc.nick)
             val = val.replace('$chan',channel)
             val = val.replace('$curStableLong',curStableLong)
             val = val.replace('$curStableNum',curStableNum)
