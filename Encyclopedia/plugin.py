@@ -729,7 +729,7 @@ class Encyclopedia(callbacks.Plugin):
             curDevelLong = self.registryValue('curDevelLong')
             curDevelNum = self.registryValue('curDevelNum')
             val = val.replace('$who',msgNick)
-            val = val.reaplce('$nick',self.defaultIrc.nick)
+            val = val.replace('$nick',self.defaultIrc.nick)
             val = val.replace('$chan',channel)
             val = val.replace('$curStableLong',curStableLong)
             val = val.replace('$curStableNum',curStableNum)
