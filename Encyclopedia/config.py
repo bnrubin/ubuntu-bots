@@ -188,18 +188,18 @@ conf.registerChannelValue(Encyclopedia, 'forcedFactoid',
 
 
 conf.registerGlobalValue(Encyclopedia, 'curStable',
-    registry.String('Lucid', "Current stable release"))
+    registry.String('Natty', "Current stable release"))
 conf.registerGlobalValue(Encyclopedia, 'curStableLong',
-    registry.String('Lucid Lynx', "Current stable release"))
+    registry.String('Natty Narwhal', "Current stable release"))
 conf.registerGlobalValue(Encyclopedia, 'curStableNum',
-    registry.String('10.04', "Current stable release"))
+    registry.String('11.04', "Current stable release"))
 
 conf.registerGlobalValue(Encyclopedia, 'curDevel',
-    registry.String('Maverick', "Current development release"))
+    registry.String('Oneiric', "Current development release"))
 conf.registerGlobalValue(Encyclopedia, 'curDevelLong',
-    registry.String('Maverick Meerkat', "Current development release"))
+    registry.String('Oneiric Ocelot', "Current development release"))
 conf.registerGlobalValue(Encyclopedia, 'curDevelNum',
-    registry.String('10.10', "Current development release"))
+    registry.String('11.10', "Current development release"))
 
 conf.registerGlobalValue(Encyclopedia, 'curLTS',
     registry.String('Lucid', "Current LTS release"))
