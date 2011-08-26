@@ -416,7 +416,7 @@ class Bantracker(callbacks.Plugin):
         finally:
             self.lastMsgs[irc] = msg
 
-    def db_run(self, query, parms, expect_result = False, expect_id = False):
+    def db_run(self, query, parms, expect_result = False, expect_id = False, retry = True):
         if not self.db or self.db.closed:
             db = self.registryValue('database')
             if db:
@@ -428,12 +428,31 @@ class Bantracker(callbacks.Plugin):
             else:
                 self.log.error("Bantracker: no database")
                 return
-        try:
-            cur = self.db.cursor()
-            cur.execute(query, parms)
-        except:
-            self.log.error("Bantracker: Error while trying to access the Bantracker database.")
-            return None
+
+        count = 0
+        maxCount = 5 #TODO: Make this configurable?
+        err = None
+
+        while count < maxCount:
+            try:
+                cur = self.db.cursor()
+                cur.execute(query, parms)
+                break
+            except Exception, err:
+                count += 1
+
+        if count == maxCount:
+            self.log.error("Bantracker: Error while trying to access the Bantracker database (%s(%s)).", type(err).__name__, str(err))
+            try:
+                self.db.close()
+            except:
+                pass
+            self.db = None # force reconnection to database
+
+            if not retry: # We probably failed twice, so bigger issues than database locking
+                return None
+            return self.db_run(query, parms, expect_result, expect_id, False) # Try again
+
         data = None
         if expect_result and cur: data = cur.fetchall()
         if expect_id: data = self.db.insert_id()
