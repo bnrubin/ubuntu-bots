@@ -513,7 +513,7 @@ class Encyclopedia(callbacks.Plugin):
                 if not (capab(msg.prefix, 'editfactoids') \
                         or channel in self.registryValue('editchannel') \
                         and capab(msg.prefix, 'restricted-editor')):
-                    if len(text[:text.find('is')]) > 15:
+                    if len(text[:text.find('is')]) >= 35:
                         irc.reply("I am only a bot, please don't think I'm intelligent :)", prefixNick=True)
                     else:
                         irc.reply("Your edit request has been forwarded to %s.  Thank you for your attention to detail" %
