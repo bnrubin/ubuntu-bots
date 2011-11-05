@@ -32,6 +32,7 @@ CREATE TABLE sessions (
     user MEDIUMTEXT NOT NULL,
     time INT NOT NULL
 );
+CREATE INDEX comments_ban_id ON comments(ban_id);
 
 To configure the plugin, create the SQLite2 database with above structure and
 set supybot.plugins.bantracker.database to its filename. Then enable it, either
