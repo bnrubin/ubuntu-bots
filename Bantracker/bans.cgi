@@ -14,6 +14,7 @@
 ###
 
 import sys
+import time
 # This needs to be set to the location of the commoncgi.py file
 sys.path.append('/var/www/bot')
 from commoncgi import *
@@ -21,6 +22,8 @@ from commoncgi import *
 ### Variables
 db       = '/home/bot/data/bans.db'
 num_per_page = 100
+
+t1 = time.time()
 
 con = sqlite.connect(db)
 cur = con.cursor()
@@ -178,11 +181,42 @@ for h in [['Channel',0], ['Nick/Mask',1], ['Operator',2], ['Time',6]]:
 print '<th>Log</th></tr>'
 
 # Select and filter bans
-def getBans(id=None):
-    if id is None:
-        cur.execute('SELECT channel,mask,operator,time,removal,removal_op,id FROM bans ORDER BY id DESC')
+def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floods=True, operator=None,
+             channel=None):
+    sql = "SELECT channel, mask, operator, time, removal, removal_op, id FROM bans"
+    args = []
+    where = []
+    if id:
+        where.append("id = %s")
+        args.append(id)
+    if mask:
+        where.append("mask LIKE %s")
+        args.append('%' + mask + '%')
+    if not floods:
+        where.append("operator NOT LIKE 'floodbot%%'")
+    if operator:
+        where.append("operator LIKE %s")
+        args.append("%" + operator + "%")
+    if channel:
+        where.append("channel LIKE %s")
+        args.append(channel)
+    if not kicks:
+        where.append("mask LIKE '%%!%%'")
+    if not (oldbans or bans):
+        where.append("mask NOT LIKE '%%!%%'")
     else:
-        cur.execute('SELECT channel,mask,operator,time,removal,removal_op,id FROM bans ORDER BY id DESC WHERE id = %d', (id,))
+        if kicks:
+            s = "(mask NOT LIKE '%%%%!%%%%' OR (mask LIKE '%%%%!%%%%' AND %s))"
+        else:
+            s = "%s"
+        if not oldbans:
+             where.append(s % "removal IS NULL")
+        elif not bans:
+             where.append(s % "removal IS NOT NULL")
+    sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY id DESC"
+    #print where, args, "<br/>"
+    cur.execute(sql, args)
     return cur.fetchall()
 
 def myfilter(item, regex, kick, ban, oldban, mute, oldmute, floods, operator, channel):
@@ -219,27 +253,29 @@ def getQueryTerm(query, term):
     return (query, None)
 
 bans = []
+oper = chan = False
 
 if form.has_key('query'):
-    try:
-        bans = getBans(int(form['query'].value))
+    query = form['query'].value
+    if query.isdigit():
+        bans = getBans(id=int(query))
         start = 0; end = 1
-    except:
-        bans = getBans()
-        k = b = ob = m = om = fb = False
-        oper = chan = False
-        if form.has_key('kicks'):    k  = True
-        if form.has_key('oldbans'):  ob = True
-        if form.has_key('bans'):     b  = True
-        if form.has_key('oldmutes'): om = True
-        if form.has_key('mutes'):    m  = True
-        if form.has_key('floods'):   fb = True
-        if "chan:" in form['query'].value:
-            (form['query'].value, chan) = getQueryTerm(form['query'].value, "chan:")
-        if "oper:" in form['query'].value:
-            (form['query'].value, oper) = getQueryTerm(form['query'].value, "oper:")
-        regex = re.compile(re.escape(form['query'].value).replace('\%','.*'), re.DOTALL | re.I)
-        bans = filter(lambda x: myfilter(x, regex, k, b, ob, m, om, fb, oper, chan), bans)
+    else:
+        if "chan:" in query:
+            (query, chan) = getQueryTerm(query, "chan:")
+        if "oper:" in query:
+            (query, oper) = getQueryTerm(query, "oper:")
+        bans = getBans(mask=query, kicks=form.has_key('kicks'),
+                                    oldbans=form.has_key('oldbans'),
+                                    bans=form.has_key('bans'),
+                                    floods=form.has_key('floods'),
+                                    operator=oper,
+                                    channel=chan)
+        #k = b = ob = m = om = fb = False
+        #if form.has_key('oldmutes'): om = True
+        #if form.has_key('mutes'):    m  = True
+        #regex = re.compile(re.escape(form['query'].value).replace('\%','.*'), re.DOTALL | re.I)
+        #bans = filter(lambda x: myfilter(x, regex, k, b, ob, m, om, fb, oper, chan), bans)
         start = 0; end = len(bans)
 else:
     page = 0
@@ -331,6 +367,12 @@ if not bans and form.has_key('query'):
         print "<center><u>No matches for:</u> &quot;%s&quot; by %s</center>" % (form['query'].value, oper)
     else:
         print "<center><u>No matches for:</u> &quot;%s&quot;</center>" % form['query'].value
+elif form.has_key('query'):
+    print "<center>Found %s matches</center>" % end
+
+t2 = time.time()
+
+print "Generated in %.4f seconds<br/>" % (t2 - t1)
 
 # Aaaaaaaaaaaaaaaaand send!
 send_page('bans.tmpl')
