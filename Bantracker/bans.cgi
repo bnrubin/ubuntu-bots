@@ -123,26 +123,22 @@ print '<div style="float:left">'
 print '<input class="input" type="checkbox" name="kicks" '
 if form.has_key('kicks') or not form.has_key('query'):
     print 'checked="checked" '
-print '/> Search in kicks<br />'
+print '/> Kicks<br />'
 print '<input class="input" type="checkbox" name="oldbans" '
 if form.has_key('oldbans') or not form.has_key('query'):
     print 'checked="checked" '
-print '/> Search in removed bans<br />'
+print '/> Removed bans<br />'
 print '<input class="input" type="checkbox" name="bans" '
 if form.has_key('bans') or not form.has_key('query'):
     print 'checked="checked"  '
-print '/> Search in existing bans<br />'
+print '/> Bans<br />'
 print '</div>'
     
 print '<div style="float:left">'
-print '<input class="input" type="checkbox" name="oldmutes" '
-if form.has_key('oldmutes') or not form.has_key('query'):
-    print 'checked="checked" '
-print '/> Search in removed mutes<br />'
 print '<input class="input" type="checkbox" name="mutes" '
 if form.has_key('mutes') or not form.has_key('query'):
     print 'checked="checked"  '
-print '/> Search in existing mutes<br />'
+print '/> Include mutes<br />'
 print '<input class="input" type="checkbox" name="floods" '
 if form.has_key('floods') or not form.has_key('query'):
     print 'checked="checked"  '
@@ -196,7 +192,7 @@ def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floods=True
         where.append("operator NOT LIKE 'floodbot%%'")
     if operator:
         where.append("operator LIKE %s")
-        args.append("%" + operator + "%")
+        args.append(operator)
     if channel:
         where.append("channel LIKE %s")
         args.append(channel)
@@ -219,28 +215,10 @@ def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floods=True
     cur.execute(sql, args)
     return cur.fetchall()
 
-def myfilter(item, regex, kick, ban, oldban, mute, oldmute, floods, operator, channel):
-    if operator:
-        if not operator.lower() in item[2].lower(): return False
-    if channel:
-        if not channel.lower() in item[0].lower(): return False
-    if '!' not in item[1]: 
-        if not kick: return False
-    if not floods:
-        if 'floodbot' in item[2].lower(): return False
+def filterMutes(item):
     if item[1][0] == '%':
-        if item[4]:
-            if not oldmute: return False
-        else:
-            if not mute: return False
-    else:
-        if item[4]:
-            if not oldban: return False
-        else:
-            if not ban: return False
-    if operator:
-        return regex.search(item[1]) or regex.search(item[0]) or (item[5] and regex.search(item[5]))
-    return regex.search(item[1]) or regex.search(item[2]) or regex.search(item[0]) or (item[5] and regex.search(item[5]))
+        return False
+    return True
 
 def getQueryTerm(query, term):
     if term[-1] != ':':
@@ -271,11 +249,10 @@ if form.has_key('query'):
                                     floods=form.has_key('floods'),
                                     operator=oper,
                                     channel=chan)
-        #k = b = ob = m = om = fb = False
-        #if form.has_key('oldmutes'): om = True
-        #if form.has_key('mutes'):    m  = True
-        #regex = re.compile(re.escape(form['query'].value).replace('\%','.*'), re.DOTALL | re.I)
-        #bans = filter(lambda x: myfilter(x, regex, k, b, ob, m, om, fb, oper, chan), bans)
+
+        if not form.has_key('mutes'):
+            bans = filter(lambda x: filterMutes(x), bans)
+
         start = 0; end = len(bans)
 else:
     page = 0
