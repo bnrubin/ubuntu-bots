@@ -13,6 +13,7 @@
 #
 ###
 
+import os
 import sys
 import time
 # This needs to be set to the location of the commoncgi.py file
@@ -20,8 +21,9 @@ sys.path.append('/var/www/bot')
 from commoncgi import *
 
 ### Variables
-db       = '/home/bot/data/bans.db'
+db = '/home/bot/data/bans.db'
 num_per_page = 100
+pagename = os.path.basename(sys.argv[0])
 
 t1 = time.time()
 
@@ -84,7 +86,7 @@ if form.has_key('comment') and form.has_key('comment_id') and user:
     con.commit()
 
 # Write the page
-print '<form action="bans.cgi" method="POST">'
+print '<form action="%s" method="POST">' % pagename
 
 # Personal data
 print '<div class="pdata">'
@@ -112,7 +114,7 @@ tz = pytz.timezone(tz)
 
 # Search form
 print '<div class="search">'
-print '<form action="bans.cgi" method="GET">'
+print '<form action="%s" method="GET">' % pagename
 print '<input class="input" type="text" name="query"'
 if form.has_key('query'):
    print 'value="%s" ' % form['query'].value
@@ -157,7 +159,7 @@ if not form.has_key('query'):
     cur.execute('SELECT COUNT(id) FROM bans')
     nump = int(math.ceil(int(cur.fetchall()[0][0]) / float(num_per_page)))
     for i in range(nump):
-        print '<a href="bans.cgi?page=%d%s">%d</a> &middot;' % (i, sort, i+1)
+        print '<a href="%s?page=%d%s">%d</a> &middot;' % (pagename, i, sort, i+1)
     print '</div>'
 
 # Empty log div, will be filled with AJAX
@@ -173,7 +175,7 @@ for h in [['Channel',0], ['Nick/Mask',1], ['Operator',2], ['Time',6]]:
         if v < 10: h[1] += 10
     except:
         pass
-    print '<th><a href="bans.cgi?sort=%s">%s</a></th>' % (h[1],h[0])
+    print '<th><a href="%s?sort=%s">%s</a></th>' % (pagename, h[1], h[0])
 print '<th>Log</th></tr>'
 
 # Select and filter bans
@@ -229,6 +231,7 @@ def getQueryTerm(query, term):
         query = query.replace(term + ret, '', 1).strip()
         return (query, ret)
     return (query, None)
+
 
 bans = []
 oper = chan = False
@@ -328,9 +331,11 @@ for b in bans[start:end]:
     if user:
         print """<span class="pseudolink" onclick="toggle('%s','comment')">Add comment</span>""" % b[6]
         print """<div class="invisible" id="comment_%s"><br />""" % b[6]
-        print """<form action="bans.cgi" method="POST"><textarea cols="50" rows="5" class="input" name="comment"></textarea><br />"""
-        print """<input type="hidden" name="comment_id" value="%s" />""" % b[6]
-        print """<input class="submit" type="submit" value="Send" /></form>"""
+        print """<form action="%s" method="POST">""" % pagename
+        print """   <textarea cols="50" rows="5" class="input" name="comment"></textarea><br />"""
+        print """   <input type="hidden" name="comment_id" value="%s" />""" % b[6]
+        print """   <input class="submit" type="submit" value="Send" />"""
+        print """</form>"""
     print '</td></tr>'
 
 print '</table>'
