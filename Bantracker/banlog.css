@@ -1,0 +1,13 @@
+div.main {
+    text-align: left;
+    max-width: 500px;
+}
+
+#hform > fieldset, #comment_form > fieldset {
+    max-width: 400px;
+}
+
+.highlight {
+    background-color: yellow;
+}
+

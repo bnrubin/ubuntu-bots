@@ -55,14 +55,14 @@ def send_page(template):
     fd = open(template)
     tmpl = fd.read()
     fd.close()
-    print tmpl[:tmpl.find('%e')]
+    sys.stdout.write(tmpl[:tmpl.find('%e')])
     for e in errdata:
-        print e
-    print tmpl[tmpl.find('%e')+2:tmpl.find('%s')]
+        sys.stdout.write(e)
+    sys.stdout.write(tmpl[tmpl.find('%e')+2:tmpl.find('%s')])
 #    print tmpl[:tmpl.find('%s')]
     for d in data:
-        print d
-    print tmpl[tmpl.find('%s')+2:]
+        sys.stdout.write(d)
+    sys.stdout.write(tmpl[tmpl.find('%s')+2:])
     sys.exit(0)
 
 def q(txt):

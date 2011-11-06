@@ -1,74 +1,21 @@
-<html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" dir="ltr" lang="en" xml:lang="en">
   <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>Ubottu bantracker</title>
     <link rel="stylesheet" href="bot.css" />
     <link rel="shortcut icon" href="favicon.ico" type="image/png" />
-    <script type="text/javascript">
-      var DHTML = (document.getElementById || document.all || document.layers);
-      
-      function getObj(name) {
-        if (document.getElementById) {
-          this.obj = document.getElementById(name);
-          this.style = document.getElementById(name).style;
-        }
-        else if (document.all) {
-          this.obj = document.all[name];
-          this.style = document.all[name].style;
-        }
-        else if (document.layers) {
-          this.obj = document.layers[name];
-          this.style = document.layers[name];
-        }
-      }
-      function toggle(item,prefix) {
-        var c  = new getObj(prefix + '_' + item);
-        if ( c.style.display == 'inline' ) {
-          c.style.display = 'none';
-        }
-        else {
-          c.style.display = 'inline';
-        }
-    
-      }
-      
-      var s = 0;
-      function showlog(item) {
-        if (s == item) {
-            c = new getObj('log');
-            if( c.style.display == 'block' ) {
-                c.style.display = 'none';
-            } else {
-                c.style.diaply = 'block';
-            }
-            s = 0;
-        } else {
-          loadlog(item);
-        }
-      }
-      var r;
-      function loadlog(id) {
-        r = new XMLHttpRequest();
-        r.onreadystatechange = printlog;
-        r.open("GET",'bans.cgi?log=' + id, true);
-        r.send(null);
-        s = id;
-      }
-      function printlog() {
-        if (r.readyState == 4) {
-          var c = new getObj('log');
-          c.obj.innerHTML = r.responseText;
-          c.style.display = 'block';
-        }
-      }
-    </script>
+    <script type="text/javascript" src="bans.js"></script>
   </head>
   <body>
     <div class="main">
       <h1>Ubottu Bantracker</h1>
+      <div class="errors">
       %e
-      <p>
+      </div>
+      <div>
       %s
-      </p>
+      </div>
       <p>&copy;2006 Dennis Kaarsemaker<br>
       Edited by Terence Simpson</p>
     </div>

@@ -6,6 +6,10 @@ body {
   font-size: 10px;
 }
 
+tbody {
+	font-weight: normal;
+}
+
 div.home {
   margin: 20px auto;
   width: 300px;
