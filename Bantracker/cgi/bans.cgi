@@ -233,7 +233,7 @@ print '</div>'
 
 tz = pytz.timezone(tz)
 
-haveQuery  = form.has_key('query') or form.has_key('channel') or form.has_key('operator')
+haveQuery  = 'query' in form or 'channel' in form or 'operator' in form
 
 def isOn(k):
     default = not haveQuery
@@ -283,6 +283,12 @@ print '</div>'
     
 print '<div style="clear:both"><input  class="submit" type="submit" value="search" /></div>'
 print '</form></div>'
+
+if not haveQuery:
+    # sqlite2 sucks, getting the last bans takes a lot of time.
+    # so lets disable that so at least the page loads quickly.
+    print '<div style="clear: both"></div>'
+    send_page('bans.tmpl')
 
 # Select and filter bans
 def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floodbots=True, operator=None,
