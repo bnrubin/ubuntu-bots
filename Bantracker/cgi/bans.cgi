@@ -288,11 +288,6 @@ def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floodbots=T
         where = " WHERE " + " AND ".join(where)
     else:
         where = ''
-    count = None
-    if withCount:
-        sql_count = "SELECT count(*) FROM bans%s" % where
-        cur.execute(sql_count, args)
-        count = int(cur.fetchall()[0][0])
     sql += where
     sql += " ORDER BY id DESC"
     if limit:
@@ -300,9 +295,14 @@ def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floodbots=T
     #print sql, "<br/>"
     #print sql_count, "<br/>"
     #print args, "<br/>"
+    # Things seems faster if we do the query BEFORE counting. Due to caches probably.
     cur.execute(sql, args) 
     bans = cur.fetchall()
+    count = None
     if withCount:
+        sql_count = "SELECT count(*) FROM bans%s" % where
+        cur.execute(sql_count, args)
+        count = int(cur.fetchone()[0])
         return bans, count
     return bans
 
@@ -350,8 +350,9 @@ if not bans:
                                offset=num_per_page * page,
                                withCount=True)
 
-    if not form.has_key('mutes'):
+    if not isOn('mutes'):
         bans = filter(lambda x: filterMutes(x), bans)
+
 
 # Sort the bans
 def _sortf(x1,x2,field):
@@ -401,14 +402,18 @@ print '<div>'
 print '<table cellspacing="0">'
 print '<thead>'
 print '<tr>'
-for h in [['Channel',0, 45], ['Nick/Mask',1, 25], ['Operator',2, 0], ['Time',6, 15]]:
+for h in [ ('Channel',   0, 45), 
+           ('Nick/Mask', 1, 25), 
+           ('Operator',  2, 0),
+           ('Time',      6, 15) ]:
     # Negative integers for backwards searching
     try:
         v = int(form['sort'].value)
         if v < 10: h[1] += 10
     except:
         pass
-    print '<th style="width: %s%%"><a href="%s?sort=%s">%s</a></th>' % (pagename, h[2], h[1], h[0])
+    #print '<th style="width: %s%%"><a href="%s?sort=%s">%s</a></th>' % (h[2], pagename, h[1], h[0])
+    print '<th style="width: %s%%">%s</th>' % (h[2], h[0])
 print '<th style="width: 15%">Log</th>'
 print '<th>ID</th>'
 print '</tr>'
@@ -479,6 +484,7 @@ for b in bans:
         print """</div>"""
     print '</td><td></td></tr>'
     i += 1
+
 
 print '</table>'
 
