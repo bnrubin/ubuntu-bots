@@ -16,6 +16,7 @@
 import os
 import sys
 import time
+import urllib
 # This needs to be set to the location of the commoncgi.py file
 sys.path.append('/var/www/bot')
 from commoncgi import *
@@ -59,6 +60,12 @@ if not user and disable_anonymous:
     print "Join <a href=irc://irc.freenode.net/ubuntu-ops>#ubuntu-ops</a> on irc.freenode.net to discuss bans"
     send_page('bans.tmpl')
     sys.exit(0)
+
+def urlencode(**kwargs):
+    """Return the url options as a string, inserting additional ones if given."""
+    d = dict([ (i.name, i.value) for i in form.list ])
+    d.update(kwargs)
+    return urllib.urlencode(d.items())
 
 # Log
 if form.has_key('log'):
@@ -244,44 +251,9 @@ print '</div>'
 print '<div style="clear:both"><input  class="submit" type="submit" value="search" /></div>'
 print '</form></div>'
 
-# Pagination, only when not processing a search
-if not form.has_key('query'):
-    sort = ''
-    if form.has_key('sort'):
-        sort='&sort=' + form['sort'].value
-    print '<div style="clear: both">&middot;'
-    cur.execute('SELECT COUNT(*) FROM bans')
-    nump = math.ceil(int(cur.fetchall()[0][0]) / float(num_per_page))
-    for i in range(int(nump)):
-        print '<a href="%s?page=%d%s">%d</a> &middot;' % (pagename, i, sort, i+1)
-    print '</div>'
-
-# Empty log div, will be filled with AJAX
-print '<div id="log" class="log">&nbsp;</div>'
-
-# Main bans table
-# Table heading
-print '<div>'
-print '<table cellspacing="0">'
-print '<thead>'
-print '<tr>'
-for h in [['Channel',0, 45], ['Nick/Mask',1, 25], ['Operator',2, 0], ['Time',6, 15]]:
-    # Negative integers for backwards searching
-    try:
-        v = int(form['sort'].value)
-        if v < 10: h[1] += 10
-    except:
-        pass
-    print '<th style="width: %s%%"><a href="%s?sort=%s">%s</a></th>' % (pagename, h[2], h[1], h[0])
-print '<th style="width: 15%">Log</th>'
-print '<th>ID</th>'
-print '</tr>'
-print '</thead>'
-print '<tbody>'
-
 # Select and filter bans
 def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floodbots=True, operator=None,
-            channel=None):
+            channel=None, limit=None, offset=0, withCount=False):
     sql = "SELECT channel, mask, operator, time, removal, removal_op, id FROM bans"
     args = []
     where = []
@@ -312,11 +284,27 @@ def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floodbots=T
              where.append(s % "removal IS NULL")
         elif not bans:
              where.append(s % "removal IS NOT NULL")
-    sql += " WHERE " + " AND ".join(where)
+    if where:
+        where = " WHERE " + " AND ".join(where)
+    else:
+        where = ''
+    count = None
+    if withCount:
+        sql_count = "SELECT count(*) FROM bans%s" % where
+        cur.execute(sql_count, args)
+        count = int(cur.fetchall()[0][0])
+    sql += where
     sql += " ORDER BY id DESC"
-    #print where, args, "<br/>"
-    cur.execute(sql, args)
-    return cur.fetchall()
+    if limit:
+        sql += " LIMIT %s OFFSET %s" % (limit, offset)
+    #print sql, "<br/>"
+    #print sql_count, "<br/>"
+    #print args, "<br/>"
+    cur.execute(sql, args) 
+    bans = cur.fetchall()
+    if withCount:
+        return bans, count
+    return bans
 
 def filterMutes(item):
     if item[1][0] == '%':
@@ -333,40 +321,37 @@ def getQueryTerm(query, term):
         return (query, ret)
     return (query, None)
 
+page = 0
+if form.has_key('page'):
+    page = int(form['page'].value)
 
 bans = []
-oper = chan = False
-
+ban_count = 0
+query = oper = chan = None
 if form.has_key('query'):
     query = form['query'].value
-    if query.isdigit():
-        bans = getBans(id=int(query))
-        start = 0; end = 1
-    else:
-        if form.has_key('channel'):
-            chan = form['channel'].value
-        if form.has_key('operator'):
-            oper = form['operator'].value
 
-        bans = getBans(mask=query, kicks=form.has_key('kicks'),
-                                   oldbans=form.has_key('oldbans'),
-                                   bans=form.has_key('bans'),
-                                   floodbots=form.has_key('floodbots'),
-                                   operator=oper,
-                                   channel=chan)
+if query and query.isdigit():
+    bans = getBans(id=int(query))
+    ban_count = len(bans)
 
-        if not form.has_key('mutes'):
-            bans = filter(lambda x: filterMutes(x), bans)
+if not bans:
+    if form.has_key('channel'):
+        chan = form['channel'].value
+    if form.has_key('operator'):
+        oper = form['operator'].value
+    bans, ban_count = getBans(mask=query, kicks=isOn('kicks'),
+                               oldbans=isOn('oldbans'),
+                               bans=isOn('bans'),
+                               floodbots=isOn('floodbots'),
+                               operator=oper,
+                               channel=chan,
+                               limit=num_per_page,
+                               offset=num_per_page * page,
+                               withCount=True)
 
-        start = 0; end = len(bans)
-else:
-    page = 0
-    try:
-        page = int(form['page'].value)
-    except:
-        pass
-    start = page * num_per_page
-    end = (page+1) * num_per_page
+    if not form.has_key('mutes'):
+        bans = filter(lambda x: filterMutes(x), bans)
 
 # Sort the bans
 def _sortf(x1,x2,field):
@@ -385,9 +370,54 @@ if form.has_key('sort'):
             if field >= 10:
                 bans.reverse()
 
+if 'query' in form or 'operator' in form or 'channel' in form:
+    if not ban_count:
+        print '<div style="clear: both">Nothing found.</div>'
+    elif ban_count == 1:
+        print '<div style="clear: both">Found one match.</div>'
+    else:
+        print '<div style="clear: both">Found %s matches.</div>' % ban_count
+
+# Pagination
+if bans:
+    print '<div style="clear: both">'
+    print '&middot;'
+    num_pages = int(math.ceil(ban_count / float(num_per_page)))
+    for i in range(num_pages):
+        print '<a href="%s?%s">%d</a> &middot;' % (pagename, urlencode(page=i), i + 1)
+    print '</div>'
+else:
+    # nothign to show
+    print '<div style="clear: both"></div>' # if I don't print this the page is messed up.
+    send_page('bans.tmpl')
+    sys.exit(0)
+
+# Empty log div, will be filled with AJAX
+print '<div id="log" class="log">&nbsp;</div>'
+
+# Main bans table
+# Table heading
+print '<div>'
+print '<table cellspacing="0">'
+print '<thead>'
+print '<tr>'
+for h in [['Channel',0, 45], ['Nick/Mask',1, 25], ['Operator',2, 0], ['Time',6, 15]]:
+    # Negative integers for backwards searching
+    try:
+        v = int(form['sort'].value)
+        if v < 10: h[1] += 10
+    except:
+        pass
+    print '<th style="width: %s%%"><a href="%s?sort=%s">%s</a></th>' % (pagename, h[2], h[1], h[0])
+print '<th style="width: 15%">Log</th>'
+print '<th>ID</th>'
+print '</tr>'
+print '</thead>'
+print '<tbody>'
+
 # And finally, display them!
 i = 0
-for b in bans[start:end]:
+for b in bans:
     if i % 2:
         print '<tr class="bg2">'
     else:
@@ -451,18 +481,6 @@ for b in bans[start:end]:
     i += 1
 
 print '</table>'
-
-if not bans and form.has_key('query'):
-    if chan and oper:
-        print "<center><u>No matches for:</u> &quot;%s&quot in %s by %s;</center>" % (form['query'].value, chan, oper)
-    elif chan:
-        print "<center><u>No matches for:</u> &quot;%s&quot; in %s</center>" % (form['query'].value, chan)
-    elif oper:
-        print "<center><u>No matches for:</u> &quot;%s&quot; by %s</center>" % (form['query'].value, oper)
-    else:
-        print "<center><u>No matches for:</u> &quot;%s&quot;</center>" % form['query'].value
-elif form.has_key('query'):
-    print "<center>Found %s matches</center>" % end
 
 t2 = time.time()
 
