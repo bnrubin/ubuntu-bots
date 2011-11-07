@@ -17,20 +17,59 @@ import os
 import sys
 import time
 import urllib
-# This needs to be set to the location of the commoncgi.py file
-sys.path.append('/var/www/bot')
-from commoncgi import *
+import ConfigParser
 
-### Variables
-db = '/home/bot/data/bans.db'
-num_per_page = 100
+CONFIG_FILENAME = "bantracker.conf"
+config = ConfigParser.RawConfigParser()
+config.add_section('webpage')
+
+# set default values
+config.set('webpage', 'database', 'bans.db')
+config.set('webpage', 'results_per_page', '100')
+config.set('webpage', 'anonymous_access', 'True')
+config.set('webpage', 'PLUGIN_PATH', '')
+
+try:
+    config.readfp(open(CONFIG_FILENAME))
+except IOError:
+    config.write(open(CONFIG_FILENAME, 'w'))
+
+# This needs to be set to the location of the commoncgi.py file
+PLUGIN_PATH = config.get('webpage', 'PLUGIN_PATH')
+if PLUGIN_PATH:
+    sys.path.append(PLUGIN_PATH)
+
+try:
+    from commoncgi import *
+except:
+    print "Content-Type: text/html" 
+    print
+    print "<p>Failed to load the module commoncgi</p>"
+    print "<p>Check that the config option PLUGIN_PATH in '%s' is correct.</p>" % CONFIG_FILENAME
+    sys.exit(-1)
+
+db = config.get('webpage', 'database')
+num_per_page = config.getint('webpage', 'results_per_page')
+anonymous_access = config.getboolean('webpage', 'anonymous_access')
+
 pagename = os.path.basename(sys.argv[0])
-disable_anonymous = False # Set this to True to disable anonymous access
 
 t1 = time.time()
 
-con = sqlite.connect(db)
-cur = con.cursor()
+try:
+    con = sqlite.connect(db)
+    cur = con.cursor()
+except sqlite.DatabaseError:
+    print "Unable to connect to to database '%s'" % db
+    send_page('bans.tmpl')
+
+def db_execute(query, args):
+    try:
+        cur.execute(query, args)
+        return cur
+    except sqlite.OperationalError:
+        print "The database is locked, wait a bit and try again."
+        send_page('bans.tmpl')
 
 # Login check
 error = ''
@@ -55,11 +94,10 @@ if cookie.has_key('sess'):
         con.commit()
         pass
 
-if not user and disable_anonymous:
+if not user and not anonymous_access:
     print "Sorry, bantracker is not available for anonymous users<br />"
     print "Join <a href=irc://irc.freenode.net/ubuntu-ops>#ubuntu-ops</a> on irc.freenode.net to discuss bans"
     send_page('bans.tmpl')
-    sys.exit(0)
 
 def urlencode(**kwargs):
     """Return the url options as a string, inserting additional ones if given."""
@@ -86,12 +124,7 @@ if form.has_key('log'):
             regex = True
             regex_value = 'checked="checked"'
 
-    con = sqlite.connect(db)
-    cur = con.cursor()
-    cur.execute("SELECT log FROM bans WHERE id=%s", log_id)
-    log = cur.fetchall()
-    con.commit()
-    con.close()
+    log = db_execute("SELECT log FROM bans WHERE id=%s", log_id).fetchall()
 
     if not log or not log[0] or not log[0][0]:
         if plain:
@@ -296,13 +329,11 @@ def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floodbots=T
     #print sql_count, "<br/>"
     #print args, "<br/>"
     # Things seems faster if we do the query BEFORE counting. Due to caches probably.
-    cur.execute(sql, args) 
-    bans = cur.fetchall()
+    bans = db_execute(sql, args).fetchall()
     count = None
     if withCount:
         sql_count = "SELECT count(*) FROM bans%s" % where
-        cur.execute(sql_count, args)
-        count = int(cur.fetchone()[0])
+        count = int(db_execute(sql_count, args).fetchone()[0])
         return bans, count
     return bans
 
@@ -391,7 +422,6 @@ else:
     # nothign to show
     print '<div style="clear: both"></div>' # if I don't print this the page is messed up.
     send_page('bans.tmpl')
-    sys.exit(0)
 
 # Empty log div, will be filled with AJAX
 print '<div id="log" class="log">&nbsp;</div>'
@@ -460,7 +490,7 @@ for b in bans:
         print '<tr class="bg2">'
     else:
         print "<tr>"
-    cur.execute('SELECT who, comment, time FROM comments WHERE ban_id = %d', (b[6],))
+    db_execute('SELECT who, comment, time FROM comments WHERE ban_id = %d', (b[6],))
     comments = cur.fetchall()
     if len(comments) == 0:
         print '<td colspan="5" class="comment">'
