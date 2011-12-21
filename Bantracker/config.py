@@ -160,6 +160,8 @@ def configure(advanced):
 )""")
 #"""
 
+        cur.execute("CREATE INDEX comments_ban_id ON comments(ban_id)")
+
     except:
         con.rollback()
         raise
@@ -168,6 +170,13 @@ def configure(advanced):
     finally:
         cur.close()
         con.close()
+
+    ## Notes on setting up the web interface.
+    output("If you wish to use the web interface to Bantracker, please copy the cgi")
+    output("direcdtory to somewhere accessible from your webserver. Remember to modify")
+    output("the CONFIG_FILENAME variable in cgi/bans.cgi, and modify the")
+    output("bantracker.conf configuration file with the appropriate information.")
+    output("See the README.txt file for more information.")
 
 Bantracker = conf.registerPlugin('Bantracker')
 conf.registerChannelValue(Bantracker, 'enabled',

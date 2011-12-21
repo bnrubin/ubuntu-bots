@@ -13,7 +13,6 @@
 #
 ###
 
-import os
 import sys
 import time
 import urllib
@@ -24,10 +23,12 @@ config = ConfigParser.RawConfigParser()
 config.add_section('webpage')
 
 # set default values
-config.set('webpage', 'database', 'bans.db')
+config.set('webpage', 'database', '/home/bot/data/bans.db')
 config.set('webpage', 'results_per_page', '100')
 config.set('webpage', 'anonymous_access', 'True')
-config.set('webpage', 'PLUGIN_PATH', '')
+config.set('webpage', 'PLUGIN_PATH', '/var/www/bot')
+config.set('webpage', 'irc_network', 'irc.freenode.net')
+config.set('webpage', 'irc_channel', '#ubuntu-ops')
 
 try:
     config.readfp(open(CONFIG_FILENAME))
@@ -45,14 +46,14 @@ except:
     print "Content-Type: text/html" 
     print
     print "<p>Failed to load the module commoncgi</p>"
-    print "<p>Check that the config option PLUGIN_PATH in '%s' is correct.</p>" % CONFIG_FILENAME
+    print "<p>Check that the config option PLUGIN_PATH in '%s' is correct.</p>" % CONFIG_FILENAME ##< Is this "private" information?
     sys.exit(-1)
 
 db = config.get('webpage', 'database')
 num_per_page = config.getint('webpage', 'results_per_page')
 anonymous_access = config.getboolean('webpage', 'anonymous_access')
-
-pagename = os.path.basename(sys.argv[0])
+irc_network = config.get('webpage', 'irc_network')
+irc_channel = config.get('webpage', 'irc_channel')
 
 t1 = time.time()
 
@@ -60,7 +61,7 @@ try:
     con = sqlite.connect(db)
     cur = con.cursor()
 except sqlite.DatabaseError:
-    print "Unable to connect to to database '%s'" % db
+    print >> sys.stderr, "Unable to connect to to database '%s'" % db
     send_page('bans.tmpl')
 
 def db_execute(query, args):
@@ -68,7 +69,7 @@ def db_execute(query, args):
         cur.execute(query, args)
         return cur
     except sqlite.OperationalError:
-        print "The database is locked, wait a bit and try again."
+        print >> sys.stderr, "The database is locked, wait a bit and try again."
         send_page('bans.tmpl')
 
 # Login check
@@ -83,9 +84,9 @@ except:
     pass
 
 # Session handling
-if form.has_key('sess'):
+if 'sess' in form:
     cookie['sess'] = form['sess'].value
-if cookie.has_key('sess'):
+if 'sess' in cookie:
     sess = cookie['sess'].value
     try:
         cur.execute('SELECT user FROM sessions WHERE session_id=%s',(sess,))
@@ -96,8 +97,10 @@ if cookie.has_key('sess'):
 
 if not user and not anonymous_access:
     print "Sorry, bantracker is not available for anonymous users<br />"
-    print "Join <a href=irc://irc.freenode.net/ubuntu-ops>#ubuntu-ops</a> on irc.freenode.net to discuss bans"
+    print 'Join <a href="irc://%s/%s">%s</a> on %s to descuss bans.' % (irc_network, irc_channel[1:], irc_channel, irc_network)
     send_page('bans.tmpl')
+
+haveQuery = False
 
 def urlencode(**kwargs):
     """Return the url options as a string, inserting additional ones if given."""
@@ -105,8 +108,32 @@ def urlencode(**kwargs):
     d.update(kwargs)
     return urllib.urlencode(d.items())
 
+def isTrue(value):
+    """Returns True if the form value is one of "1", "true", "yes", or "on", case insensitive"""
+    if not value:
+        return False
+    return value.lower() in ('1', 'true', 'yes', 'on')
+
+def isFalse(value):
+    """Returns True if the form value is one of "0", "false", "no", or "off", case insensitive"""
+    if not value:
+        return False
+    return value.lower() in ('0', 'false', 'no', 'off')
+
+def isOn(k):
+    global haveQuery
+    default = not haveQuery
+    if not k in form:
+        return default
+    if isTrue(form[k].value):
+        return True
+    if isFalse(form[k].value):
+        return False
+    return default
+
+
 # Log
-if form.has_key('log'):
+if 'log' in form:
     log_id = form['log'].value
     plain = False
     mark = False
@@ -114,13 +141,13 @@ if form.has_key('log'):
     regex = False
     regex_value = ''
 
-    if form.has_key('plain') and form['plain'].value.lower() in ('1', 'true', 'on'):
+    if 'plain' in form and isTrue(form['plain'].value):
         plain = True
 
-    if form.has_key('mark'):
+    if 'mark' in form:
         mark = True
         mark_value = form['mark'].value
-        if form.has_key('regex') and form['regex'].value in ('1', 'true', 'on'):
+        if 'regex' in form and isTrue(form['regex'].value)
             regex = True
             regex_value = 'checked="checked"'
 
@@ -138,7 +165,7 @@ if form.has_key('log'):
 
     if not plain:
         print '  <div class="main">'
-        print '    <form id="hform" action="%s" method="get">' % pagename
+        print '    <form id="hform" action="" method="get">'
         print '      <fieldset>'
         print '        <input type="hidden" name="log" id="log" value="%s">' % q(log_id)
         print '        <label for="mark">Highlight:</label>'
@@ -159,7 +186,11 @@ if form.has_key('log'):
 
     if mark:
         if regex:
-            mark = re.compile(mark_value, re.I)
+            try:
+                mark = re.compile(mark_value, re.I)
+            except:
+                print >> sys.stderr, "Malformed regex %r" % mark_value
+                mark = False
         else:
             escaped = re.escape(mark_value).replace('%', '.*')
             mark = re.compile(escaped, re.I)
@@ -182,7 +213,7 @@ if form.has_key('log'):
 
     print '</div><br />'
     print '<div>'
-    print ' <form id="comment_form" action="%s" method="post">' % pagename
+    print ' <form id="comment_form" action="" method="post">'
     print '  <fieldset>'
     print '   <legend>Add a comment</legend>'
     print '   <textarea cols="50" rows="5" class="input" name="comment"></textarea><br />'
@@ -196,16 +227,20 @@ if form.has_key('log'):
 
 # Main page
 # Process comments
-if form.has_key('comment') and form.has_key('comment_id') and user:
+if 'comment' in form and 'comment_id' in form and user:
     cur.execute('SELECT ban_id FROM comments WHERE ban_id=%s and comment=%s', (form['comment_id'].value, form['comment'].value))
     comm = cur.fetchall()
     if not len(comm):
-        cur.execute('INSERT INTO comments (ban_id, who, comment, time) VALUES (%s, %s, %s, %s)',
-                    (form['comment_id'].value,user,form['comment'].value,pickle.dumps(datetime.datetime.now(pytz.UTC))))
-    con.commit()
+        try:
+            cur.execute('INSERT INTO comments (ban_id, who, comment, time) VALUES (%s, %s, %s, %s)',
+                        (form['comment_id'].value, user,form['comment'].value, pickle.dumps(datetime.datetime.now(pytz.UTC))))
+            con.commit()
+        except sqlite.DatabaseError:
+            con.rollback()
+            print >> sys.stderr, "Sorry, failed to submit comment to the database. Please try again later."
 
 # Write the page
-print '<form action="%s" method="POST">' % pagename
+print '<form action="" method="POST">'
 
 # Personal data
 print '<div class="pdata">'
@@ -213,13 +248,15 @@ if user:
     print 'Logged in as: %s <br /> ' % user
 
 print 'Timezone: '
-if form.has_key('tz') and form['tz'].value in pytz.common_timezones:
+if 'tz' in form and form['tz'].value in pytz.common_timezones:
     tz = form['tz'].value
-elif cookie.has_key('tz') and cookie['tz'].value in pytz.common_timezones:
+elif 'tz' in cookie and cookie['tz'].value in pytz.common_timezones:
     tz = cookie['tz'].value
 else:
     tz = 'UTC'
+
 cookie['tz'] = tz
+
 print '<select class="input" name="tz">'
 for zone in pytz.common_timezones:
     if zone == tz:
@@ -233,17 +270,7 @@ print '</div>'
 
 tz = pytz.timezone(tz)
 
-haveQuery  = 'query' in form or 'channel' in form or 'operator' in form
-
-def isOn(k):
-    default = not haveQuery
-    if not form.has_key(k):
-        return default
-    if form[k].value.lower() in ('on', '1', 'true', 'yes'):
-        return True
-    if form[k].value.lower() in ('off', '0', 'false', 'no'):
-        return False
-    return default
+haveQuery = 'query' in form or 'channel' in form or 'operator' in form
 
 def makeInput(name, label, before=False, type="checkbox", extra=''):
     if before:
@@ -253,7 +280,7 @@ def makeInput(name, label, before=False, type="checkbox", extra=''):
         if isOn(name):
             value = ' checked="checked"'
     else:
-        if form.has_key(name):
+        if name in form:
             value = ' value="%s"' % form[name].value,
 
     print '<input class="input" type="%s" name="%s" id="%s"%s /> %s' \
@@ -264,7 +291,7 @@ def makeInput(name, label, before=False, type="checkbox", extra=''):
 
 # Search form
 print '<div class="search">'
-print '<form action="%s" method="GET">' % pagename
+print '<form action="" method="GET">'
 makeInput("channel", "Channel:", True, "text")
 makeInput("operator", "Operator:", True, "text")
 makeInput("query", "Search:", True, "text", extra="(% and _ are wildcards)")
@@ -287,6 +314,8 @@ print '</form></div>'
 if not haveQuery:
     # sqlite2 sucks, getting the last bans takes a lot of time.
     # so lets disable that so at least the page loads quickly.
+    ## Maybe we should include a link on the main page for those who do want
+    ## to list the latest bans? --tsimpson
     print '<div style="clear: both"></div>'
     send_page('bans.tmpl')
 
@@ -297,7 +326,7 @@ def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floodbots=T
     args = []
     where = []
     if id:
-        where.append("id = %s")
+        where.append("id=%s")
         args.append(id)
     if mask:
         where.append("mask LIKE %s")
@@ -305,10 +334,10 @@ def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floodbots=T
     if not floodbots:
         where.append("operator NOT LIKE 'floodbot%%'")
     if operator:
-        where.append("operator LIKE %s")
+        where.append("operator LIKE %s") ## LIKE or ==? --tsimpson
         args.append(operator)
     if channel:
-        where.append("channel LIKE %s")
+        where.append("channel LIKE %s") ## LIKE or ==? --tsimpson
         args.append(channel)
     if not kicks:
         where.append("mask LIKE '%%!%%'")
@@ -359,13 +388,13 @@ def getQueryTerm(query, term):
     return (query, None)
 
 page = 0
-if form.has_key('page'):
+if 'page' in form:
     page = int(form['page'].value)
 
 bans = []
 ban_count = 0
 query = oper = chan = None
-if form.has_key('query'):
+if 'query' in form:
     query = form['query'].value
 
 if query and query.isdigit():
@@ -373,9 +402,9 @@ if query and query.isdigit():
     ban_count = len(bans)
 
 if not bans:
-    if form.has_key('channel'):
+    if 'channe' in form:
         chan = form['channel'].value
-    if form.has_key('operator'):
+    if 'operator' in form:
         oper = form['operator'].value
     bans, ban_count = getBans(mask=query, kicks=isOn('kicks'),
                                oldbans=isOn('oldbans'),
@@ -397,7 +426,7 @@ def _sortf(x1,x2,field):
    if x1[field] > x2[field]: return 1
    return 0
         
-if form.has_key('sort'):
+if 'sort' in form:
     try:
         field = int(form['sort'].value)
     except:
@@ -408,7 +437,7 @@ if form.has_key('sort'):
             if field >= 10:
                 bans.reverse()
 
-if 'query' in form or 'operator' in form or 'channel' in form:
+if haveQuery:
     if not ban_count:
         print '<div style="clear: both">Nothing found.</div>'
     elif ban_count == 1:
@@ -422,7 +451,7 @@ if bans:
     print '&middot;'
     num_pages = int(math.ceil(ban_count / float(num_per_page)))
     for i in range(num_pages):
-        print '<a href="%s?%s">%d</a> &middot;' % (pagename, urlencode(page=i), i + 1)
+        print '<a href="?%s">%d</a> &middot;' % (urlencode(page=i), i + 1)
     print '</div>'
 else:
     # nothign to show
@@ -448,7 +477,7 @@ for h in [ ('Channel',   0, 45),
         if v < 10: h[1] += 10
     except:
         pass
-    #print '<th style="width: %s%%"><a href="%s?sort=%s">%s</a></th>' % (h[2], pagename, h[1], h[0])
+    #print '<th style="width: %s%%"><a href="?sort=%s">%s</a></th>' % (h[2], h[1], h[0])
     print '<th style="width: %s%%">%s</th>' % (h[2], h[0])
 print '<th style="width: 15%">Log</th>'
 print '<th>ID</th>'
@@ -484,8 +513,8 @@ for b in bans:
     # Log link
     print """<td>
                 Show log <a class="pseudolink" id="loglink-%s" onclick="showlog('%s')">inline</a>
-                | <a href="%s?log=%d">full</a>
-            </td>""" % (b[6], b[6], pagename, b[6])
+                | <a href="?log=%d">full</a>
+            </td>""" % (b[6], b[6], b[6])
 
     # ID
     print '<td id="id-%d">%d</td>' % (b[6], b[6])
@@ -496,7 +525,7 @@ for b in bans:
         print '<tr class="bg2">'
     else:
         print "<tr>"
-    db_execute('SELECT who, comment, time FROM comments WHERE ban_id = %d', (b[6],))
+    db_execute('SELECT who, comment, time FROM comments WHERE ban_id=%d', (b[6],))
     comments = cur.fetchall()
     if len(comments) == 0:
         print '<td colspan="5" class="comment">'
@@ -512,7 +541,7 @@ for b in bans:
     if user:
         print """<span class="pseudolink" onclick="toggle('%s','comment')">Add comment</span>""" % b[6]
         print """<div class="invisible" id="comment_%s"><br />""" % b[6]
-        print """   <form action="%s" method="POST">""" % pagename
+        print """   <form action="" method="post">"""
         print """       <textarea cols="50" rows="5" class="input" name="comment"></textarea><br />"""
         print """       <input type="hidden" name="comment_id" value="%s" />""" % b[6]
         print """       <input class="submit" type="submit" value="Send" />"""
@@ -526,7 +555,7 @@ print '</table>'
 
 t2 = time.time()
 
-print "Generated in %.4f seconds<br/>" % (t2 - t1)
+print "<!-- Generated in %.4f seconds -->" % (t2 - t1)
 
 # Aaaaaaaaaaaaaaaaand send!
 send_page('bans.tmpl')

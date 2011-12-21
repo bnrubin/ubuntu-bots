@@ -1,1 +1,1 @@
-Bantracker/bans.cgi
+Bantracker/cgi/bans.cgi
