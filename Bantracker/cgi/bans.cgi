@@ -147,7 +147,7 @@ if 'log' in form:
     if 'mark' in form:
         mark = True
         mark_value = form['mark'].value
-        if 'regex' in form and isTrue(form['regex'].value)
+        if 'regex' in form and isTrue(form['regex'].value):
             regex = True
             regex_value = 'checked="checked"'
 
