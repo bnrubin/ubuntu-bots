@@ -97,7 +97,7 @@ if 'sess' in cookie:
 
 if not user and not anonymous_access:
     print "Sorry, bantracker is not available for anonymous users<br />"
-    print 'Join <a href="irc://%s/%s">%s</a> on %s to descuss bans.' % (irc_network, irc_channel[1:], irc_channel, irc_network)
+    print 'Join <a href="irc://%s/%s">%s</a> on %s to discuss bans.' % (irc_network, irc_channel[1:], irc_channel, irc_network)
     send_page('bans.tmpl')
 
 haveQuery = False
@@ -402,7 +402,7 @@ if query and query.isdigit():
     ban_count = len(bans)
 
 if not bans:
-    if 'channe' in form:
+    if 'channel' in form:
         chan = form['channel'].value
     if 'operator' in form:
         oper = form['operator'].value
