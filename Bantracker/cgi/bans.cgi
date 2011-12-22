@@ -304,7 +304,8 @@ makeInput("oldbans", "Removed bans")
 print '</div>'
     
 print '<div style="float:left">'
-makeInput("mutes", "Include mutes")
+makeInput("mutes", "Mutes")
+makeInput("oldmutes", "Removed mutes")
 makeInput("floodbots", "Include Floodbots")
 print '</div>'
     
@@ -407,8 +408,8 @@ if not bans:
     if 'operator' in form:
         oper = form['operator'].value
     bans, ban_count = getBans(mask=query, kicks=isOn('kicks'),
-                               oldbans=isOn('oldbans'),
-                               bans=isOn('bans'),
+                               oldbans=isOn('oldbans') or isOn('oldmutes'),
+                               bans=isOn('bans') or isOn('mutes'),
                                floodbots=isOn('floodbots'),
                                operator=oper,
                                channel=chan,
@@ -416,8 +417,10 @@ if not bans:
                                offset=num_per_page * page,
                                withCount=True)
 
-    if not isOn('mutes'):
+    if not (isOn('mutes') or isOn('oldmutes')):
         bans = filter(lambda x: filterMutes(x), bans)
+    elif not (isOn('bans') or isOn('oldbans')):
+        bans = filter(lambda x: not filterMutes(x), bans)
 
 
 # Sort the bans
