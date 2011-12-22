@@ -419,9 +419,10 @@ if not bans:
 
     if not (isOn('mutes') or isOn('oldmutes')):
         bans = filter(lambda x: filterMutes(x), bans)
+        ban_count = len(bans)
     elif not (isOn('bans') or isOn('oldbans')):
         bans = filter(lambda x: not filterMutes(x), bans)
-
+        ban_count = len(bans)
 
 # Sort the bans
 def _sortf(x1,x2,field):
