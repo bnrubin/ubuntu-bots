@@ -451,12 +451,15 @@ if haveQuery:
 
 # Pagination
 if bans:
-    print '<div style="clear: both">'
-    print '&middot;'
+    pagination = '<div style="clear: both">\n&middot;\n'
     num_pages = int(math.ceil(ban_count / float(num_per_page)))
     for i in range(num_pages):
-        print '<a href="?%s">%d</a> &middot;' % (urlencode(page=i), i + 1)
-    print '</div>'
+        if page == i:
+            pagination += '<a href="?%s">[%d]</a> &middot;\n' % (urlencode(page=i), i + 1)
+        else:
+            pagination += '<a href="?%s">%d</a> &middot;\n' % (urlencode(page=i), i + 1)
+    pagination += '</div>\n'
+    print pagination
 else:
     # nothign to show
     print '<div style="clear: both"></div>' # if I don't print this the page is messed up.
@@ -556,6 +559,8 @@ for b in bans:
 
 
 print '</table>'
+if bans:
+    print pagination
 
 t2 = time.time()
 
