@@ -335,10 +335,10 @@ def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floodbots=T
     if not floodbots:
         where.append("operator NOT LIKE 'floodbot%%'")
     if operator:
-        where.append("operator LIKE %s") ## LIKE or ==? --tsimpson
+        where.append("operator LIKE %s")
         args.append(operator)
     if channel:
-        where.append("channel LIKE %s") ## LIKE or ==? --tsimpson
+        where.append("channel LIKE %s")
         args.append(channel)
     if not kicks:
         where.append("mask LIKE '%%!%%'")
@@ -362,7 +362,6 @@ def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floodbots=T
     if limit:
         sql += " LIMIT %s OFFSET %s" % (limit, offset)
     #print sql, "<br/>"
-    #print sql_count, "<br/>"
     #print args, "<br/>"
     # Things seems faster if we do the query BEFORE counting. Due to caches probably.
     bans = db_execute(sql, args).fetchall()
@@ -407,22 +406,40 @@ if not bans:
         chan = form['channel'].value
     if 'operator' in form:
         oper = form['operator'].value
+    
+    filter_mutes = not (isOn('mutes') or isOn('oldmutes'))
+    filter_bans = not (isOn('bans') or isOn('oldbans'))
+    filter_bans_or_mutes =  bool(filter_bans) ^ bool(filter_mutes)
+    if filter_bans_or_mutes:
+        # we are going to filter the mutes from ban list, this sucks, because then we can't
+        # paginate correctly using SQL with LIMIT and OFFSET, so we *have* to get all bans and
+        # paginate manually.
+        limit = offset = None
+    else:
+        limit = num_per_page
+        offset = num_per_page * page
     bans, ban_count = getBans(mask=query, kicks=isOn('kicks'),
                                oldbans=isOn('oldbans') or isOn('oldmutes'),
                                bans=isOn('bans') or isOn('mutes'),
                                floodbots=isOn('floodbots'),
                                operator=oper,
                                channel=chan,
-                               limit=num_per_page,
-                               offset=num_per_page * page,
+                               limit=limit,
+                               offset=offset,
                                withCount=True)
 
-    if not (isOn('mutes') or isOn('oldmutes')):
-        bans = filter(lambda x: filterMutes(x), bans)
+    #print 'filtering', filter_bans_or_mutes, '<br/>'
+    #print "total count", ban_count, "bans", len(bans), '<br/>'
+    if filter_bans_or_mutes:
+        if filter_mutes:
+            bans = filter(lambda x: filterMutes(x), bans)
+        elif filter_bans:
+            bans = filter(lambda x: not filterMutes(x), bans)
         ban_count = len(bans)
-    elif not (isOn('bans') or isOn('oldbans')):
-        bans = filter(lambda x: not filterMutes(x), bans)
-        ban_count = len(bans)
+        # pick the bans for current page, since we didn't do it with SQL
+        if ban_count > num_per_page:
+            bans = bans[page * num_per_page: (page + 1) * num_per_page]
+    #print "total count after filtering", ban_count, '<br/>'
 
 # Sort the bans
 def _sortf(x1,x2,field):
