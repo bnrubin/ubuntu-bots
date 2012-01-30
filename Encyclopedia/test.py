@@ -78,6 +78,24 @@ class EncyclopediaTestCase(ChannelPluginTestCase):
         self.assertNotError('hello is <reply> Hi, welcome to $chan!')
         self.assertResponse('hello', 'Hi, welcome to #test!')
 
+    def testRequests(self):
+        world.testing = False
+        self.prefix = 'user!user@home.com'
+        try:
+            self.assertResponse('test-#ubuntu-se is <reply> blah', 
+                                'Your edit request has been forwarded to #ubuntu-ops.  Thank you ' \
+                                'for your attention to detail')
+            self.assertEqual(self.irc.takeMsg().args[1],
+                             'In #test, user said: @test-#ubuntu-se is <reply> blah')
+            # test in private, it shouldn't use the prefix char.
+            self.assertResponse('test-#ubuntu-se is <reply> blah', 
+                                'Your edit request has been forwarded to #ubuntu-ops.  Thank you ' \
+                                'for your attention to detail', private=True, usePrefixChar=False)
+            self.assertEqual(self.irc.takeMsg().args[1],
+                             'In test, user said: test-#ubuntu-se is <reply> blah')
+        finally:
+            world.testing = True
+
 
 
 # vim:set shiftwidth=4 softtabstop=4 tabstop=4 expandtab textwidth=100:
