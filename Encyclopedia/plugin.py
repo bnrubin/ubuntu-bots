@@ -224,7 +224,11 @@ class Encyclopedia(callbacks.Plugin):
         rettext = text[:]
         hasPipe = False
         hasRedir = False
-        
+
+        # Test for factoid creation/edit before continuing.
+        if re.match(r'[^\s]+\sis\s(?:<(?:reply|alias)>)?\s*.*>', text, re.I) is not None:
+            return (rettext, target, retmsg)
+
         if text.startswith('tell '):
             text = ' ' + text
 
