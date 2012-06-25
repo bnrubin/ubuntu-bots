@@ -130,6 +130,7 @@ class MsgQueue(object):
 
 queue = MsgQueue()
 
+
 class Ban(object):
     """Hold my bans"""
     def __init__(self, args=None, **kwargs):
@@ -171,17 +172,31 @@ class Ban(object):
     def time(self):
         return datetime.datetime.fromtimestamp(self.when)
 
-def guessBanType(mask):
-    if mask[0] == '%':
-        return 'quiet'
-    elif ircutils.isUserHostmask(mask) or mask.endswith('(realname)'):
-        return 'ban'
-    return 'removal'
+    @property
+    def type(self):
+        mask = self.mask
+        if mask[0] == '%':
+            return 'quiet'
+        elif ircutils.isUserHostmask(mask) or mask.endswith('(realname)'):
+            if not ('*' in mask or '?' in mask or '$' in mask):
+                # XXX hack over hack, we are supposing these are marks as normal
+                # bans aren't usually set to exact match, while marks are.
+                return 'mark'
+            return 'ban'
+        return 'removal'
 
-class PersistentCache(dict):
+
+class ReviewStore(dict):
     def __init__(self, filename):
         self.filename = conf.supybot.directories.data.dirize(filename)
-        self.time = 0
+        self.lastReview = 0
+
+    def __getitem__(self, k):
+        try:
+            return dict.__getitem__(self, k)
+        except KeyError:
+            self[k] = L = []
+            return L
 
     def open(self):
         import csv
@@ -189,7 +204,7 @@ class PersistentCache(dict):
             reader = csv.reader(open(self.filename, 'rb'))
         except IOError:
             return
-        self.time = int(reader.next()[1])
+        self.lastReview = int(reader.next()[1])
         for row in reader:
             host, value = self.deserialize(*row)
             try:
@@ -205,7 +220,7 @@ class PersistentCache(dict):
             writer = csv.writer(open(self.filename, 'wb'))
         except IOError:
             return
-        writer.writerow(('time', str(int(self.time))))
+        writer.writerow(('time', str(int(self.lastReview))))
         for host, values in self.iteritems():
             for v in values:
                 writer.writerow(self.serialize(host, v))
@@ -254,7 +269,7 @@ class Bantracker(callbacks.Plugin):
             self.db = None
         self.get_bans(irc)
         self.get_nicks(irc)
-        self.pendingReviews = PersistentCache('bt.reviews.db')
+        self.pendingReviews = ReviewStore('bt.reviews.db')
         self.pendingReviews.open()
         self._banreviewfix()
         # add scheduled event for check bans that need review, check every hour
@@ -464,7 +479,7 @@ class Bantracker(callbacks.Plugin):
             return
         # check the type of the action taken
         mask = ban.mask
-        type = guessBanType(mask)
+        type = ban.type
         if type == 'quiet':
             mask = mask[1:]
         # check if type is enabled
@@ -479,11 +494,12 @@ class Bantracker(callbacks.Plugin):
         if nickMatch(nick, self.registryValue('request.ignore', channel)):
             return
         if nickMatch(nick, self.registryValue('request.forward', channel)):
+            # somebody else should comment this (like with bans set by bots)
             s = "Please somebody comment on the %s of %s in %s done by %s, use:"\
                 " %scomment %s <comment>" %(type, mask, channel, nick, prefix, ban.id)
             self._sendForward(irc, s, 'request', channel)
         else:
-            # send to op
+            # send to operator
             s = "Please comment on the %s of %s in %s, use: %scomment %s <comment>" \
                     %(type, mask, channel, prefix, ban.id)
             irc.reply(s, to=nick, private=True)
@@ -494,11 +510,11 @@ class Bantracker(callbacks.Plugin):
             # time is zero, do nothing
             return
         now = time.mktime(time.gmtime())
-        lastreview = self.pendingReviews.time
-        self.pendingReviews.time = now # update last time reviewed
-        if not lastreview:
+        lastReview = self.pendingReviews.lastReview
+        self.pendingReviews.lastReview = now # update last time reviewed
+        if not lastReview:
             # initialize last time reviewed timestamp
-            lastreview = now - reviewTime
+            lastReview = now - reviewTime
 
         for channel, bans in self.bans.iteritems():
             if not self.registryValue('enabled', channel) \
@@ -510,15 +526,14 @@ class Bantracker(callbacks.Plugin):
                 # the less I touch it the better.
                 if ban.mask.endswith('$#ubuntu-read-topic'):
                     continue
-                type = guessBanType(ban.mask)
-                if type == 'removal':
-                    # skip kicks
+
+                type = ban.type
+                if type in ('removal', 'mark'):
+                    # skip kicks and marks
                     continue
-                if not ('*' in ban.mask or '?' in ban.mask or '$' in ban.mask):
-                    # XXX hack over hack, we are supposing these are marks.
-                    continue
+
                 banAge = now - ban.when
-                reviewWindow = lastreview - ban.when
+                reviewWindow = lastReview - ban.when
                 #self.log.debug('review ban: %s ban %s by %s (%s/%s/%s %s)', channel, ban.mask,
                 #        ban.who, reviewWindow, reviewTime, banAge, reviewTime - reviewWindow)
                 if reviewWindow <= reviewTime < banAge:
@@ -563,11 +578,8 @@ class Bantracker(callbacks.Plugin):
                                    self.registryValue('bansite'),
                                    ban.id)
                         msg = ircmsgs.privmsg(nick, s)
-                        if host in self.pendingReviews \
-                            and (nick, msg) not in self.pendingReviews[host]:
+                        if (nick, msg) not in self.pendingReviews[host]:
                             self.pendingReviews[host].append((nick, msg))
-                        else:
-                            self.pendingReviews[host] = [(nick, msg)]
                 elif banAge < reviewTime:
                     # since we made sure bans are sorted by time, the bans left are more recent
                     break
@@ -596,10 +608,7 @@ class Bantracker(callbacks.Plugin):
         self.pendingReviews.clear()
 
         for host, nick, msg in nodups:
-            if host in self.pendingReviews:
-                self.pendingReviews[host].append((nick, msg))
-            else:
-                self.pendingReviews[host] = [(nick, msg)]
+            self.pendingReviews[host].append((nick, msg))
 
     def _sendReviews(self, irc, msg):
         host = ircutils.hostFromHostmask(msg.prefix)
@@ -1225,9 +1234,9 @@ class Bantracker(callbacks.Plugin):
                 nick, host = key.split('@', 1)
             else:
                 nick, host = key, None
-            try:
+            if host in self.pendingReviews:
                 reviews = self.pendingReviews[host]
-            except KeyError:
+            else:
                 irc.reply('No reviews for %s, use --verbose for check the correct nick@host key.' % key)
                 return
 

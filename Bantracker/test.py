@@ -286,7 +286,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         # check not pending anymore
         self.assertFalse(cb.pendingReviews)
 
-    def testPersistentCache(self):
+    def testReviewStore(self):
         """Save pending reviews and when bans were last checked. This is needed for plugin
         reloads"""
         msg1 = ircmsgs.privmsg('nick', 'Hello World')
