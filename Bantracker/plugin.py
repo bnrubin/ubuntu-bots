@@ -245,6 +245,60 @@ class ReviewStore(dict):
         return (host, nick, command, channel, text)
 
 
+class BanRemoval(object):
+    """This object saves information about a ban that should be removed when expires"""
+    def __init__(self, ban, expires):
+        """
+        ban: ban object
+        expires: time in seconds for it to expire
+        """
+        assert isinstance(ban, Ban), "ban is not a Ban object"
+        assert isinstance(expires, int), "expire time isn't an integer"
+        self.ban = ban
+        self.expires = expires
+
+    def expired(self):
+        """Check if the ban did expire."""
+        if nowSeconds() > (self.ban.when + self.expires):
+            return True
+        return False
+
+
+class BanStore(object):
+    def __init__(self, filename):
+        # this should be stored into a file
+        self.shelf = []
+
+    def __iter__(self):
+        return iter(self.shelf)
+
+    def __len__(self):
+        return len(self.shelf)
+
+    def add(self, obj):
+        self.shelf.append(obj)
+
+    def sort(self):
+        """Sort bans by expire date"""
+        def key(x):
+            return x.ban.when + x.expires
+
+        self.shelf.sort(key=key, reverse=True)
+
+    def popExpired(self):
+        """Pops a list of expired bans"""
+        def enumerateReversed(L):
+            """enumerate in reverse order"""
+            for i in reversed(xrange(len(L))):
+                yield i, L[i]
+
+        L = []
+        for i, ban in enumerateReversed(self.shelf):
+            if ban.expired():
+                L.append(ban)
+                del self.shelf[i]
+        return L
+
 
 class Bantracker(callbacks.Plugin):
     """Plugin to manage bans.
@@ -274,16 +328,21 @@ class Bantracker(callbacks.Plugin):
             self.db = None
         self.get_bans(irc)
         self.get_nicks(irc)
+
+        # init review stuff
         self.pendingReviews = ReviewStore('bt.reviews.db')
         self.pendingReviews.open()
         self._banreviewfix()
-        # add scheduled event for check bans that need review, check every hour
-        try:
-            schedule.removeEvent(self.name())
-        except:
-            pass
-        schedule.addPeriodicEvent(lambda : self.reviewBans(irc), 60*60,
-                name=self.name())
+
+        # init autoremove stuff
+        self.managedBans = BanStore('FIXME')
+
+        # add our scheduled events for check bans for reviews or removal
+        schedule.addPeriodicEvent(lambda: self.reviewBans(irc), 60*60,
+                                  name=self.name() + '_review')
+        schedule.addPeriodicEvent(lambda: self.autoRemoveBans(irc), 60,
+                                  name=self.name() + '_autoremove')
+
 
     def get_nicks(self, irc):
         self.hosts.clear()
@@ -410,7 +469,8 @@ class Bantracker(callbacks.Plugin):
         except:
             pass
         queue.clear()
-        schedule.removeEvent(self.name())
+        schedule.removeEvent(self.name() + '_review')
+        schedule.removeEvent(self.name() + '_autoremove')
         self.pendingReviews.close()
 
     def reset(self):
@@ -638,6 +698,10 @@ class Bantracker(callbacks.Plugin):
             if not L:
                 del self.pendingReviews[None]
 
+    def autoRemoveBans(self, irc=None):
+        for ban in self.managedBans.popExpired():
+            self.log.info('Ban %s expired' % ban.ban.mask)
+
     def doLog(self, irc, channel, s):
         if not self.registryValue('enabled', channel):
             return
@@ -788,7 +852,12 @@ class Bantracker(callbacks.Plugin):
 
                 if param[0] in ('+b', '+q'):
                     comment = self.getHostFromBan(irc, msg, mask)
-                    self.doKickban(irc, channel, msg.prefix, mask + realname, extra_comment=comment)
+                    ban = self.doKickban(irc, channel, msg.prefix, mask + realname, 
+                                         extra_comment=comment)
+                    if True:
+                        # FIXME ban autoremove should be set with a command, but I'm 
+                        # lazy.
+                        self.managedBans.add(BanRemoval(ban, 1))
                 elif param[0] in ('-b', '-q'):
                     self.doUnban(irc,channel, msg.nick, mask + realname)
 

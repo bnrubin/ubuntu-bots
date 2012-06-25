@@ -347,5 +347,16 @@ class BantrackerTestCase(ChannelPluginTestCase):
         fetch = self.query("SELECT id,channel,mask,operator FROM bans")
         self.assertEqual((1, '#test', 'troll', 'op'), fetch[0])
 
+    def testBanAutoRemove(self):
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.assertTrue(cb.managedBans) # ban in list
+        cb.autoRemoveBans()
+        self.assertTrue(cb.managedBans) # ban in list
+        time.sleep(2)
+        cb.autoRemoveBans()
+        self.assertFalse(cb.managedBans) # ban removed
+
+
 
 
