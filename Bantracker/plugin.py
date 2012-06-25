@@ -70,6 +70,11 @@ tz = 'UTC'
 def now():
     return cPickle.dumps(datetime.datetime.now(pytz.timezone(tz)))
 
+def nowSeconds():
+    # apparently time.time() isn't the same thing.
+    # return time.time()
+    return int(time.mktime(time.gmtime()))
+
 def fromTime(x):
     return cPickle.dumps(datetime.datetime(*time.gmtime(x)[:6], **{'tzinfo': pytz.timezone("UTC")}))
 
@@ -509,7 +514,8 @@ class Bantracker(callbacks.Plugin):
         if not reviewTime:
             # time is zero, do nothing
             return
-        now = time.mktime(time.gmtime())
+
+        now = nowSeconds()
         lastReview = self.pendingReviews.lastReview
         self.pendingReviews.lastReview = now # update last time reviewed
         if not lastReview:
@@ -534,8 +540,9 @@ class Bantracker(callbacks.Plugin):
 
                 banAge = now - ban.when
                 reviewWindow = lastReview - ban.when
-                #self.log.debug('review ban: %s ban %s by %s (%s/%s/%s %s)', channel, ban.mask,
-                #        ban.who, reviewWindow, reviewTime, banAge, reviewTime - reviewWindow)
+                #self.log.debug('review ban: %s ban %s by %s (%s/%s/%s %s)', 
+                #        channel, ban.mask, ban.who, reviewWindow, reviewTime,
+                #        banAge, reviewTime - reviewWindow)
                 if reviewWindow <= reviewTime < banAge:
                     # ban is old enough, and inside the "review window"
                     try:

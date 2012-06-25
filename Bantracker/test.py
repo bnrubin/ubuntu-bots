@@ -20,6 +20,7 @@ import supybot.conf as conf
 import supybot.ircmsgs as ircmsgs
 import supybot.world as world
 
+import re
 import time
 
 
@@ -241,12 +242,12 @@ class BantrackerTestCase(ChannelPluginTestCase):
         cb.reviewBans(self.irc)
         # since it's a forward, it was sent already
         self.assertFalse(cb.pendingReviews)
-        self.assertEqual(str(self.irc.takeMsg()).strip(),
-                "NOTICE #channel :Review: ban 'asd!*@*' set by bot on %s in #test, link: "\
-                "%s/bans.cgi?log=1" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
-        self.assertEqual(str(self.irc.takeMsg()).strip(),
-                "NOTICE #channel :Review: quiet 'asd!*@*' set by bot on %s in #test, link: "\
-                "%s/bans.cgi?log=2" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
+        self.assertTrue(re.search(
+                r"^NOTICE #channel :Review: ban 'asd!\*@\*' set by bot on .* in #test,"\
+                r" link: .*/bans\.cgi\?log=1$", str(self.irc.takeMsg()).strip()))
+        self.assertTrue(re.search(
+                r"^NOTICE #channel :Review: quiet 'asd!\*@\*' set by bot on .* in #test,"\
+                r" link: .*/bans\.cgi\?log=2$", str(self.irc.takeMsg()).strip()))
 
     def testReviewIgnore(self):
         pluginConf.review.setValue(True)
