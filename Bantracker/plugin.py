@@ -142,10 +142,12 @@ class Ban(object):
         self.id = None
         if args:
             # in most ircd: args = (nick, channel, mask, who, when)
+            self.channel = args[1]
             self.mask = args[2]
             self.who = args[3]
             self.when = float(args[4])
         else:
+            self.channel = kwargs['channel']
             self.mask = kwargs['mask']
             self.who = kwargs['who']
             self.when = float(kwargs['when'])
@@ -699,8 +701,15 @@ class Bantracker(callbacks.Plugin):
                 del self.pendingReviews[None]
 
     def autoRemoveBans(self, irc=None):
+        modedict = { 'quiet': '-q', 'ban': '-b' }
         for ban in self.managedBans.popExpired():
-            self.log.info('Ban %s expired' % ban.ban.mask)
+            channel, mask, type = ban.ban.channel, ban.ban.mask, ban.ban.type
+            self.log.info("%s '%s' in %s expired", type,
+                                                   mask,
+                                                   channel)
+            # send unban msg
+            unban = ircmsgs.mode(channel, (modedict[type], mask))
+            irc.queueMsg(unban)
 
     def doLog(self, irc, channel, s):
         if not self.registryValue('enabled', channel):
@@ -735,7 +744,7 @@ class Bantracker(callbacks.Plugin):
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, kickmsg, n))
         if extra_comment:
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, extra_comment, n))
-        ban = Ban(mask=target, who=operator, when=time.mktime(time.gmtime()), id=id)
+        ban = Ban(mask=target, who=operator, when=time.mktime(time.gmtime()), id=id, channel=channel)
         if add_to_cache:
             if channel not in self.bans:
                 self.bans[channel] = []

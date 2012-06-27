@@ -351,11 +351,14 @@ class BantrackerTestCase(ChannelPluginTestCase):
         cb = self.getCallback()
         self.feedBan('asd!*@*')
         self.assertTrue(cb.managedBans) # ban in list
-        cb.autoRemoveBans()
+        cb.autoRemoveBans(self.irc)
         self.assertTrue(cb.managedBans) # ban in list
+        print 'waiting 2 secs ...'
         time.sleep(2)
-        cb.autoRemoveBans()
+        cb.autoRemoveBans(self.irc)
         self.assertFalse(cb.managedBans) # ban removed
+        msg = self.irc.takeMsg() # unban msg
+        self.assertEqual(str(msg).strip(), "MODE #test -b :asd!*@*")
 
 
 
