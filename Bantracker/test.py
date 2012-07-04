@@ -384,6 +384,8 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertEqual(cb.managedBans.shelf[0].expires, 172800)
         self.assertNotError('banremove 1 1m1h1d1w1M1y')
         self.assertEqual(cb.managedBans.shelf[0].expires, 34822860)
+        self.assertNotError('banremove 1 999')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 999)
 
     def testBanremoveTimeFormatBad(self):
         self.assertError('banremove 1 10 apples')
