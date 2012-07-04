@@ -104,50 +104,41 @@ timeUnits = FuzzyDict({
 def readTimeDelta(s):
     """convert a string like "2 days" or "1h2d3w" into seconds"""
     # split number and words
-    L = []
-    digit = buffer = None
+    digit = string = number = None
+    seconds = 0
     for c in s:
         if c.isdigit():
-            if buffer is None:
-                digit, buffer = True, ''
+            if string is None:
+                # start
+                digit, string = True, ''
             elif digit is False:
                 digit = True
-                # add unit to list
-                buffer = buffer.strip()
-                if buffer:
-                    L.append(buffer)
-                    buffer = ''
-            buffer += c
+                # completed an unit, add to seconds
+                string = string.strip()
+                if string:
+                    mult = timeUnits[string]
+                    seconds += number * mult
+                    string = ''
+            string += c
         else:
             if digit is None:
                 # need a number first
                 continue
             if digit is True:
                 digit = False
-                # add number to list
-                L.append(int(buffer))
-                buffer = ''
-            buffer += c
-    # check last
-    if buffer.isdigit():
-        L.append(int(buffer))
-    else:
-        buffer = buffer.strip()
-        if buffer:
-            L.append(buffer)
+                # completed a number
+                number, string = int(string), ''
+            string += c
 
-    # sum
-    seconds = 0
-    number = None
-    for item in L:
-        if isinstance(item, int):
-            number = item
-        else:
-            mult = timeUnits[item]
+    # check last string
+    if string.isdigit():
+        seconds += int(string)
+    else:
+        string = string.strip()
+        if string:
+            mult = timeUnits[string]
             seconds += number * mult
-            number = None
-    if number:
-        seconds += number
+
     return seconds
 
 def capab(user, capability):
