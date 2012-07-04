@@ -78,6 +78,65 @@ def nowSeconds():
 def fromTime(x):
     return cPickle.dumps(datetime.datetime(*time.gmtime(x)[:6], **{'tzinfo': pytz.timezone("UTC")}))
 
+
+timeUnits = {
+        'm': 60,     'minutes': 60,     'minute': 60, 'min': 60,
+        'h': 3600,     'hours': 3600,     'hour': 3600,
+        'd': 86400,     'days': 86400,     'day': 86400,
+        'w': 604800,   'weeks': 604800,   'week': 604800,
+        'M': 2592000, 'months': 2592000, 'month': 2592000,
+        'y': 31536000, 'years': 31536000, 'year': 31536000,
+        }
+
+def readTimeDelta(s):
+    """convert a string like "2 days" or "1h2d3w" into seconds"""
+    # split number and words
+    L = []
+    digit = buffer = None
+    for c in s:
+        if c.isdigit():
+            if buffer is None:
+                digit, buffer = True, ''
+            elif digit is False:
+                digit = True
+                # add unit to list
+                buffer = buffer.strip()
+                if buffer:
+                    L.append(buffer)
+                    buffer = ''
+            buffer += c
+        else:
+            if digit is None:
+                # need a number first
+                continue
+            if digit is True:
+                digit = False
+                # add number to list
+                L.append(int(buffer))
+                buffer = ''
+            buffer += c
+    # check last
+    if buffer.isdigit():
+        L.append(int(buffer))
+    else:
+        buffer = buffer.strip()
+        if buffer:
+            L.append(buffer)
+
+    # sum
+    seconds = 0
+    number = None
+    for item in L:
+        if isinstance(item, int):
+            number = item
+        else:
+            mult = timeUnits[item]
+            seconds += number * mult
+            number = None
+    if number:
+        seconds += number
+    return seconds
+
 def capab(user, capability):
     capability = capability.lower()
     capabilities = list(user.capabilities)
@@ -1289,24 +1348,44 @@ class Bantracker(callbacks.Plugin):
 
         Sets expiration time.
         """
-        L = self.db_run("SELECT mask, channel FROM bans WHERE id = %s", id, 
-                        expect_result=True)
-        if not L:
-            irc.reply("I don't know any ban with that id.")
+        try:
+            seconds = readTimeDelta(timespec)
+        except KeyError:
+            irc.error("bad time format.")
             return
 
-        mask, channel = L[0]
-        for ban in self.bans[channel]:
-            if mask == ban.mask:
+        # lets check if is already managed first
+        for idx, remove in enumerate(self.managedBans):
+            if id == remove.ban.id:
+                ban = remove.ban
+                del self.managedBans.shelf[idx]
                 break
         else:
-            # no active ban it seems
-            irc.reply("Ban '%s' isn't active in %s." % (mask, channel))
-            return
+            L = self.db_run("SELECT mask, channel, removal FROM bans WHERE id = %s",
+                            id, expect_result=True)
+            if not L:
+                irc.reply("I don't know any ban with that id.")
+                return
 
-        self.managedBans.add(BanRemoval(ban, timespec))
+            mask, channel, removal = L[0]
+            self.log.debug('asd %s', removal)
+            if removal:
+                irc.reply("Ban '%s' was already removed in %s." % (mask, channel))
+                return
+
+            for ban in self.bans[channel]:
+                if mask == ban.mask:
+                    if ban.id is None:
+                        ban.id = id
+                    break
+            else:
+                # ban not in sync it seems, shouldn't happen normally.
+                irc.reply("Ban '%s' isn't active in %s." % (mask, channel))
+                return
+
+        self.managedBans.add(BanRemoval(ban, seconds))
         irc.replySuccess()
-    banremove = wrap(banremove, ['id', 'int'])
+    banremove = wrap(banremove, ['id', 'text'])
 
     def banlink(self, irc, msg, args, id, highlight):
         """<id> [<highlight>]

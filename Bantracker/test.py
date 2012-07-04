@@ -369,8 +369,24 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.irc.feedMsg(ircmsgs.unban(self.channel, 'asd!*@*', 
                                        'op!user@host.net'))
         self.assertResponse('banremove 1 0', 
-                            "Ban 'asd!*@*' isn't active in #test.")
+                            "Ban 'asd!*@*' was already removed in #test.")
 
+    def testBanremoveTimeFormat(self):
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.assertNotError('banremove 1 10m')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 600)
+        self.assertNotError('banremove 1 2 weeks')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 1209600)
+        self.assertNotError('banremove 1 1m 2 days')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 172860)
+        self.assertNotError('banremove 1 24h 1day')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 172800)
+        self.assertNotError('banremove 1 1m1h1d1w1M1y')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 34822860)
+
+    def testBanremoveTimeFormatBad(self):
+        self.assertError('banremove 1 10 apples')
 
 
 
