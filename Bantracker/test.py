@@ -347,11 +347,12 @@ class BantrackerTestCase(ChannelPluginTestCase):
         fetch = self.query("SELECT id,channel,mask,operator FROM bans")
         self.assertEqual((1, '#test', 'troll', 'op'), fetch[0])
 
-    def testBanAutoRemove(self):
+    def testBanremove(self):
         cb = self.getCallback()
         self.feedBan('asd!*@*')
-        self.assertTrue(cb.managedBans) # ban in list
         cb.autoRemoveBans(self.irc)
+        self.assertFalse(cb.managedBans)
+        self.assertNotError('banremove 1 1')
         self.assertTrue(cb.managedBans) # ban in list
         print 'waiting 2 secs ...'
         time.sleep(2)
@@ -359,6 +360,16 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertFalse(cb.managedBans) # ban removed
         msg = self.irc.takeMsg() # unban msg
         self.assertEqual(str(msg).strip(), "MODE #test -b :asd!*@*")
+
+    def testBanremoveBadId(self):
+        self.assertResponse('banremove 1 0', "I don't know any ban with that id.")
+
+    def testBanremoveInactiveBan(self):
+        self.feedBan('asd!*@*')
+        self.irc.feedMsg(ircmsgs.unban(self.channel, 'asd!*@*', 
+                                       'op!user@host.net'))
+        self.assertResponse('banremove 1 0', 
+                            "Ban 'asd!*@*' isn't active in #test.")
 
 
 

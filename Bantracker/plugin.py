@@ -863,7 +863,7 @@ class Bantracker(callbacks.Plugin):
                     comment = self.getHostFromBan(irc, msg, mask)
                     ban = self.doKickban(irc, channel, msg.prefix, mask + realname, 
                                          extra_comment=comment)
-                    if True:
+                    if False:
                         # FIXME ban autoremove should be set with a command, but I'm 
                         # lazy.
                         self.managedBans.add(BanRemoval(ban, 1))
@@ -1283,6 +1283,30 @@ class Bantracker(callbacks.Plugin):
             else:
                 irc.error("No comments recorded for ban %i" % id)
     comment = wrap(comment, ['id', optional('text')])
+
+    def banremove(self, irc, msg, args, id, timespec):
+        """<id> <time>
+
+        Sets expiration time.
+        """
+        L = self.db_run("SELECT mask, channel FROM bans WHERE id = %s", id, 
+                        expect_result=True)
+        if not L:
+            irc.reply("I don't know any ban with that id.")
+            return
+
+        mask, channel = L[0]
+        for ban in self.bans[channel]:
+            if mask == ban.mask:
+                break
+        else:
+            # no active ban it seems
+            irc.reply("Ban '%s' isn't active in %s." % (mask, channel))
+            return
+
+        self.managedBans.add(BanRemoval(ban, timespec))
+        irc.replySuccess()
+    banremove = wrap(banremove, ['id', 'int'])
 
     def banlink(self, irc, msg, args, id, highlight):
         """<id> [<highlight>]
