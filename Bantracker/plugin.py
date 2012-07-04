@@ -79,14 +79,27 @@ def fromTime(x):
     return cPickle.dumps(datetime.datetime(*time.gmtime(x)[:6], **{'tzinfo': pytz.timezone("UTC")}))
 
 
-timeUnits = {
-        'm': 60,     'minutes': 60,     'minute': 60, 'min': 60,
-        'h': 3600,     'hours': 3600,     'hour': 3600,
-        'd': 86400,     'days': 86400,     'day': 86400,
-        'w': 604800,   'weeks': 604800,   'week': 604800,
-        'M': 2592000, 'months': 2592000, 'month': 2592000,
-        'y': 31536000, 'years': 31536000, 'year': 31536000,
-        }
+class FuzzyDict(dict):
+    def __getitem__(self, k):
+        try:
+            return dict.__getitem__(self, k)
+        except KeyError:
+            # ok, lets find the closest match
+            n = len(k)
+            keys = [ s for s in self if s[:n] == k ]
+            if len(keys) != 1:
+                # ambiguous
+                raise
+            return dict.__getitem__(self, keys[0])
+
+timeUnits = FuzzyDict({
+        'minutes': 60,      'm': 60,
+        'hours'  : 3600,    'M': 2592000,
+        'days'   : 86400,
+        'weeks'  : 604800,
+        'months' : 2592000,
+        'years'  : 31536000,
+        })
 
 def readTimeDelta(s):
     """convert a string like "2 days" or "1h2d3w" into seconds"""
