@@ -833,13 +833,13 @@ class Bantracker(callbacks.Plugin):
             if not self.registryValue('autoremove', channel):
                 continue
 
+            if type == 'quiet':
+                mask = mask[1:]
             self.log.info("%s [%s] %s in %s expired", type,
                                                       ban.ban.id,
                                                       mask,
                                                       channel)
             # send unban msg
-            if type == 'quiet':
-                mask = mask[1:]
             unban = ircmsgs.mode(channel, (modedict[type], mask))
             irc.queueMsg(unban)
 
@@ -853,12 +853,17 @@ class Bantracker(callbacks.Plugin):
                     or not self.registryValue('autoremove.notify', channel):
                 continue
 
+            type, mask = ban.ban.type, ban.ban.mask
+            if type == 'quiet':
+                mask = mask[1:]
             for c in self.registryValue('autoremove.notify.channels', channel):
-                notice = ircmsgs.notice(c, "%s [%s] %s in %s will expire in a few minutes." \
-                                                                            % (ban.ban.type,
-                                                                               ban.ban.id,
-                                                                               ban.ban.mask,
-                                                                               channel))
+                notice = ircmsgs.notice(c, "%s %s%s%s %s in %s will expire in a few minutes." \
+                        % (type,
+                           ircutils.mircColor('[', 'light green'),
+                           ircutils.bold(ban.ban.id),
+                           ircutils.mircColor(']', 'light green'),
+                           ircutils.mircColor(mask, 'teal'),
+                           ircutils.mircColor(channel, 'teal')))
                 irc.queueMsg(notice)
             ban.notified = True
 

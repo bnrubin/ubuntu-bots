@@ -416,7 +416,8 @@ class BantrackerTestCase(ChannelPluginTestCase):
             cb.autoRemoveBans(self.irc)
             msg = self.irc.takeMsg()
             self.assertEqual(str(msg).strip(),
-                "NOTICE #test :ban [1] asd!*@* in #test will expire in a few minutes.")
+                "NOTICE #test :ban \x0309[\x03\x021\x02\x0309]\x03 \x0310asd!*@*\x03"\
+                " in \x0310#test\x03 will expire in a few minutes.")
             # don't send the notice again.
             cb.autoRemoveBans(self.irc)
             self.assertFalse(self.irc.takeMsg())
