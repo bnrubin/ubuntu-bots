@@ -406,5 +406,28 @@ class BantrackerTestCase(ChannelPluginTestCase):
         finally:
             del pluginConf.autoremove.notify.channels()[:]
 
+    def testAutoremoveStore(self):
+        self.feedBan('asd!*@*')
+        self.feedBan('qwe!*@*')
+        self.feedBan('zxc!*@*', mode='q')
+        self.assertNotError('banremove 1 10m')
+        self.assertNotError('banremove 2 1d')
+        self.assertNotError('banremove 3 1w')
+        cb = self.getCallback()
+        cb.managedBans.shelf[1].notified = True
+        cb.managedBans.close()
+        cb.managedBans.shelf = []
+        cb.managedBans.open()
+        L = cb.managedBans.shelf
+        for i, n in enumerate((600, 86400, 604800)):
+            self.assertEqual(L[i].expires, n)
+        for i, n in enumerate((False, True, False)):
+            self.assertEqual(L[i].notified, n)
+        for i, n in enumerate((1, 2, 3)):
+            self.assertEqual(L[i].ban.id, n)
+        for i, n in enumerate(('asd!*@*', 'qwe!*@*', '%zxc!*@*')):
+            self.assertEqual(L[i].ban.mask, n)
+        self.assertEqual(L[0].ban.channel, '#test')
+
 
 
