@@ -33,7 +33,10 @@ config.set('webpage', 'irc_channel', '#ubuntu-ops')
 try:
     config.readfp(open(CONFIG_FILENAME))
 except IOError:
-    config.write(open(CONFIG_FILENAME, 'w'))
+    try:
+        config.write(open(CONFIG_FILENAME, 'w'))
+    except IOError:
+        pass
 
 # This needs to be set to the location of the commoncgi.py file
 PLUGIN_PATH = config.get('webpage', 'PLUGIN_PATH')
@@ -46,7 +49,7 @@ except:
     print "Content-Type: text/html" 
     print
     print "<p>Failed to load the module commoncgi</p>"
-    print "<p>Check that the config option PLUGIN_PATH in '%s' is correct.</p>" % CONFIG_FILENAME ##< Is this "private" information?
+    print "<p>Check that the configured option PLUGIN_PATH is correct.</p>"
     sys.exit(-1)
 
 db = config.get('webpage', 'database')
