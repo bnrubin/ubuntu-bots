@@ -321,10 +321,11 @@ class BanRemoval(object):
         assert isinstance(expires, int), "expire time isn't an integer"
         self.ban = ban
         self.expires = expires
+        self.notified = False
 
-    def expired(self):
+    def expired(self, offset=0):
         """Check if the ban did expire."""
-        if nowSeconds() > (self.ban.when + self.expires):
+        if (nowSeconds() + offset) > (self.ban.when + self.expires):
             return True
         return False
 
@@ -350,7 +351,7 @@ class BanStore(object):
 
         self.shelf.sort(key=key, reverse=True)
 
-    def popExpired(self):
+    def popExpired(self, time=0):
         """Pops a list of expired bans"""
         def enumerateReversed(L):
             """enumerate in reverse order"""
@@ -359,10 +360,17 @@ class BanStore(object):
 
         L = []
         for i, ban in enumerateReversed(self.shelf):
-            if ban.expired():
+            if ban.expired(offset=time):
                 L.append(ban)
                 del self.shelf[i]
         return L
+
+    def getExpired(self, time=0):
+        def generator():
+            for ban in self.shelf:
+                if ban.expired(offset=time):
+                    yield ban
+        return generator()
 
 
 class Bantracker(callbacks.Plugin):
@@ -763,16 +771,27 @@ class Bantracker(callbacks.Plugin):
             if not L:
                 del self.pendingReviews[None]
 
-    def autoRemoveBans(self, irc=None):
+    def autoRemoveBans(self, irc):
         modedict = { 'quiet': '-q', 'ban': '-b' }
         for ban in self.managedBans.popExpired():
             channel, mask, type = ban.ban.channel, ban.ban.mask, ban.ban.type
-            self.log.info("%s '%s' in %s expired", type,
-                                                   mask,
-                                                   channel)
+            self.log.info("%s [%s] %s in %s expired", type,
+                                                       ban.ban.id,
+                                                       mask,
+                                                       channel)
             # send unban msg
             unban = ircmsgs.mode(channel, (modedict[type], mask))
             irc.queueMsg(unban)
+
+        # notify about bans soon to expire
+        for ban in self.managedBans.getExpired(600):
+            if ban.notified:
+                continue
+            id, channel, mask, type = ban.ban.id, ban.ban.channel, ban.ban.mask, ban.ban.type
+            notice = ircmsgs.notice('#test', "%s [%s] %s in %s will expire in a few minutes." \
+                                    % (type, id, mask, channel))
+            irc.queueMsg(notice)
+            ban.notified = True
 
     def doLog(self, irc, channel, s):
         if not self.registryValue('enabled', channel):

@@ -390,5 +390,17 @@ class BantrackerTestCase(ChannelPluginTestCase):
     def testBanremoveTimeFormatBad(self):
         self.assertError('banremove 1 10 apples')
 
+    def testBanremoveNotice(self):
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.assertNotError('banremove 1 300')
+        cb.autoRemoveBans(self.irc)
+        msg = self.irc.takeMsg()
+        self.assertEqual(str(msg).strip(),
+            "NOTICE #test :ban [1] asd!*@* in #test will expire in a few minutes.")
+        # don't send the notice again.
+        cb.autoRemoveBans(self.irc)
+        self.assertFalse(self.irc.takeMsg())
+
 
 
