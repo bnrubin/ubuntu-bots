@@ -833,6 +833,8 @@ class Bantracker(callbacks.Plugin):
                                                       mask,
                                                       channel)
             # send unban msg
+            if type == 'quiet':
+                mask = mask[1:]
             unban = ircmsgs.mode(channel, (modedict[type], mask))
             irc.queueMsg(unban)
 

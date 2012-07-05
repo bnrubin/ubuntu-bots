@@ -361,6 +361,16 @@ class BantrackerTestCase(ChannelPluginTestCase):
         msg = self.irc.takeMsg() # unban msg
         self.assertEqual(str(msg).strip(), "MODE #test -b :asd!*@*")
 
+    def testBanremoveQuiet(self):
+        cb = self.getCallback()
+        self.feedBan('asd!*@*', mode='q')
+        self.assertNotError('banremove 1 0')
+        print 'waiting 1 sec ...'
+        time.sleep(1)
+        cb.autoRemoveBans(self.irc)
+        msg = self.irc.takeMsg() # unban msg
+        self.assertEqual(str(msg).strip(), "MODE #test -q :asd!*@*")
+
     def testBanremoveBadId(self):
         self.assertResponse('banremove 1 0', "I don't know any ban with that id.")
 
