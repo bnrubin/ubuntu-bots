@@ -375,6 +375,8 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.feedBan('nick', mode='k')
         self.assertResponse('banremove 1 0',
             "Id 1 is a removal, only bans or quiets can be autoremoved.")
+        self.feedBan('$a:nick')
+        self.assertResponse('banremove 2 0', 'The operation succeeded.')
 
     def testBanremoveBadId(self):
         self.assertResponse('banremove 1 0', "I don't know any ban with that id.")

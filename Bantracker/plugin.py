@@ -268,7 +268,9 @@ class Ban(object):
 def guessBanType(mask):
     if mask[0] == '%':
         return 'quiet'
-    elif ircutils.isUserHostmask(mask) or mask.endswith('(realname)'):
+    elif ircutils.isUserHostmask(mask) \
+            or mask[0] == '$' \
+            or mask.endswith('(realname)'):
         if not ('*' in mask or '?' in mask or '$' in mask):
             # XXX hack over hack, we are supposing these are marks as normal
             # bans aren't usually set to exact match, while marks are.
