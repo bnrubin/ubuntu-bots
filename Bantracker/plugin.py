@@ -245,16 +245,7 @@ class Ban(object):
 
     @property
     def type(self):
-        mask = self.mask
-        if mask[0] == '%':
-            return 'quiet'
-        elif ircutils.isUserHostmask(mask) or mask.endswith('(realname)'):
-            if not ('*' in mask or '?' in mask or '$' in mask):
-                # XXX hack over hack, we are supposing these are marks as normal
-                # bans aren't usually set to exact match, while marks are.
-                return 'mark'
-            return 'ban'
-        return 'removal'
+        return guessBanType(self.mask)
 
     def serialize(self):
         id = self.id
@@ -272,6 +263,18 @@ class Ban(object):
         self.channel, self.mask, self.who = L[1:4]
         self.when = float(L[4])
         self.ascwhen = time.asctime(time.gmtime(self.when))
+
+
+def guessBanType(mask):
+    if mask[0] == '%':
+        return 'quiet'
+    elif ircutils.isUserHostmask(mask) or mask.endswith('(realname)'):
+        if not ('*' in mask or '?' in mask or '$' in mask):
+            # XXX hack over hack, we are supposing these are marks as normal
+            # bans aren't usually set to exact match, while marks are.
+            return 'mark'
+        return 'ban'
+    return 'removal'
 
 
 class ReviewStore(dict):
@@ -1455,6 +1458,11 @@ class Bantracker(callbacks.Plugin):
                 return
 
             mask, channel, removal = L[0]
+            type = guessBanType(mask)
+            if type not in ('ban', 'quiet'):
+                irc.reply("Id %s is a %s, only bans or quiets can be autoremoved." % (id, type))
+                return
+
             if removal:
                 irc.reply("Ban '%s' was already removed in %s." % (mask, channel))
                 return
@@ -1469,10 +1477,6 @@ class Bantracker(callbacks.Plugin):
                 irc.reply("Ban '%s' isn't active in %s." % (mask, channel))
                 return
 
-        if ban.type not in ('ban', 'quiet'):
-            irc.reply("Id %s is a %s, only bans or quiets can be autoremoved." \
-                      % (id, ban.type))
-            return
 
         self.managedBans.add(BanRemoval(ban, seconds))
         irc.replySuccess()
