@@ -775,10 +775,13 @@ class Bantracker(callbacks.Plugin):
         modedict = { 'quiet': '-q', 'ban': '-b' }
         for ban in self.managedBans.popExpired():
             channel, mask, type = ban.ban.channel, ban.ban.mask, ban.ban.type
+            if not self.registryValue('autoremove', channel):
+                continue
+
             self.log.info("%s [%s] %s in %s expired", type,
-                                                       ban.ban.id,
-                                                       mask,
-                                                       channel)
+                                                      ban.ban.id,
+                                                      mask,
+                                                      channel)
             # send unban msg
             unban = ircmsgs.mode(channel, (modedict[type], mask))
             irc.queueMsg(unban)
@@ -787,10 +790,19 @@ class Bantracker(callbacks.Plugin):
         for ban in self.managedBans.getExpired(600):
             if ban.notified:
                 continue
-            id, channel, mask, type = ban.ban.id, ban.ban.channel, ban.ban.mask, ban.ban.type
-            notice = ircmsgs.notice('#test', "%s [%s] %s in %s will expire in a few minutes." \
-                                    % (type, id, mask, channel))
-            irc.queueMsg(notice)
+
+            channel = ban.ban.channel
+            if not self.registryValue('autoremove', channel) \
+                    or not self.registryValue('autoremove.notify', channel):
+                continue
+
+            for c in self.registryValue('autoremove.notify.channels', channel):
+                notice = ircmsgs.notice(c, "%s [%s] %s in %s will expire in a few minutes." \
+                                                                            % (ban.ban.type,
+                                                                               ban.ban.id,
+                                                                               ban.ban.mask,
+                                                                               channel))
+                irc.queueMsg(notice)
             ban.notified = True
 
     def doLog(self, irc, channel, s):

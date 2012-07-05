@@ -225,4 +225,15 @@ conf.registerChannelValue(Bantracker.review.forward, 'channels',
         registry.SpaceSeparatedListOfStrings([],
             "List of channels/nicks to forward the request if the op is in the forward list."))
 
+conf.registerChannelValue(Bantracker, 'autoremove',
+        registry.Boolean(True,
+            """Enable/disable autoremoval of bans."""))
+conf.registerChannelValue(Bantracker.autoremove, 'notify',
+        registry.Boolean(True,
+            """Enable/disable notifications of removal of bans."""))
+conf.registerChannelValue(Bantracker.autoremove.notify, 'channels',
+        registry.SpaceSeparatedListOfStrings([],
+            """List of channels/nicks to notify about automatic removal of bans."""))
+
+
 
