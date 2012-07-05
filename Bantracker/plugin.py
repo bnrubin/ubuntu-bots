@@ -1469,8 +1469,14 @@ class Bantracker(callbacks.Plugin):
                 irc.reply("Ban '%s' isn't active in %s." % (mask, channel))
                 return
 
+        if ban.type not in ('ban', 'quiet'):
+            irc.reply("Id %s is a %s, only bans or quiets can be autoremoved." \
+                      % (id, ban.type))
+            return
+
         self.managedBans.add(BanRemoval(ban, seconds))
         irc.replySuccess()
+
     banremove = wrap(banremove, ['id', 'text'])
 
     def banlink(self, irc, msg, args, id, highlight):
