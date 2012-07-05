@@ -1372,7 +1372,6 @@ class Bantracker(callbacks.Plugin):
                 return
 
             mask, channel, removal = L[0]
-            self.log.debug('asd %s', removal)
             if removal:
                 irc.reply("Ban '%s' was already removed in %s." % (mask, channel))
                 return
