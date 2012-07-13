@@ -447,5 +447,11 @@ class BantrackerTestCase(ChannelPluginTestCase):
             self.assertEqual(L[i].ban.mask, n)
         self.assertEqual(L[0].ban.channel, '#test')
 
+    def testBaninfo(self):
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.assertResponse('baninfo 1', '[1] ban - asd!*@* - #test - never expires')
+        self.assertNotError('banremove 1 10')
+        self.assertResponse('baninfo 1', '[1] ban - asd!*@* - #test - expires in 10.0')
 
 

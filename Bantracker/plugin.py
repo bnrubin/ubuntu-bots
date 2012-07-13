@@ -1490,6 +1490,41 @@ class Bantracker(callbacks.Plugin):
 
     banremove = wrap(banremove, ['id', 'text'])
 
+    def baninfo(self, irc, msg, args, id):
+        """<id>
+
+        Show ban information.
+        """
+        L = self.db_run("SELECT mask, channel, removal FROM bans WHERE id = %s",
+                        id, expect_result=True)
+        if not L:
+            irc.reply("I don't know any ban with that id.")
+            return
+
+        mask, channel, removal = L[0]
+        type = guessBanType(mask)
+        if type == 'quiet':
+            mask = mask[1:]
+        for br in self.managedBans:
+            if br.ban.id == id:
+                break
+        else:
+            br = None
+
+        if br:
+            irc.reply("[%s] %s - %s - %s - expires in %s" \
+                      % (id, type, mask, channel,
+                         (br.ban.when + br.expires) - nowSeconds()))
+        else:
+            if type in ('quiet', 'ban'):
+                irc.reply("[%s] %s - %s - %s - never expires" \
+                          % (id, type, mask, channel))
+            else:
+                irc.reply("[%s] %s - %s - %s" % (id, type, mask, channel))
+
+
+    baninfo = wrap(baninfo, ['id'])
+
     def banlink(self, irc, msg, args, id, highlight):
         """<id> [<highlight>]
 
