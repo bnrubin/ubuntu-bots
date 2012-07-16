@@ -362,6 +362,10 @@ class BanRemoval(object):
         self.ban = Ban(args=(None, None, None, None, 0))
         self.ban.deserialize(L[2:])
 
+def enumerateReversed(L):
+    """enumerate in reverse order"""
+    for i in reversed(xrange(len(L))):
+        yield i, L[i]
 
 class BanStore(object):
     def __init__(self, filename):
@@ -406,11 +410,6 @@ class BanStore(object):
 
     def popExpired(self, time=0):
         """Pops a list of expired bans"""
-        def enumerateReversed(L):
-            """enumerate in reverse order"""
-            for i in reversed(xrange(len(L))):
-                yield i, L[i]
-
         L = []
         for i, ban in enumerateReversed(self.shelf):
             if ban.expired(offset=time):
@@ -915,11 +914,13 @@ class Bantracker(callbacks.Plugin):
             self.db_run("UPDATE bans SET removal=%s , removal_op=%s WHERE id=%s", (now(), nick, int(data[0][0])))
         if not channel in self.bans:
             self.bans[channel] = []
-        for ban in self.bans[channel]:
+        for idx, ban in enumerateReversed(self.bans[channel]):
             if ban.mask == mask:
-                idx = self.bans[channel].index(ban)
                 del self.bans[channel][idx]
                 # we don't break here because bans might be duplicated.
+        for idx, br in enumerateReversed(self.managedBans.shelf):
+            if (channel == br.ban.channel) and (mask == br.ban.mask):
+                del self.managedBans.shelf[idx]
 
     def doPrivmsg(self, irc, msg):
         (recipients, text) = msg.args
@@ -1515,12 +1516,17 @@ class Bantracker(callbacks.Plugin):
             irc.reply("[%s] %s - %s - %s - expires in %s" \
                       % (id, type, mask, channel,
                          (br.ban.when + br.expires) - nowSeconds()))
-        else:
-            if type in ('quiet', 'ban'):
+            return
+
+        if type in ('quiet', 'ban'):
+            if not removal:
                 irc.reply("[%s] %s - %s - %s - never expires" \
                           % (id, type, mask, channel))
             else:
-                irc.reply("[%s] %s - %s - %s" % (id, type, mask, channel))
+                irc.reply("[%s] %s - %s - %s - not active" \
+                          % (id, type, mask, channel))
+        else:
+            irc.reply("[%s] %s - %s - %s" % (id, type, mask, channel))
 
 
     baninfo = wrap(baninfo, ['id'])

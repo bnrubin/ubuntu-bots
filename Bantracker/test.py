@@ -453,5 +453,8 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertResponse('baninfo 1', '[1] ban - asd!*@* - #test - never expires')
         self.assertNotError('banremove 1 10')
         self.assertResponse('baninfo 1', '[1] ban - asd!*@* - #test - expires in 10.0')
+        self.irc.feedMsg(ircmsgs.unban(self.channel, 'asd!*@*', 
+                                       'op!user@host.net'))
+        self.assertResponse('baninfo 1', '[1] ban - asd!*@* - #test - not active')
 
 
