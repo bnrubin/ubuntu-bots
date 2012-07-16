@@ -361,6 +361,29 @@ class BantrackerTestCase(ChannelPluginTestCase):
         msg = self.irc.takeMsg() # unban msg
         self.assertEqual(str(msg).strip(), "MODE #test -b :asd!*@*")
 
+    def testBanremoveMergeModes(self):
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.feedBan('qwe!*@*')
+        self.feedBan('zxc!*@*')
+        self.feedBan('asd!*@*', mode='q')
+        self.feedBan('qwe!*@*', mode='q')
+        self.feedBan('zxc!*@*', mode='q')
+        self.assertNotError('banremove 1 0')
+        self.assertNotError('banremove 2 0')
+        self.assertNotError('banremove 3 0')
+        self.assertNotError('banremove 4 0')
+        self.assertNotError('banremove 5 0')
+        self.assertNotError('banremove 6 0')
+        print 'waiting 1 secs ...'
+        time.sleep(1)
+        cb.autoRemoveBans(self.irc)
+        msg = self.irc.takeMsg() # unban msg
+        self.assertEqual(str(msg).strip(),
+                         "MODE #test -qqqb zxc!*@* qwe!*@* asd!*@* :zxc!*@*")
+        msg = self.irc.takeMsg()
+        self.assertEqual(str(msg).strip(), "MODE #test -bb qwe!*@* :asd!*@*")
+
     def testBanremoveQuiet(self):
         cb = self.getCallback()
         self.feedBan('asd!*@*', mode='q')

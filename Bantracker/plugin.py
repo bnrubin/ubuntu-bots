@@ -55,6 +55,7 @@ import supybot.ircdb as ircdb
 import supybot.schedule as schedule
 import supybot.utils as utils
 from fnmatch import fnmatch
+from collections import defaultdict
 import sqlite
 import pytz
 import cPickle
@@ -869,6 +870,7 @@ class Bantracker(callbacks.Plugin):
 
     def autoRemoveBans(self, irc):
         modedict = { 'quiet': '-q', 'ban': '-b' }
+        unbandict = defaultdict(list)
         for ban in self.managedBans.popExpired():
             channel, mask, type = ban.ban.channel, ban.ban.mask, ban.ban.type
             if not self.registryValue('autoremove', channel):
@@ -880,9 +882,15 @@ class Bantracker(callbacks.Plugin):
                                                       ban.ban.id,
                                                       mask,
                                                       channel)
-            # send unban msg
-            unban = ircmsgs.mode(channel, (modedict[type], mask))
-            irc.queueMsg(unban)
+            unbandict[channel].append((modedict[type], mask))
+        # send unban messages, with 4 modes max each.
+        maxModes = 4
+        for channel, modes in unbandict.iteritems():
+            for i in range(len(modes) / maxModes + 1):
+                L = modes[i * maxModes : (i + 1) * maxModes]
+                if L:
+                    msg = ircmsgs.mode(channel, ircutils.joinModes(L))
+                    irc.queueMsg(msg)
 
         # notify about bans soon to expire
         for ban in self.managedBans.getExpired(600):
