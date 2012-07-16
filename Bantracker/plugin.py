@@ -53,6 +53,7 @@ import supybot.ircmsgs as ircmsgs
 import supybot.conf as conf
 import supybot.ircdb as ircdb
 import supybot.schedule as schedule
+import supybot.utils as utils
 from fnmatch import fnmatch
 import sqlite
 import pytz
@@ -141,6 +142,47 @@ def readTimeDelta(s):
             seconds += number * mult
 
     return seconds
+
+# utils.gen.timeElapsed is too noisy, what do I care of the seconds and minutes
+# if the period is like a month long, or the zero values?
+def timeElapsed(elapsed, short=False, resolution=2):
+    """Given <elapsed> seconds, returns a string with an English description of
+    the amount of time passed.
+    """
+
+    ret = []
+    before = False
+    def Format(s, i):
+        if i:
+            if short:
+                ret.append('%s%s' % (i, s[0]))
+            else:
+                ret.append(utils.str.format('%n', (i, s)))
+    elapsed = int(elapsed)
+
+    # Handle negative times
+    if elapsed < 0:
+        before = True
+        elapsed = -elapsed
+
+    for s, i in (('year', 31536000), ('month', 2592000), ('week', 604800),
+                 ('day', 86400), ('hour', 3600), ('minute', 60)):
+        count, elapsed = elapsed // i, elapsed % i
+        Format(s, count)
+        if len(ret) == resolution:
+            break
+    #Format('second', elapsed) # seconds are pointless for now
+    if not ret:
+        raise ValueError, 'Time difference not great enough to be noted.'
+    result = ''
+    #ret = ret[:resolution]
+    if short:
+        result = ' '.join(ret)
+    else:
+        result = utils.str.format('%L', ret)
+    if before:
+        result += ' ago'
+    return result
 
 def capab(user, capability):
     capability = capability.lower()
@@ -1512,19 +1554,22 @@ class Bantracker(callbacks.Plugin):
         else:
             br = None
 
+        expires = None
         if br:
-            irc.reply("[%s] %s - %s - %s - expires in %s" \
-                      % (id, type, mask, channel,
-                         (br.ban.when + br.expires) - nowSeconds()))
-            return
+            expires = (br.ban.when + br.expires) - nowSeconds()
+            try:
+                expires = "expires in %s" % timeElapsed(expires)
+            except ValueError:
+                expires = "expires soon"
+        else:
+            if type in ('quiet', 'ban'):
+                if not removal:
+                    expires = "never expires"
+                else:
+                    expires = "not active"
 
-        if type in ('quiet', 'ban'):
-            if not removal:
-                irc.reply("[%s] %s - %s - %s - never expires" \
-                          % (id, type, mask, channel))
-            else:
-                irc.reply("[%s] %s - %s - %s - not active" \
-                          % (id, type, mask, channel))
+        if expires:
+            irc.reply("[%s] %s - %s - %s - %s" % (id, type, mask, channel, expires))
         else:
             irc.reply("[%s] %s - %s - %s" % (id, type, mask, channel))
 
