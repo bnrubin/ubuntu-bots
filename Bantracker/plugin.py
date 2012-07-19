@@ -1491,8 +1491,8 @@ class Bantracker(callbacks.Plugin):
                 irc.error("No comments recorded for ban %i" % id)
     comment = wrap(comment, ['id', optional('text')])
 
-    def banremove(self, irc, msg, args, id, timespec):
-        """<id> <time>
+    def banremove(self, irc, msg, args, ids, timespec):
+        """<id>[,<id> ...] <time>
 
         Sets expiration time.
         """
@@ -1502,44 +1502,53 @@ class Bantracker(callbacks.Plugin):
             irc.error("bad time format.")
             return
 
-        # lets check if is already managed first
-        for idx, remove in enumerate(self.managedBans):
-            if id == remove.ban.id:
-                ban = remove.ban
-                del self.managedBans.shelf[idx]
-                break
-        else:
-            L = self.db_run("SELECT mask, channel, removal FROM bans WHERE id = %s",
-                            id, expect_result=True)
-            if not L:
-                irc.reply("I don't know any ban with that id.")
-                return
+        ids = [ int(i) for i in ids.split(',') if i.isdigit() and int(i) > 0 ]
 
-            mask, channel, removal = L[0]
-            type = guessBanType(mask)
-            if type not in ('ban', 'quiet'):
-                irc.reply("Id %s is a %s, only bans or quiets can be autoremoved." % (id, type))
-                return
-
-            if removal:
-                irc.reply("Ban '%s' was already removed in %s." % (mask, channel))
-                return
-
-            for ban in self.bans[channel]:
-                if mask == ban.mask:
-                    if ban.id is None:
-                        ban.id = id
+        for id in ids:
+            # lets check if is already managed first
+            for idx, remove in enumerate(self.managedBans):
+                if id == remove.ban.id:
+                    ban = remove.ban
+                    del self.managedBans.shelf[idx]
                     break
             else:
-                # ban not in sync it seems, shouldn't happen normally.
-                irc.reply("Ban '%s' isn't active in %s." % (mask, channel))
-                return
+                L = self.db_run("SELECT mask, channel, removal FROM bans WHERE id = %s",
+                                id, expect_result=True)
+                if not L:
+                    irc.reply("I don't know any ban with id %s." % id)
+                    continue
 
+                mask, channel, removal = L[0]
+                type = guessBanType(mask)
+                if type not in ('ban', 'quiet'):
+                    irc.reply("Id %s is a %s, only bans or quiets can be autoremoved." % (id, type))
+                    continue
 
-        self.managedBans.add(BanRemoval(ban, seconds))
-        irc.replySuccess()
+                if removal:
+                    irc.reply("Ban %s (%s) was already removed in %s." % (id, mask, channel))
+                    continue
 
-    banremove = wrap(banremove, ['id', 'text'])
+                for ban in self.bans[channel]:
+                    if mask == ban.mask:
+                        if ban.id is None:
+                            ban.id = id
+                        break
+                else:
+                    # ban not in sync it seems, shouldn't happen normally.
+                    irc.reply("Ban %s (%s) isn't active in %s." % (id, mask, channel))
+                    continue
+
+            self.managedBans.add(BanRemoval(ban, seconds))
+
+        # check bans set
+        done = []
+        for br in self.managedBans:
+            if br.ban.id in ids:
+                done.append(str(br.ban.id))
+        if done:
+            irc.reply("Ban set for auto removal: %s" % ', '.join(done))
+
+    banremove = wrap(banremove, ['something', 'text'])
 
     def baninfo(self, irc, msg, args, id):
         """<id>

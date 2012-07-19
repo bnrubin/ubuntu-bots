@@ -369,12 +369,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.feedBan('asd!*@*', mode='q')
         self.feedBan('qwe!*@*', mode='q')
         self.feedBan('zxc!*@*', mode='q')
-        self.assertNotError('banremove 1 0')
-        self.assertNotError('banremove 2 0')
-        self.assertNotError('banremove 3 0')
-        self.assertNotError('banremove 4 0')
-        self.assertNotError('banremove 5 0')
-        self.assertNotError('banremove 6 0')
+        self.assertNotError('banremove 1,2,3,4,5,6 0')
         print 'waiting 1 secs ...'
         time.sleep(1)
         cb.autoRemoveBans(self.irc)
@@ -383,6 +378,14 @@ class BantrackerTestCase(ChannelPluginTestCase):
                          "MODE #test -qqqb zxc!*@* qwe!*@* asd!*@* :zxc!*@*")
         msg = self.irc.takeMsg()
         self.assertEqual(str(msg).strip(), "MODE #test -bb qwe!*@* :asd!*@*")
+
+    def testBanremoveMultiSet(self):
+        self.feedBan('asd!*@*')
+        self.assertResponse('banremove 1,2 10',
+            "I don't know any ban with id 2.")
+        msg = self.irc.takeMsg()
+        self.assertEqual(msg.args[1], "test: Ban set for auto removal: 1")
+
 
     def testBanremoveQuiet(self):
         cb = self.getCallback()
@@ -399,17 +402,17 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertResponse('banremove 1 0',
             "Id 1 is a removal, only bans or quiets can be autoremoved.")
         self.feedBan('$a:nick')
-        self.assertResponse('banremove 2 0', 'The operation succeeded.')
+        self.assertResponse('banremove 2 0', 'Ban set for auto removal: 2')
 
     def testBanremoveBadId(self):
-        self.assertResponse('banremove 1 0', "I don't know any ban with that id.")
+        self.assertResponse('banremove 1 0', "I don't know any ban with id 1.")
 
     def testBanremoveInactiveBan(self):
         self.feedBan('asd!*@*')
         self.irc.feedMsg(ircmsgs.unban(self.channel, 'asd!*@*', 
                                        'op!user@host.net'))
         self.assertResponse('banremove 1 0', 
-                            "Ban 'asd!*@*' was already removed in #test.")
+                            "Ban 1 (asd!*@*) was already removed in #test.")
 
     def testBanremoveTimeFormat(self):
         cb = self.getCallback()
