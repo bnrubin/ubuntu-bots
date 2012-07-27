@@ -515,7 +515,7 @@ class Bantracker(callbacks.Plugin):
         # add our scheduled events for check bans for reviews or removal
         schedule.addPeriodicEvent(lambda: self.reviewBans(irc), 60*60,
                                   name=self.name() + '_review')
-        schedule.addPeriodicEvent(lambda: self.autoRemoveBans(irc), 60,
+        schedule.addPeriodicEvent(lambda: self.autoRemoveBans(irc), 600,
                                   name=self.name() + '_autoremove')
 
 
