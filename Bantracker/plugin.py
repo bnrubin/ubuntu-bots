@@ -1599,10 +1599,18 @@ class Bantracker(callbacks.Plugin):
     banremove = wrap(banremove, ['something', 'text'])
 
     def baninfo(self, irc, msg, args, id):
-        """<id>
+        """[<id>]
 
-        Show ban information.
+        Show ban information. If <id> is not given shows the ids of bans set to
+        expire.
         """
+
+        if id is None:
+            count = len(self.managedBans)
+            L = [ str(item.ban.id) for item in self.managedBans ]
+            irc.reply("%s bans set to expire: %s" % (count, ', '.join(L)))
+            return
+
         L = self.db_run("SELECT mask, channel, removal FROM bans WHERE id = %s",
                         id, expect_result=True)
         if not L:
@@ -1639,7 +1647,7 @@ class Bantracker(callbacks.Plugin):
             irc.reply("[%s] %s - %s - %s" % (id, type, mask, channel))
 
 
-    baninfo = wrap(baninfo, ['id'])
+    baninfo = wrap(baninfo, [optional('id')])
 
     def banlink(self, irc, msg, args, id, highlight):
         """<id> [<highlight>]

@@ -509,4 +509,13 @@ class BantrackerTestCase(ChannelPluginTestCase):
                                        'op!user@host.net'))
         self.assertResponse('baninfo 1', '[1] ban - asd!*@* - #test - not active')
 
+    def testBaninfoGeneral(self):
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.feedBan('qwe!*@*')
+        self.assertNotError('banremove 1 1d')
+        self.assertResponse('baninfo', "1 bans set to expire: 1")
+        self.assertNotError('banremove 2 1d')
+        self.assertResponse('baninfo', "2 bans set to expire: 1, 2")
+
 
