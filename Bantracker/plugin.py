@@ -119,8 +119,11 @@ def readTimeDelta(s):
                 # completed an unit, add to seconds
                 string = string.strip()
                 if string:
-                    mult = timeUnits[string]
-                    seconds += number * mult
+                    try:
+                        unit = timeUnits[string]
+                    except KeyError:
+                        raise ValueError(string)
+                    seconds += number * unit
                     string = ''
             string += c
         else:
@@ -139,8 +142,11 @@ def readTimeDelta(s):
     else:
         string = string.strip()
         if string:
-            mult = timeUnits[string]
-            seconds += number * mult
+            try:
+                unit = timeUnits[string]
+            except KeyError:
+                raise ValueError(string)
+            seconds += number * unit
 
     return seconds
 
@@ -1466,12 +1472,54 @@ class Bantracker(callbacks.Plugin):
 
     updatebt = wrap(updatebt, [optional('anything', default=None)])
 
-    def comment(self, irc, msg, args, id, kickmsg):
-        """<id> [<comment>]
+    def _getBan(self, id):
+        """gets mask, channel and removal date of ban"""
+        L = self.db_run("SELECT mask, channel, removal FROM bans WHERE id = %s",
+                        id, expect_result=True)
+        if not L:
+            raise ValueError
+        return L[0]
+
+    def _setBanDuration(self, id, duration):
+        # check if ban has already a duration time
+        for idx, br in enumerate(self.managedBans):
+            if id == br.ban.id:
+                ban = br.ban
+                del self.managedBans.shelf[idx]
+                break
+        else:
+            # ban obj ins't in self.managedBans
+            try:
+                mask, channel, removal = self._getBan(id)
+            except ValueError:
+                raise Exception("unknow id")
+
+            type = guessBanType(mask)
+            if type not in ('ban', 'quiet'):
+                raise Exception("not a ban or quiet")
+
+            if removal:
+                raise Exception("ban was removed")
+
+            for ban in self.bans[channel]:
+                if mask == ban.mask:
+                    if ban.id is None:
+                        ban.id = id
+                    break
+            else:
+                # ban not in sync it seems, shouldn't happen normally.
+                raise Exception("bans not in sync")
+
+        # add ban duration
+        self.managedBans.add(BanRemoval(ban, duration))
+
+    def comment(self, irc, msg, args, ids, kickmsg):
+        """<id>[,<id> ...] [<comment>][, <duration>]
 
         Reads or adds the <comment> for the ban with <id>,
         use @bansearch to find the id of a ban
         """
+
         def addComment(id, nick, msg):
             n = now()
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, msg, n))
@@ -1479,74 +1527,74 @@ class Bantracker(callbacks.Plugin):
             return self.db_run("SELECT who, comment, time FROM comments WHERE ban_id=%i", (id,), True)
 
         nick = msg.nick
-        if kickmsg:
-            addComment(id, nick, kickmsg)
-            irc.replySuccess()
-        else:
-            data = readComment(id)
-            if data:
-                for c in data:
-                    irc.reply("%s %s: %s" % (cPickle.loads(c[2]).astimezone(pytz.timezone('UTC')).strftime("%b %d %Y %H:%M:%S"), c[0], c[1].strip()) )
+        duration, banset = None, []
+        if kickmsg and ',' in kickmsg:
+            s = kickmsg[kickmsg.rfind(','):]
+            try:
+                duration = readTimeDelta(s)
+            except ValueError:
+                pass
+
+        for id in [ int(i) for i in ids.split(',') if i.isdigit() and int(i) > 0 ]:
+            try:
+                mask, channel, removal = self._getBan(id)
+            except ValueError:
+                irc.reply("I don't know any ban with id %s." % id)
+                continue
+
+            if kickmsg:
+                addComment(id, nick, kickmsg)
+                if duration is not None:
+                    # set duration time
+                    type = guessBanType(mask)
+                    if type not in ('ban', 'quiet'):
+                        continue
+
+                    try:
+                        self._setBanDuration(id, duration)
+                        banset.append(str(id))
+                    except Exception as exc:
+                        irc.reply("Failed to set duration time on ban %s (%s)" % (id, exc))
             else:
-                irc.error("No comments recorded for ban %i" % id)
-    comment = wrap(comment, ['id', optional('text')])
+                data = readComment(id)
+                if data:
+                    for c in data:
+                        date = cPickle.loads(c[2]).astimezone(pytz.timezone('UTC')).strftime("%b %d %Y %H:%M")
+                        irc.reply("%s %s: %s" % (date, c[0], c[1].strip()))
+                else:
+                    irc.reply("No comments recorded for ban %s" % id)
+
+        # success reply. If duration time used, say which ones.
+        if kickmsg:
+            if duration is not None:
+                if banset:
+                    irc.reply("Ban set for auto removal: %s" % ', '.join(banset))
+            else:
+                irc.replySuccess()
+
+    comment = wrap(comment, ['something', optional('text')])
 
     def banremove(self, irc, msg, args, ids, timespec):
-        """<id>[,<id> ...] <time>
+        """<id>[,<id> ...] <duration>
 
         Sets expiration time.
         """
         try:
             seconds = readTimeDelta(timespec)
-        except KeyError:
+        except ValueError:
             irc.error("bad time format.")
             return
 
-        ids = [ int(i) for i in ids.split(',') if i.isdigit() and int(i) > 0 ]
+        banset = []
+        for id in [ int(i) for i in ids.split(',') if i.isdigit() and int(i) > 0 ]:
+            try:
+                self._setBanDuration(id, seconds)
+                banset.append(str(id))
+            except Exception as exc:
+                irc.reply("Failed to set duration time on ban %s (%s)" % (id, exc))
 
-        for id in ids:
-            # lets check if is already managed first
-            for idx, remove in enumerate(self.managedBans):
-                if id == remove.ban.id:
-                    ban = remove.ban
-                    del self.managedBans.shelf[idx]
-                    break
-            else:
-                L = self.db_run("SELECT mask, channel, removal FROM bans WHERE id = %s",
-                                id, expect_result=True)
-                if not L:
-                    irc.reply("I don't know any ban with id %s." % id)
-                    continue
-
-                mask, channel, removal = L[0]
-                type = guessBanType(mask)
-                if type not in ('ban', 'quiet'):
-                    irc.reply("Id %s is a %s, only bans or quiets can be autoremoved." % (id, type))
-                    continue
-
-                if removal:
-                    irc.reply("Ban %s (%s) was already removed in %s." % (id, mask, channel))
-                    continue
-
-                for ban in self.bans[channel]:
-                    if mask == ban.mask:
-                        if ban.id is None:
-                            ban.id = id
-                        break
-                else:
-                    # ban not in sync it seems, shouldn't happen normally.
-                    irc.reply("Ban %s (%s) isn't active in %s." % (id, mask, channel))
-                    continue
-
-            self.managedBans.add(BanRemoval(ban, seconds))
-
-        # check bans set
-        done = []
-        for br in self.managedBans:
-            if br.ban.id in ids:
-                done.append(str(br.ban.id))
-        if done:
-            irc.reply("Ban set for auto removal: %s" % ', '.join(done))
+        if banset:
+            irc.reply("Ban set for auto removal: %s" % ', '.join(banset))
 
     banremove = wrap(banremove, ['something', 'text'])
 

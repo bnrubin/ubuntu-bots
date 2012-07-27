@@ -125,6 +125,30 @@ class BantrackerTestCase(ChannelPluginTestCase):
         return ban
 
     def testComment(self):
+        self.assertResponse('comment 1', "I don't know any ban with id 1.")
+        self.feedBan('asd!*@*')
+        self.assertResponse('comment 1', 'No comments recorded for ban 1')
+        self.assertResponse('comment 1 this is a test', 'The operation succeeded.')
+        self.assertRegexp('comment 1', 'test: this is a test$')
+
+    def testMultiComment(self):
+        self.feedBan('asd!*@*')
+        self.feedBan('qwe!*@*')
+        self.assertResponse('comment 1,2,3 this is a test',
+                            "I don't know any ban with id 3.")
+        msg = self.irc.takeMsg()
+        self.assertEqual(msg.args[1], "test: The operation succeeded.")
+        self.assertRegexp('comment 1,2', 'test: this is a test$')
+        msg = self.irc.takeMsg()
+        self.assertTrue(msg.args[1].endswith("test: this is a test"))
+
+    def testCommentDuration(self):
+        self.feedBan('asd!*@*')
+        self.assertResponse('comment 1 this is a test, 1 week 10', 'Ban set for auto removal: 1')
+        self.assertRegexp('comment 1', 'test: this is a test, 1 week 10$')
+        self.assertRegexp('baninfo 1', 'expires in 1 week$')
+
+    def testCommentRequest(self):
         pluginConf.request.setValue(True)
         # test bans
         self.feedBan('asd!*@*')
@@ -382,7 +406,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
     def testBanremoveMultiSet(self):
         self.feedBan('asd!*@*')
         self.assertResponse('banremove 1,2 10',
-            "I don't know any ban with id 2.")
+                            "Failed to set duration time on ban 2 (unknow id)")
         msg = self.irc.takeMsg()
         self.assertEqual(msg.args[1], "test: Ban set for auto removal: 1")
 
@@ -400,19 +424,19 @@ class BantrackerTestCase(ChannelPluginTestCase):
     def testBanremoveBadType(self):
         self.feedBan('nick', mode='k')
         self.assertResponse('banremove 1 0',
-            "Id 1 is a removal, only bans or quiets can be autoremoved.")
+            "Failed to set duration time on ban 1 (not a ban or quiet)")
         self.feedBan('$a:nick')
         self.assertResponse('banremove 2 0', 'Ban set for auto removal: 2')
 
     def testBanremoveBadId(self):
-        self.assertResponse('banremove 1 0', "I don't know any ban with id 1.")
+        self.assertResponse('banremove 1 0', "Failed to set duration time on ban 1 (unknow id)")
 
     def testBanremoveInactiveBan(self):
         self.feedBan('asd!*@*')
         self.irc.feedMsg(ircmsgs.unban(self.channel, 'asd!*@*', 
                                        'op!user@host.net'))
         self.assertResponse('banremove 1 0', 
-                            "Ban 1 (asd!*@*) was already removed in #test.")
+                            "Failed to set duration time on ban 1 (ban was removed)")
 
     def testBanremoveTimeFormat(self):
         cb = self.getCallback()
