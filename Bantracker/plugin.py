@@ -1574,7 +1574,7 @@ class Bantracker(callbacks.Plugin):
 
     comment = wrap(comment, ['something', optional('text')])
 
-    def banremove(self, irc, msg, args, ids, timespec):
+    def duration(self, irc, msg, args, ids, timespec):
         """<id>[,<id> ...] <duration>
 
         Sets expiration time.
@@ -1596,7 +1596,7 @@ class Bantracker(callbacks.Plugin):
         if banset:
             irc.reply("Ban set for auto removal: %s" % ', '.join(banset))
 
-    banremove = wrap(banremove, ['something', 'text'])
+    duration = wrap(duration, ['something', 'text'])
 
     def baninfo(self, irc, msg, args, id):
         """[<id>]
