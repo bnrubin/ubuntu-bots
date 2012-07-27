@@ -146,7 +146,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.feedBan('asd!*@*')
         self.assertResponse('comment 1 this is a test, 1 week 10', 'Ban set for auto removal: 1')
         self.assertRegexp('comment 1', 'test: this is a test, 1 week 10$')
-        self.assertRegexp('baninfo 1', 'expires in 1 week$')
+        self.assertRegexp('duration 1', 'expires in 1 week$')
 
     def testCommentRequest(self):
         pluginConf.request.setValue(True)
@@ -500,22 +500,22 @@ class BantrackerTestCase(ChannelPluginTestCase):
     def testBaninfo(self):
         cb = self.getCallback()
         self.feedBan('asd!*@*')
-        self.assertResponse('baninfo 1', '[1] ban - asd!*@* - #test - never expires')
+        self.assertResponse('duration 1', '[1] ban - asd!*@* - #test - never expires')
         self.assertNotError('duration 1 10')
-        self.assertResponse('baninfo 1', '[1] ban - asd!*@* - #test - expires soon')
+        self.assertResponse('duration 1', '[1] ban - asd!*@* - #test - expires soon')
         self.assertNotError('duration 1 34502')
-        self.assertResponse('baninfo 1', '[1] ban - asd!*@* - #test - expires in 9 hours and 35 minutes')
+        self.assertResponse('duration 1', '[1] ban - asd!*@* - #test - expires in 9 hours and 35 minutes')
         self.irc.feedMsg(ircmsgs.unban(self.channel, 'asd!*@*', 
                                        'op!user@host.net'))
-        self.assertResponse('baninfo 1', '[1] ban - asd!*@* - #test - not active')
+        self.assertResponse('duration 1', '[1] ban - asd!*@* - #test - not active')
 
     def testBaninfoGeneral(self):
         cb = self.getCallback()
         self.feedBan('asd!*@*')
         self.feedBan('qwe!*@*')
         self.assertNotError('duration 1 1d')
-        self.assertResponse('baninfo', "1 bans set to expire: 1")
+        self.assertResponse('duration', "1 bans set to expire: 1")
         self.assertNotError('duration 2 1d')
-        self.assertResponse('baninfo', "2 bans set to expire: 1, 2")
+        self.assertResponse('duration', "2 bans set to expire: 1, 2")
 
 

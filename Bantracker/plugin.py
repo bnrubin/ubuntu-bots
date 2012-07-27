@@ -191,6 +191,14 @@ def timeElapsed(elapsed, short=False, resolution=2):
         result += ' ago'
     return result
 
+def splitID(s):
+    """get a list of integers from a comma separated list of numbers"""
+    for id in s.split(','):
+        if id.isdigit():
+            id = int(id)
+            if id > 0:
+                yield id
+
 def capab(user, capability):
     capability = capability.lower()
     capabilities = list(user.capabilities)
@@ -1535,7 +1543,7 @@ class Bantracker(callbacks.Plugin):
             except ValueError:
                 pass
 
-        for id in [ int(i) for i in ids.split(',') if i.isdigit() and int(i) > 0 ]:
+        for id in splitID(ids):
             try:
                 mask, channel, removal = self._getBan(id)
             except ValueError:
@@ -1574,80 +1582,76 @@ class Bantracker(callbacks.Plugin):
 
     comment = wrap(comment, ['something', optional('text')])
 
-    def duration(self, irc, msg, args, ids, timespec):
-        """<id>[,<id> ...] <duration>
+    def duration(self, irc, msg, args, ids, duration):
+        """[<id>[,<id> ...]] [<duration>]
 
-        Sets expiration time.
+        Sets the duration of a ban. If <duration> isn't given show when a ban expires.
+        If no <id> is given shows the ids of bans set to expire.
         """
-        try:
-            seconds = readTimeDelta(timespec)
-        except ValueError:
-            irc.error("bad time format.")
-            return
-
-        banset = []
-        for id in [ int(i) for i in ids.split(',') if i.isdigit() and int(i) > 0 ]:
-            try:
-                self._setBanDuration(id, seconds)
-                banset.append(str(id))
-            except Exception as exc:
-                irc.reply("Failed to set duration time on ban %s (%s)" % (id, exc))
-
-        if banset:
-            irc.reply("Ban set for auto removal: %s" % ', '.join(banset))
-
-    duration = wrap(duration, ['something', 'text'])
-
-    def baninfo(self, irc, msg, args, id):
-        """[<id>]
-
-        Show ban information. If <id> is not given shows the ids of bans set to
-        expire.
-        """
-
-        if id is None:
+        if ids is None:
             count = len(self.managedBans)
             L = [ str(item.ban.id) for item in self.managedBans ]
             irc.reply("%s bans set to expire: %s" % (count, ', '.join(L)))
             return
 
-        L = self.db_run("SELECT mask, channel, removal FROM bans WHERE id = %s",
-                        id, expect_result=True)
-        if not L:
-            irc.reply("I don't know any ban with that id.")
-            return
-
-        mask, channel, removal = L[0]
-        type = guessBanType(mask)
-        if type == 'quiet':
-            mask = mask[1:]
-        for br in self.managedBans:
-            if br.ban.id == id:
-                break
-        else:
-            br = None
-
-        expires = None
-        if br:
-            expires = (br.ban.when + br.expires) - nowSeconds()
+        if duration is not None:
             try:
-                expires = "expires in %s" % timeElapsed(expires)
+                duration = readTimeDelta(duration)
             except ValueError:
-                expires = "expires soon"
-        else:
-            if type in ('quiet', 'ban'):
-                if not removal:
-                    expires = "never expires"
+                irc.error("bad time format.")
+                return
+
+        banset = []
+        for id in splitID(ids):
+            if duration is not None:
+                # set ban duration
+                try:
+                    self._setBanDuration(id, duration)
+                    banset.append(str(id))
+                except Exception as exc:
+                    irc.reply("Failed to set duration time on ban %s (%s)" \
+                              % (id, exc))
+            else:
+                # get ban information
+                try:
+                    mask, channel, removal = self._getBan(id)
+                except ValueError:
+                    irc.reply("I don't know any ban with id %s." % id)
+                    continue
+
+                type = guessBanType(mask)
+                if type == 'quiet':
+                    mask = mask[1:]
+                for br in self.managedBans:
+                    if br.ban.id == id:
+                        break
                 else:
-                    expires = "not active"
+                    br = None
 
-        if expires:
-            irc.reply("[%s] %s - %s - %s - %s" % (id, type, mask, channel, expires))
-        else:
-            irc.reply("[%s] %s - %s - %s" % (id, type, mask, channel))
+                expires = None
+                if br:
+                    expires = (br.ban.when + br.expires) - nowSeconds()
+                    try:
+                        expires = "expires in %s" % timeElapsed(expires)
+                    except ValueError:
+                        expires = "expires soon"
+                else:
+                    if type in ('quiet', 'ban'):
+                        if not removal:
+                            expires = "never expires"
+                        else:
+                            expires = "not active"
 
+                if expires:
+                    irc.reply("[%s] %s - %s - %s - %s" % (id, type, mask, channel, expires))
+                else:
+                    irc.reply("[%s] %s - %s - %s" % (id, type, mask, channel))
 
-    baninfo = wrap(baninfo, [optional('id')])
+        # reply with the bans ids that were correctly set.
+        if banset:
+            irc.reply("Ban set for auto removal: %s" % ', '.join(banset))
+
+    duration = wrap(duration, [optional('something'), optional('text')])
 
     def banlink(self, irc, msg, args, id, highlight):
         """<id> [<highlight>]
