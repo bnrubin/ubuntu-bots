@@ -107,6 +107,9 @@ timeUnits = FuzzyDict({
 def readTimeDelta(s):
     """convert a string like "2 days" or "1h2d3w" into seconds"""
     # split number and words
+    if not s:
+        raise ValueError(s)
+
     digit = string = number = None
     seconds = 0
     for c in s:
@@ -137,6 +140,9 @@ def readTimeDelta(s):
             string += c
 
     # check last string
+    if string is None:
+        raise ValueError(s)
+
     if string.isdigit():
         seconds += int(string)
     else:

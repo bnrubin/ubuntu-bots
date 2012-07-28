@@ -130,6 +130,8 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertResponse('comment 1', 'No comments recorded for ban 1')
         self.assertResponse('comment 1 this is a test', 'The operation succeeded.')
         self.assertRegexp('comment 1', 'test: this is a test$')
+        self.assertResponse('comment 1 this is a test, another test',
+                            'The operation succeeded.')
 
     def testMultiComment(self):
         self.feedBan('asd!*@*')
