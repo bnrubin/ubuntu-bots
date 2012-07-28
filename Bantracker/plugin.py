@@ -1537,6 +1537,7 @@ class Bantracker(callbacks.Plugin):
         def addComment(id, nick, msg):
             n = now()
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, msg, n))
+
         def readComment(id):
             return self.db_run("SELECT who, comment, time FROM comments WHERE ban_id=%i", (id,), True)
 
@@ -1580,9 +1581,8 @@ class Bantracker(callbacks.Plugin):
 
         # success reply. If duration time used, say which ones.
         if kickmsg:
-            if duration is not None:
-                if banset:
-                    irc.reply("Ban set for auto removal: %s" % ', '.join(banset))
+            if banset:
+                irc.replySuccess("%s set to expire." % ', '.join(banset))
             else:
                 irc.replySuccess()
 
@@ -1615,7 +1615,7 @@ class Bantracker(callbacks.Plugin):
                     self._setBanDuration(id, duration)
                     banset.append(str(id))
                 except Exception as exc:
-                    irc.reply("Failed to set duration time on ban %s (%s)" \
+                    irc.reply("Failed to set duration time on %s (%s)" \
                               % (id, exc))
             else:
                 # get ban information
@@ -1655,7 +1655,7 @@ class Bantracker(callbacks.Plugin):
 
         # reply with the bans ids that were correctly set.
         if banset:
-            irc.reply("Ban set for auto removal: %s" % ', '.join(banset))
+            irc.reply("%s set to expire." % ', '.join(banset))
 
     duration = wrap(duration, [optional('something'), optional('text')])
 

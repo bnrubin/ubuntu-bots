@@ -128,9 +128,13 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertResponse('comment 1', "I don't know any ban with id 1.")
         self.feedBan('asd!*@*')
         self.assertResponse('comment 1', 'No comments recorded for ban 1')
-        self.assertResponse('comment 1 this is a test', 'The operation succeeded.')
+        self.assertResponse('comment 1 this is a test',
+                            'The operation succeeded.')
         self.assertRegexp('comment 1', 'test: this is a test$')
         self.assertResponse('comment 1 this is a test, another test',
+                            'The operation succeeded.')
+        self.feedBan('nick', mode='k')
+        self.assertResponse('comment 2 this is a kick, 2week',
                             'The operation succeeded.')
 
     def testMultiComment(self):
@@ -146,7 +150,8 @@ class BantrackerTestCase(ChannelPluginTestCase):
 
     def testCommentDuration(self):
         self.feedBan('asd!*@*')
-        self.assertResponse('comment 1 this is a test, 1 week 10', 'Ban set for auto removal: 1')
+        self.assertResponse('comment 1 this is a test, 1 week 10',
+                            'The operation succeeded.  1 set to expire.')
         self.assertRegexp('comment 1', 'test: this is a test, 1 week 10$')
         self.assertRegexp('duration 1', 'expires in 1 week$')
 
@@ -408,9 +413,9 @@ class BantrackerTestCase(ChannelPluginTestCase):
     def testDurationMultiSet(self):
         self.feedBan('asd!*@*')
         self.assertResponse('duration 1,2 10',
-                            "Failed to set duration time on ban 2 (unknow id)")
+                "Failed to set duration time on 2 (unknow id)")
         msg = self.irc.takeMsg()
-        self.assertEqual(msg.args[1], "test: Ban set for auto removal: 1")
+        self.assertEqual(msg.args[1], "test: 1 set to expire.")
 
 
     def testDurationQuiet(self):
@@ -426,19 +431,20 @@ class BantrackerTestCase(ChannelPluginTestCase):
     def testDurationBadType(self):
         self.feedBan('nick', mode='k')
         self.assertResponse('duration 1 0',
-            "Failed to set duration time on ban 1 (not a ban or quiet)")
+                "Failed to set duration time on 1 (not a ban or quiet)")
         self.feedBan('$a:nick')
-        self.assertResponse('duration 2 0', 'Ban set for auto removal: 2')
+        self.assertResponse('duration 2 0', '2 set to expire.')
 
     def testDurationBadId(self):
-        self.assertResponse('duration 1 0', "Failed to set duration time on ban 1 (unknow id)")
+        self.assertResponse('duration 1 0', 
+                "Failed to set duration time on 1 (unknow id)")
 
     def testDurationInactiveBan(self):
         self.feedBan('asd!*@*')
         self.irc.feedMsg(ircmsgs.unban(self.channel, 'asd!*@*', 
                                        'op!user@host.net'))
         self.assertResponse('duration 1 0', 
-                            "Failed to set duration time on ban 1 (ban was removed)")
+                "Failed to set duration time on 1 (ban was removed)")
 
     def testDurationTimeFormat(self):
         cb = self.getCallback()
@@ -502,14 +508,18 @@ class BantrackerTestCase(ChannelPluginTestCase):
     def testBaninfo(self):
         cb = self.getCallback()
         self.feedBan('asd!*@*')
-        self.assertResponse('duration 1', '[1] ban - asd!*@* - #test - never expires')
+        self.assertResponse('duration 1', 
+                "[1] ban - asd!*@* - #test - never expires")
         self.assertNotError('duration 1 10')
-        self.assertResponse('duration 1', '[1] ban - asd!*@* - #test - expires soon')
+        self.assertResponse('duration 1', 
+                "[1] ban - asd!*@* - #test - expires soon")
         self.assertNotError('duration 1 34502')
-        self.assertResponse('duration 1', '[1] ban - asd!*@* - #test - expires in 9 hours and 35 minutes')
+        self.assertResponse('duration 1', 
+                "[1] ban - asd!*@* - #test - expires in 9 hours and 35 minutes")
         self.irc.feedMsg(ircmsgs.unban(self.channel, 'asd!*@*', 
                                        'op!user@host.net'))
-        self.assertResponse('duration 1', '[1] ban - asd!*@* - #test - not active')
+        self.assertResponse('duration 1', 
+                "[1] ban - asd!*@* - #test - not active")
 
     def testBaninfoGeneral(self):
         cb = self.getCallback()
