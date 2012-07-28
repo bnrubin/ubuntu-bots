@@ -136,6 +136,8 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.feedBan('nick', mode='k')
         self.assertResponse('comment 2 this is a kick, 2week',
                             'The operation succeeded.')
+        self.assertResponse('comment 1 not a valid, duration 2',
+                            'The operation succeeded.')
 
     def testMultiComment(self):
         self.feedBan('asd!*@*')

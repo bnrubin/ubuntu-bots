@@ -113,6 +113,9 @@ def readTimeDelta(s):
     digit = string = number = None
     seconds = 0
     for c in s:
+        if c == ' ':
+            continue
+
         if c.isdigit():
             if string is None:
                 # start
@@ -132,7 +135,7 @@ def readTimeDelta(s):
         else:
             if digit is None:
                 # need a number first
-                continue
+                raise ValueError(s)
             if digit is True:
                 digit = False
                 # completed a number
@@ -1544,7 +1547,7 @@ class Bantracker(callbacks.Plugin):
         nick = msg.nick
         duration, banset = None, []
         if kickmsg and ',' in kickmsg:
-            s = kickmsg[kickmsg.rfind(','):]
+            s = kickmsg[kickmsg.rfind(',') + 1:]
             try:
                 duration = readTimeDelta(s)
             except ValueError:
