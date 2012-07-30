@@ -1601,7 +1601,7 @@ class Bantracker(callbacks.Plugin):
         if ids is None:
             count = len(self.managedBans)
             L = [ str(item.ban.id) for item in self.managedBans ]
-            irc.reply("%s bans set to expire: %s" % (count, utils.str.format('%L', L)))
+            irc.reply(utils.str.format("%n set to expire: %L", (count, 'ban'), L))
             return
 
         if duration is not None:

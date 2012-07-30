@@ -532,7 +532,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.feedBan('asd!*@*')
         self.feedBan('qwe!*@*')
         self.assertNotError('duration 1 1d')
-        self.assertResponse('duration', "1 bans set to expire: 1")
+        self.assertResponse('duration', "1 ban set to expire: 1")
         self.assertNotError('duration 2 1d')
         self.assertResponse('duration', "2 bans set to expire: 1 and 2")
 
