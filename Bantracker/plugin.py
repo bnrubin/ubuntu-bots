@@ -1533,8 +1533,8 @@ class Bantracker(callbacks.Plugin):
     def comment(self, irc, msg, args, ids, kickmsg):
         """<id>[,<id> ...] [<comment>][, <duration>]
 
-        Reads or adds the <comment> for the ban with <id>,
-        use @bansearch to find the id of a ban
+        Reads or adds the <comment> for the ban with <id>, use @bansearch to
+        find the id of a ban. Using <duration> will set the duration of the ban.
         """
 
         def addComment(id, nick, msg):
@@ -1555,7 +1555,7 @@ class Bantracker(callbacks.Plugin):
 
         for id in splitID(ids):
             try:
-                mask, channel, removal = self._getBan(id)
+                self._getBan(id)
             except ValueError:
                 irc.reply("I don't know any ban with id %s." % id)
                 continue
@@ -1564,15 +1564,11 @@ class Bantracker(callbacks.Plugin):
                 addComment(id, nick, kickmsg)
                 if duration is not None:
                     # set duration time
-                    type = guessBanType(mask)
-                    if type not in ('ban', 'quiet'):
-                        continue
-
                     try:
                         self._setBanDuration(id, duration)
                         banset.append(str(id))
                     except Exception as exc:
-                        irc.reply("Failed to set duration time on ban %s (%s)" % (id, exc))
+                        irc.reply("Failed to set duration time on %s (%s)" % (id, exc))
             else:
                 data = readComment(id)
                 if data:
@@ -1582,25 +1578,30 @@ class Bantracker(callbacks.Plugin):
                 else:
                     irc.reply("No comments recorded for ban %s" % id)
 
-        # success reply. If duration time used, say which ones.
+        # success reply. If duration time used, say which ones were set.
         if kickmsg:
             if banset:
-                irc.replySuccess("%s set to expire." % ', '.join(banset))
+                try:
+                    time = 'after ' + timeElapsed(duration)
+                except ValueError:
+                    time = 'soon'
+                irc.reply("Comment added. %s will be removed %s." \
+                          % (utils.str.format('%L', banset), time))
             else:
-                irc.replySuccess()
+                # only a comment
+                irc.reply("Comment added.")
 
     comment = wrap(comment, ['something', optional('text')])
 
     def duration(self, irc, msg, args, ids, duration):
         """[<id>[,<id> ...]] [<duration>]
 
-        Sets the duration of a ban. If <duration> isn't given show when a ban expires.
-        If no <id> is given shows the ids of bans set to expire.
+        Sets the duration of a ban. If <duration> isn't given show when a ban expires. f no <id> is given shows the ids of bans set to expire.
         """
         if ids is None:
             count = len(self.managedBans)
             L = [ str(item.ban.id) for item in self.managedBans ]
-            irc.reply("%s bans set to expire: %s" % (count, ', '.join(L)))
+            irc.reply("%s bans set to expire: %s" % (count, utils.str.format('%L', L)))
             return
 
         if duration is not None:
@@ -1640,10 +1641,13 @@ class Bantracker(callbacks.Plugin):
                 expires = None
                 if br:
                     expires = (br.ban.when + br.expires) - nowSeconds()
-                    try:
-                        expires = "expires in %s" % timeElapsed(expires)
-                    except ValueError:
-                        expires = "expires soon"
+                    if expires > 0:
+                        try:
+                            expires = "expires in %s" % timeElapsed(expires)
+                        except ValueError:
+                            expires = "expires soon"
+                    else:
+                        expires = "expired and will be removed soon"
                 else:
                     if type in ('quiet', 'ban'):
                         if not removal:
@@ -1658,7 +1662,11 @@ class Bantracker(callbacks.Plugin):
 
         # reply with the bans ids that were correctly set.
         if banset:
-            irc.reply("%s set to expire." % ', '.join(banset))
+            try:
+                time = 'after ' + timeElapsed(duration)
+            except ValueError:
+                time = 'soon'
+            irc.reply("%s will be removed %s." % (utils.str.format('%L', banset), time))
 
     duration = wrap(duration, [optional('something'), optional('text')])
 

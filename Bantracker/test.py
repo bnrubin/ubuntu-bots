@@ -129,31 +129,34 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.feedBan('asd!*@*')
         self.assertResponse('comment 1', 'No comments recorded for ban 1')
         self.assertResponse('comment 1 this is a test',
-                            'The operation succeeded.')
+                            'Comment added.')
         self.assertRegexp('comment 1', 'test: this is a test$')
         self.assertResponse('comment 1 this is a test, another test',
-                            'The operation succeeded.')
+                            'Comment added.')
         self.feedBan('nick', mode='k')
         self.assertResponse('comment 2 this is a kick, 2week',
-                            'The operation succeeded.')
+                            "Failed to set duration time on 2 (not a ban or quiet)")
+        msg = self.irc.takeMsg()
+        self.assertEqual(msg.args[1], 'test: Comment added.')
         self.assertResponse('comment 1 not a valid, duration 2',
-                            'The operation succeeded.')
+                            'Comment added.')
 
     def testMultiComment(self):
         self.feedBan('asd!*@*')
         self.feedBan('qwe!*@*')
-        self.assertResponse('comment 1,2,3 this is a test',
+        self.assertResponse('comment 1,2,3 this is a test, 2 days',
                             "I don't know any ban with id 3.")
         msg = self.irc.takeMsg()
-        self.assertEqual(msg.args[1], "test: The operation succeeded.")
-        self.assertRegexp('comment 1,2', 'test: this is a test$')
+        self.assertEqual(msg.args[1], 
+                "test: Comment added. 1 and 2 will be removed after 2 days.")
+        self.assertRegexp('comment 1,2', 'test: this is a test, 2 days$')
         msg = self.irc.takeMsg()
-        self.assertTrue(msg.args[1].endswith("test: this is a test"))
+        self.assertTrue(msg.args[1].endswith("test: this is a test, 2 days"))
 
     def testCommentDuration(self):
         self.feedBan('asd!*@*')
         self.assertResponse('comment 1 this is a test, 1 week 10',
-                            'The operation succeeded.  1 set to expire.')
+                            'Comment added. 1 will be removed after 1 week.')
         self.assertRegexp('comment 1', 'test: this is a test, 1 week 10$')
         self.assertRegexp('duration 1', 'expires in 1 week$')
 
@@ -385,7 +388,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.feedBan('asd!*@*')
         cb.autoRemoveBans(self.irc)
         self.assertFalse(cb.managedBans)
-        self.assertNotError('duration 1 1')
+        self.assertResponse('duration 1 1', "1 will be removed soon.")
         self.assertTrue(cb.managedBans) # ban in list
         print 'waiting 2 secs ...'
         time.sleep(2)
@@ -414,10 +417,11 @@ class BantrackerTestCase(ChannelPluginTestCase):
 
     def testDurationMultiSet(self):
         self.feedBan('asd!*@*')
-        self.assertResponse('duration 1,2 10',
+        self.assertResponse('duration 1,2 10d',
                 "Failed to set duration time on 2 (unknow id)")
         msg = self.irc.takeMsg()
-        self.assertEqual(msg.args[1], "test: 1 set to expire.")
+        self.assertEqual(msg.args[1],
+                "test: 1 will be removed after 1 week and 3 days.")
 
 
     def testDurationQuiet(self):
@@ -435,7 +439,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertResponse('duration 1 0',
                 "Failed to set duration time on 1 (not a ban or quiet)")
         self.feedBan('$a:nick')
-        self.assertResponse('duration 2 0', '2 set to expire.')
+        self.assertResponse('duration 2 0', '2 will be removed soon.')
 
     def testDurationBadId(self):
         self.assertResponse('duration 1 0', 
@@ -530,6 +534,6 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertNotError('duration 1 1d')
         self.assertResponse('duration', "1 bans set to expire: 1")
         self.assertNotError('duration 2 1d')
-        self.assertResponse('duration', "2 bans set to expire: 1, 2")
+        self.assertResponse('duration', "2 bans set to expire: 1 and 2")
 
 
