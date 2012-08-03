@@ -54,6 +54,7 @@ import supybot.conf as conf
 import supybot.ircdb as ircdb
 import supybot.schedule as schedule
 import supybot.utils as utils
+from supybot.utils.str import format as Format
 from fnmatch import fnmatch
 from collections import defaultdict
 import sqlite
@@ -116,7 +117,7 @@ def readTimeDelta(s):
         if c == ' ':
             continue
 
-        if c.isdigit():
+        if c in '+-0123456789':
             if string is None:
                 # start
                 digit, string = True, ''
@@ -146,9 +147,9 @@ def readTimeDelta(s):
     if string is None:
         raise ValueError(s)
 
-    if string.isdigit():
+    try:
         seconds += int(string)
-    else:
+    except ValueError:
         string = string.strip()
         if string:
             try:
@@ -1498,6 +1499,9 @@ class Bantracker(callbacks.Plugin):
         return L[0]
 
     def _setBanDuration(self, id, duration):
+        """Set ban for remove after <duration> time, if <duration> is negative
+        or zero, never remove the ban.
+        """
         # check if ban has already a duration time
         for idx, br in enumerate(self.managedBans):
             if id == br.ban.id:
@@ -1505,6 +1509,10 @@ class Bantracker(callbacks.Plugin):
                 del self.managedBans.shelf[idx]
                 break
         else:
+            if duration < 1:
+                # nothing to do.
+                raise Exception("ban isn't marked for removal")
+
             # ban obj ins't in self.managedBans
             try:
                 mask, channel, removal = self._getBan(id)
@@ -1527,8 +1535,9 @@ class Bantracker(callbacks.Plugin):
                 # ban not in sync it seems, shouldn't happen normally.
                 raise Exception("bans not in sync")
 
-        # add ban duration
-        self.managedBans.add(BanRemoval(ban, duration))
+        # add ban duration if is positive and non-zero
+        if duration > 0:
+            self.managedBans.add(BanRemoval(ban, duration))
 
     def comment(self, irc, msg, args, ids, kickmsg):
         """<id>[,<id> ...] [<comment>][, <duration>]
@@ -1581,12 +1590,16 @@ class Bantracker(callbacks.Plugin):
         # success reply. If duration time used, say which ones were set.
         if kickmsg:
             if banset:
+                if duration < 1:
+                    irc.reply(Format("Comment added. %L won't expire.", banset))
+                    return
+
                 try:
                     time = 'after ' + timeElapsed(duration)
                 except ValueError:
                     time = 'soon'
-                irc.reply("Comment added. %s will be removed %s." \
-                          % (utils.str.format('%L', banset), time))
+                irc.reply(Format("Comment added. %L will be removed %s.",
+                                 banset, time))
             else:
                 # only a comment
                 irc.reply("Comment added.")
@@ -1601,7 +1614,7 @@ class Bantracker(callbacks.Plugin):
         if ids is None:
             count = len(self.managedBans)
             L = [ str(item.ban.id) for item in self.managedBans ]
-            irc.reply(utils.str.format("%n set to expire: %L", (count, 'ban'), L))
+            irc.reply(Format("%n set to expire: %L", (count, 'ban'), L))
             return
 
         if duration is not None:
@@ -1662,11 +1675,15 @@ class Bantracker(callbacks.Plugin):
 
         # reply with the bans ids that were correctly set.
         if banset:
+            if duration < 1:
+                irc.reply(Format("%L won't expire.", banset))
+                return
+
             try:
                 time = 'after ' + timeElapsed(duration)
             except ValueError:
                 time = 'soon'
-            irc.reply("%s will be removed %s." % (utils.str.format('%L', banset), time))
+            irc.reply(Format("%L will be removed %s.", banset, time))
 
     duration = wrap(duration, [optional('something'), optional('text')])
 

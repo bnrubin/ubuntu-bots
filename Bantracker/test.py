@@ -160,6 +160,18 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertRegexp('comment 1', 'test: this is a test, 1 week 10$')
         self.assertRegexp('duration 1', 'expires in 1 week$')
 
+    def testCommentDurationRemove(self):
+        self.feedBan('asd!*@*')
+        self.assertResponse('comment 1 this is a test, -10',
+                "Failed to set duration time on 1 (ban isn't marked for removal)")
+        msg = self.irc.takeMsg()
+        self.assertEqual(msg.args[1], 'test: Comment added.')
+        self.assertResponse('comment 1 this is a test, 10',
+                            'Comment added. 1 will be removed soon.')
+        self.assertResponse('comment 1 this is a test, -10',
+                "Comment added. 1 won't expire.")
+        self.assertRegexp('duration 1', 'never expires$')
+
     def testCommentRequest(self):
         pluginConf.request.setValue(True)
         # test bans
@@ -397,6 +409,14 @@ class BantrackerTestCase(ChannelPluginTestCase):
         msg = self.irc.takeMsg() # unban msg
         self.assertEqual(str(msg).strip(), "MODE #test -b :asd!*@*")
 
+    def testDurationRemove(self):
+        self.feedBan('asd!*@*')
+        self.assertResponse('duration 1 -1',
+                "Failed to set duration time on 1 (ban isn't marked for removal)")
+        self.assertResponse('duration 1 10', '1 will be removed soon.')
+        self.assertResponse('duration 1 -1', "1 won't expire.")
+        self.assertRegexp('duration 1', 'never expires')
+
     def testDurationMergeModes(self):
         cb = self.getCallback()
         self.feedBan('asd!*@*')
@@ -405,9 +425,9 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.feedBan('asd!*@*', mode='q')
         self.feedBan('qwe!*@*', mode='q')
         self.feedBan('zxc!*@*', mode='q')
-        self.assertNotError('duration 1,2,3,4,5,6 0')
-        print 'waiting 1 secs ...'
-        time.sleep(1)
+        self.assertNotError('duration 1,2,3,4,5,6 1')
+        print 'waiting 2 secs ...'
+        time.sleep(2)
         cb.autoRemoveBans(self.irc)
         msg = self.irc.takeMsg() # unban msg
         self.assertEqual(str(msg).strip(),
@@ -427,29 +447,29 @@ class BantrackerTestCase(ChannelPluginTestCase):
     def testDurationQuiet(self):
         cb = self.getCallback()
         self.feedBan('asd!*@*', mode='q')
-        self.assertNotError('duration 1 0')
-        print 'waiting 1 sec ...'
-        time.sleep(1)
+        self.assertNotError('duration 1 1')
+        print 'waiting 2 sec ...'
+        time.sleep(2)
         cb.autoRemoveBans(self.irc)
         msg = self.irc.takeMsg() # unban msg
         self.assertEqual(str(msg).strip(), "MODE #test -q :asd!*@*")
 
     def testDurationBadType(self):
         self.feedBan('nick', mode='k')
-        self.assertResponse('duration 1 0',
+        self.assertResponse('duration 1 1',
                 "Failed to set duration time on 1 (not a ban or quiet)")
         self.feedBan('$a:nick')
-        self.assertResponse('duration 2 0', '2 will be removed soon.')
+        self.assertResponse('duration 2 1', '2 will be removed soon.')
 
     def testDurationBadId(self):
-        self.assertResponse('duration 1 0', 
+        self.assertResponse('duration 1 1', 
                 "Failed to set duration time on 1 (unknow id)")
 
     def testDurationInactiveBan(self):
         self.feedBan('asd!*@*')
         self.irc.feedMsg(ircmsgs.unban(self.channel, 'asd!*@*', 
                                        'op!user@host.net'))
-        self.assertResponse('duration 1 0', 
+        self.assertResponse('duration 1 1', 
                 "Failed to set duration time on 1 (ban was removed)")
 
     def testDurationTimeFormat(self):
