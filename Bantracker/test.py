@@ -124,6 +124,16 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.irc.feedMsg(ban)
         return ban
 
+    def op(self):
+        msg = ircmsgs.mode(self.channel, ('+o', self.irc.nick),
+                    'Chanserv!service@service')
+        self.irc.feedMsg(msg)
+
+    def deop(self):
+        msg = ircmsgs.mode(self.channel, ('-o', self.irc.nick),
+                    'Chanserv!service@service')
+        self.irc.feedMsg(msg)
+
     def testComment(self):
         self.assertResponse('comment 1', "I don't know any ban with id 1.")
         self.feedBan('asd!*@*')
@@ -396,6 +406,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertEqual((1, '#test', 'troll', 'op'), fetch[0])
 
     def testDuration(self):
+        self.op()
         cb = self.getCallback()
         self.feedBan('asd!*@*')
         cb.autoRemoveBans(self.irc)
@@ -418,6 +429,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertRegexp('duration 1', 'never expires')
 
     def testDurationMergeModes(self):
+        self.op()
         cb = self.getCallback()
         self.feedBan('asd!*@*')
         self.feedBan('qwe!*@*')
@@ -443,8 +455,8 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertEqual(msg.args[1],
                 "test: 1 will be removed after 1 week and 3 days.")
 
-
     def testDurationQuiet(self):
+        self.op()
         cb = self.getCallback()
         self.feedBan('asd!*@*', mode='q')
         self.assertNotError('duration 1 1')
@@ -555,5 +567,27 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertResponse('duration', "1 ban set to expire: 1")
         self.assertNotError('duration 2 1d')
         self.assertResponse('duration', "2 bans set to expire: 1 and 2")
+
+    def testOpTrack(self):
+        cb = self.getCallback()
+        self.assertEqual(cb.opped['#test'], False)
+        self.op()
+        self.assertEqual(cb.opped['#test'], True)
+        self.deop()
+        self.assertEqual(cb.opped['#test'], False)
+
+    def testOpDuration(self):
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.assertResponse('duration 1 1', "1 will be removed soon.")
+        print 'waiting 2 secs ...'
+        time.sleep(2)
+        cb.autoRemoveBans(self.irc)
+        msg = self.irc.takeMsg() # op msg
+        self.assertEqual(str(msg).strip(), "PRIVMSG Chanserv :op #test test")
+        self.op()
+        msg = self.irc.takeMsg() # unban msg
+        self.assertEqual(str(msg).strip(), "MODE #test -bo asd!*@* :test")
+
 
 

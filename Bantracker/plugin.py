@@ -497,7 +497,7 @@ class Bantracker(callbacks.Plugin):
        See '@list Bantracker' and '@help <command>' for commands"""
     noIgnore = True
     threaded = True
-    
+
     def __init__(self, irc):
         self.__parent = super(Bantracker, self)
         self.__parent.__init__(irc)
@@ -509,6 +509,8 @@ class Bantracker(callbacks.Plugin):
         self.nicks = {}
         self.hosts = {}
         self.bans = ircutils.IrcDict()
+        self.opped = defaultdict(lambda: False)
+        self.pendingBanremoval = {}
 
         self.thread_timer = threading.Timer(10.0, dequeue, args=(self,irc))
         self.thread_timer.start()
@@ -535,7 +537,6 @@ class Bantracker(callbacks.Plugin):
                                   name=self.name() + '_review')
         schedule.addPeriodicEvent(lambda: self.autoRemoveBans(irc), 600,
                                   name=self.name() + '_autoremove')
-
 
     def get_nicks(self, irc):
         self.hosts.clear()
@@ -892,6 +893,21 @@ class Bantracker(callbacks.Plugin):
             if not L:
                 del self.pendingReviews[None]
 
+    def getOp(self, irc, channel):
+        msg = ircmsgs.privmsg('Chanserv', "op %s %s" % (channel, irc.nick))
+        irc.queueMsg(msg)
+
+    def removeBans(self, irc, channel, modes, deop=False):
+        # send unban messages, with 4 modes max each.
+        maxModes = 4
+        if deop:
+            modes.append(('-o', irc.nick))
+        for i in range(len(modes) / maxModes + 1):
+            L = modes[i * maxModes : (i + 1) * maxModes]
+            if L:
+                msg = ircmsgs.mode(channel, ircutils.joinModes(L))
+                irc.queueMsg(msg)
+
     def autoRemoveBans(self, irc):
         modedict = { 'quiet': '-q', 'ban': '-b' }
         unbandict = defaultdict(list)
@@ -907,14 +923,12 @@ class Bantracker(callbacks.Plugin):
                                                       mask,
                                                       channel)
             unbandict[channel].append((modedict[type], mask))
-        # send unban messages, with 4 modes max each.
-        maxModes = 4
         for channel, modes in unbandict.iteritems():
-            for i in range(len(modes) / maxModes + 1):
-                L = modes[i * maxModes : (i + 1) * maxModes]
-                if L:
-                    msg = ircmsgs.mode(channel, ircutils.joinModes(L))
-                    irc.queueMsg(msg)
+            if not self.opped[channel]:
+                self.pendingBanremoval[channel] = modes
+                self.getOp(irc, channel)
+            else:
+                self.removeBans(irc, channel, modes)
 
         # notify about bans soon to expire
         for ban in self.managedBans.getExpired(600):
@@ -1076,29 +1090,37 @@ class Bantracker(callbacks.Plugin):
                         ' '.join(msg.args[2:])))
             modes = ircutils.separateModes(msg.args[1:])
             for param in modes:
-                realname = ''
                 mode = param[0]
-                mask = ''
-                comment=None
-                if param[0] not in ("+b", "-b", "+q", "-q"):
+                # op stuff
+                if mode[1] == "o":
+                    if ircutils.nickEqual(irc.nick, param[1]):
+                        opped = self.opped[channel] = mode[0] == '+'
+                        if opped == True:
+                            # check if we have bans to remove
+                            if channel in self.pendingBanremoval:
+                                modes = self.pendingBanremoval.pop(channel)
+                                self.removeBans(irc, channel, modes, deop=True)
                     continue
+
+                # channel mask stuff
+                realname = mask = ''
+                comment = None
+                if mode[1] not in "bq":
+                    continue
+
                 mask = param[1]
                 if mask.startswith("$r:"):
                     mask = mask[3:]
                     realname = ' (realname)'
 
-                if param[0][1] == 'q':
+                if mode[1] == 'q':
                     mask = '%' + mask
 
-                if param[0] in ('+b', '+q'):
+                if mode[0] == '+':
                     comment = self.getHostFromBan(irc, msg, mask)
                     ban = self.doKickban(irc, channel, msg.prefix, mask + realname, 
                                          extra_comment=comment)
-                    if False:
-                        # FIXME ban autoremove should be set with a command, but I'm 
-                        # lazy.
-                        self.managedBans.add(BanRemoval(ban, 1))
-                elif param[0] in ('-b', '-q'):
+                elif mode[0] == '-':
                     self.doUnban(irc,channel, msg.nick, mask + realname)
 
     def getHostFromBan(self, irc, msg, mask):
