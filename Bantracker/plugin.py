@@ -534,9 +534,9 @@ class Bantracker(callbacks.Plugin):
 
         # add our scheduled events for check bans for reviews or removal
         schedule.addPeriodicEvent(lambda: self.reviewBans(irc), 60*60,
-                                  name=self.name() + '_review')
+                                  'Bantracker_review')
         schedule.addPeriodicEvent(lambda: self.autoRemoveBans(irc), 600,
-                                  name=self.name() + '_autoremove')
+                                  'Bantracker_autoremove')
 
     def get_nicks(self, irc):
         self.hosts.clear()
@@ -896,6 +896,19 @@ class Bantracker(callbacks.Plugin):
     def getOp(self, irc, channel):
         msg = ircmsgs.privmsg('Chanserv', "op %s %s" % (channel, irc.nick))
         irc.queueMsg(msg)
+        schedule.addEvent(lambda: self._getOpFail(irc, channel), 60,
+                          'Bantracker_getop_%s' % channel)
+
+    def _getOpFail(self, irc, channel):
+        for c in self.registryValue('autoremove.notify.channels', channel):
+            notice = ircmsgs.notice(c, "Failed to get op in %s" % channel)
+            irc.queueMsg(notice)
+
+    def _getOpOK(self, channel):
+        try:
+            schedule.removeEvent('Bantracker_getop_%s' % channel)
+        except KeyError:
+            pass
 
     def removeBans(self, irc, channel, modes, deop=False):
         # send unban messages, with 4 modes max each.
@@ -1096,6 +1109,7 @@ class Bantracker(callbacks.Plugin):
                     if ircutils.nickEqual(irc.nick, param[1]):
                         opped = self.opped[channel] = mode[0] == '+'
                         if opped == True:
+                            self._getOpOK(channel)
                             # check if we have bans to remove
                             if channel in self.pendingBanremoval:
                                 modes = self.pendingBanremoval.pop(channel)

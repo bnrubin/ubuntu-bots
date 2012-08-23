@@ -507,7 +507,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         cb = self.getCallback()
         self.feedBan('asd!*@*')
         self.assertNotError('duration 1 300')
-        pluginConf.autoremove.notify.channels().append('#test')
+        pluginConf.autoremove.notify.channels.set('#test')
         try:
             cb.autoRemoveBans(self.irc)
             msg = self.irc.takeMsg()
@@ -518,7 +518,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
             cb.autoRemoveBans(self.irc)
             self.assertFalse(self.irc.takeMsg())
         finally:
-            del pluginConf.autoremove.notify.channels()[:]
+            pluginConf.autoremove.notify.channels.set('')
 
     def testAutoremoveStore(self):
         self.feedBan('asd!*@*')
@@ -579,7 +579,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
     def testOpDuration(self):
         cb = self.getCallback()
         self.feedBan('asd!*@*')
-        self.assertResponse('duration 1 1', "1 will be removed soon.")
+        self.assertNotError('duration 1 1')
         print 'waiting 2 secs ...'
         time.sleep(2)
         cb.autoRemoveBans(self.irc)
@@ -589,5 +589,27 @@ class BantrackerTestCase(ChannelPluginTestCase):
         msg = self.irc.takeMsg() # unban msg
         self.assertEqual(str(msg).strip(), "MODE #test -bo asd!*@* :test")
 
+    def testOpFail(self):
+        import supybot.drivers as drivers
+        import supybot.schedule as schedule
+
+        pluginConf.autoremove.notify.channels.set('#test')
+        try:
+            cb = self.getCallback()
+            self.feedBan('asd!*@*')
+            self.assertNotError('duration 1 1')
+            print 'waiting 4 secs ...'
+            time.sleep(2)
+            cb.autoRemoveBans(self.irc)
+            msg = self.irc.takeMsg() # op msg
+            self.assertEqual(str(msg).strip(), "PRIVMSG Chanserv :op #test test")
+            schedule.rescheduleEvent('Bantracker_getop_#test', 1)
+            time.sleep(2)
+            drivers.run()
+            msg = self.irc.takeMsg() # fail msg
+            self.assertEqual(str(msg).strip(),
+                    "NOTICE #test :Failed to get op in #test")
+        finally:
+            pluginConf.autoremove.notify.channels.set('')
 
 
