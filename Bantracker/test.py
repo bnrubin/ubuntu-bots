@@ -609,6 +609,9 @@ class BantrackerTestCase(ChannelPluginTestCase):
             msg = self.irc.takeMsg() # fail msg
             self.assertEqual(str(msg).strip(),
                     "NOTICE #test :Failed to get op in #test")
+            self.op()
+            msg = self.irc.takeMsg() # unban msg
+            self.assertEqual(str(msg).strip(), "MODE #test -b :asd!*@*")
         finally:
             pluginConf.autoremove.notify.channels.set('')
 

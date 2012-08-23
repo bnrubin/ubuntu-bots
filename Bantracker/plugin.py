@@ -907,8 +907,9 @@ class Bantracker(callbacks.Plugin):
     def _getOpOK(self, channel):
         try:
             schedule.removeEvent('Bantracker_getop_%s' % channel)
+            return True
         except KeyError:
-            pass
+            return False
 
     def removeBans(self, irc, channel, modes, deop=False):
         # send unban messages, with 4 modes max each.
@@ -1109,11 +1110,11 @@ class Bantracker(callbacks.Plugin):
                     if ircutils.nickEqual(irc.nick, param[1]):
                         opped = self.opped[channel] = mode[0] == '+'
                         if opped == True:
-                            self._getOpOK(channel)
+                            opped_ok = self._getOpOK(channel)
                             # check if we have bans to remove
                             if channel in self.pendingBanremoval:
                                 modes = self.pendingBanremoval.pop(channel)
-                                self.removeBans(irc, channel, modes, deop=True)
+                                self.removeBans(irc, channel, modes, deop=opped_ok)
                     continue
 
                 # channel mask stuff
