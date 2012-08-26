@@ -57,6 +57,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
             else:
                 return f(*args, **kwargs)
         cb.check_auth = test_check_auth
+        cb.opped.clear()
 
     def setDb(self):
         import sqlite, os

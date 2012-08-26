@@ -411,9 +411,15 @@ class BanRemoval(object):
         self.expires = expires
         self.notified = False
 
+    def __getattr__(self, attr):
+        return getattr(self.ban, attr)
+
+    def timeLeft(self):
+        return (self.when + self.expires) - nowSeconds()
+
     def expired(self, offset=0):
         """Check if the ban did expire."""
-        if (nowSeconds() + offset) > (self.ban.when + self.expires):
+        if (nowSeconds() + offset) > (self.when + self.expires):
             return True
         return False
 
@@ -471,7 +477,7 @@ class BanStore(object):
     def sort(self):
         """Sort bans by expire date"""
         def key(x):
-            return x.ban.when + x.expires
+            return x.when + x.expires
 
         self.shelf.sort(key=key, reverse=True)
 
@@ -491,6 +497,12 @@ class BanStore(object):
                     yield ban
         return generator()
 
+# opStatus stores in which channels are we currently opped. We define it here
+# in a try-except block so it survives if the plugin is reloaded.
+try:
+    opStatus
+except:
+    opStatus = defaultdict(lambda: False)
 
 class Bantracker(callbacks.Plugin):
     """Plugin to manage bans.
@@ -509,7 +521,7 @@ class Bantracker(callbacks.Plugin):
         self.nicks = {}
         self.hosts = {}
         self.bans = ircutils.IrcDict()
-        self.opped = defaultdict(lambda: False)
+        self.opped = opStatus
         self.pendingBanremoval = {}
 
         self.thread_timer = threading.Timer(10.0, dequeue, args=(self,irc))
@@ -926,14 +938,14 @@ class Bantracker(callbacks.Plugin):
         modedict = { 'quiet': '-q', 'ban': '-b' }
         unbandict = defaultdict(list)
         for ban in self.managedBans.popExpired():
-            channel, mask, type = ban.ban.channel, ban.ban.mask, ban.ban.type
+            channel, mask, type = ban.channel, ban.mask, ban.type
             if not self.registryValue('autoremove', channel):
                 continue
 
             if type == 'quiet':
                 mask = mask[1:]
             self.log.info("%s [%s] %s in %s expired", type,
-                                                      ban.ban.id,
+                                                      ban.id,
                                                       mask,
                                                       channel)
             unbandict[channel].append((modedict[type], mask))
@@ -949,19 +961,19 @@ class Bantracker(callbacks.Plugin):
             if ban.notified:
                 continue
 
-            channel = ban.ban.channel
+            channel = ban.channel
             if not self.registryValue('autoremove', channel) \
                     or not self.registryValue('autoremove.notify', channel):
                 continue
 
-            type, mask = ban.ban.type, ban.ban.mask
+            type, mask = ban.type, ban.mask
             if type == 'quiet':
                 mask = mask[1:]
             for c in self.registryValue('autoremove.notify.channels', channel):
                 notice = ircmsgs.notice(c, "%s %s%s%s %s in %s will expire in a few minutes." \
                         % (type,
                            ircutils.mircColor('[', 'light green'),
-                           ircutils.bold(ban.ban.id),
+                           ircutils.bold(ban.id),
                            ircutils.mircColor(']', 'light green'),
                            ircutils.mircColor(mask, 'teal'),
                            ircutils.mircColor(channel, 'teal')))
@@ -1541,7 +1553,7 @@ class Bantracker(callbacks.Plugin):
         """
         # check if ban has already a duration time
         for idx, br in enumerate(self.managedBans):
-            if id == br.ban.id:
+            if id == br.id:
                 ban = br.ban
                 del self.managedBans.shelf[idx]
                 break
@@ -1650,7 +1662,7 @@ class Bantracker(callbacks.Plugin):
         """
         if ids is None:
             count = len(self.managedBans)
-            L = [ str(item.ban.id) for item in self.managedBans ]
+            L = [ str(item.id) for item in self.managedBans ]
             irc.reply(Format("%n set to expire: %L", (count, 'ban'), L))
             return
 
@@ -1683,14 +1695,14 @@ class Bantracker(callbacks.Plugin):
                 if type == 'quiet':
                     mask = mask[1:]
                 for br in self.managedBans:
-                    if br.ban.id == id:
+                    if br.id == id:
                         break
                 else:
                     br = None
 
                 expires = None
                 if br:
-                    expires = (br.ban.when + br.expires) - nowSeconds()
+                    expires = br.timeLeft()
                     if expires > 0:
                         try:
                             expires = "expires in %s" % timeElapsed(expires)
