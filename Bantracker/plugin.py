@@ -906,10 +906,12 @@ class Bantracker(callbacks.Plugin):
                 del self.pendingReviews[None]
 
     def getOp(self, irc, channel):
-        msg = ircmsgs.privmsg('Chanserv', "op %s %s" % (channel, irc.nick))
-        irc.queueMsg(msg)
-        schedule.addEvent(lambda: self._getOpFail(irc, channel), 60,
-                          'Bantracker_getop_%s' % channel)
+        name = 'Bantracker_getop_%s' % channel
+        # check if we aren't already waiting for op
+        if name not in schedule.schedule.events:
+            msg = ircmsgs.privmsg('Chanserv', "op %s %s" % (channel, irc.nick))
+            irc.queueMsg(msg)
+            schedule.addEvent(lambda: self._getOpFail(irc, channel), 60, name)
 
     def _getOpFail(self, irc, channel):
         for c in self.registryValue('autoremove.notify.channels', channel):
