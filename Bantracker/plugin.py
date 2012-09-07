@@ -53,11 +53,15 @@ import supybot.ircmsgs as ircmsgs
 import supybot.conf as conf
 import supybot.ircdb as ircdb
 import supybot.schedule as schedule
+import supybot.utils as utils
+from supybot.utils.str import format as Format
 from fnmatch import fnmatch
+from collections import defaultdict
 import sqlite
 import pytz
 import cPickle
 import datetime
+import csv
 import time
 import random
 import hashlib
@@ -70,8 +74,140 @@ tz = 'UTC'
 def now():
     return cPickle.dumps(datetime.datetime.now(pytz.timezone(tz)))
 
+def nowSeconds():
+    # apparently time.time() isn't the same thing.
+    # return time.time()
+    return int(time.mktime(time.gmtime()))
+
 def fromTime(x):
     return cPickle.dumps(datetime.datetime(*time.gmtime(x)[:6], **{'tzinfo': pytz.timezone("UTC")}))
+
+
+class FuzzyDict(dict):
+    def __getitem__(self, k):
+        try:
+            return dict.__getitem__(self, k)
+        except KeyError:
+            # ok, lets find the closest match
+            n = len(k)
+            keys = [ s for s in self if s[:n] == k ]
+            if len(keys) != 1:
+                # ambiguous
+                raise
+            return dict.__getitem__(self, keys[0])
+
+timeUnits = FuzzyDict({
+        'minutes': 60,      'm': 60,
+        'hours'  : 3600,    'M': 2592000,
+        'days'   : 86400,
+        'weeks'  : 604800,
+        'months' : 2592000,
+        'years'  : 31536000,
+        })
+
+def readTimeDelta(s):
+    """convert a string like "2 days" or "1h2d3w" into seconds"""
+    # split number and words
+    if not s:
+        raise ValueError(s)
+
+    digit = string = number = None
+    seconds = 0
+    for c in s:
+        if c == ' ':
+            continue
+
+        if c in '+-0123456789':
+            if string is None:
+                # start
+                digit, string = True, ''
+            elif digit is False:
+                digit = True
+                # completed an unit, add to seconds
+                string = string.strip()
+                if string:
+                    try:
+                        unit = timeUnits[string]
+                    except KeyError:
+                        raise ValueError(string)
+                    seconds += number * unit
+                    string = ''
+            string += c
+        else:
+            if digit is None:
+                # need a number first
+                raise ValueError(s)
+            if digit is True:
+                digit = False
+                # completed a number
+                number, string = int(string), ''
+            string += c
+
+    # check last string
+    if string is None:
+        raise ValueError(s)
+
+    try:
+        seconds += int(string)
+    except ValueError:
+        string = string.strip()
+        if string:
+            try:
+                unit = timeUnits[string]
+            except KeyError:
+                raise ValueError(string)
+            seconds += number * unit
+
+    return seconds
+
+# utils.gen.timeElapsed is too noisy, what do I care of the seconds and minutes
+# if the period is like a month long, or the zero values?
+def timeElapsed(elapsed, short=False, resolution=2):
+    """Given <elapsed> seconds, returns a string with an English description of
+    the amount of time passed.
+    """
+
+    ret = []
+    before = False
+    def Format(s, i):
+        if i:
+            if short:
+                ret.append('%s%s' % (i, s[0]))
+            else:
+                ret.append(utils.str.format('%n', (i, s)))
+    elapsed = int(elapsed)
+
+    # Handle negative times
+    if elapsed < 0:
+        before = True
+        elapsed = -elapsed
+
+    for s, i in (('year', 31536000), ('month', 2592000), ('week', 604800),
+                 ('day', 86400), ('hour', 3600), ('minute', 60)):
+        count, elapsed = elapsed // i, elapsed % i
+        Format(s, count)
+        if len(ret) == resolution:
+            break
+    #Format('second', elapsed) # seconds are pointless for now
+    if not ret:
+        raise ValueError, 'Time difference not great enough to be noted.'
+    result = ''
+    #ret = ret[:resolution]
+    if short:
+        result = ' '.join(ret)
+    else:
+        result = utils.str.format('%L', ret)
+    if before:
+        result += ' ago'
+    return result
+
+def splitID(s):
+    """get a list of integers from a comma separated list of numbers"""
+    for id in s.split(','):
+        if id.isdigit():
+            id = int(id)
+            if id > 0:
+                yield id
 
 def capab(user, capability):
     capability = capability.lower()
@@ -130,16 +266,19 @@ class MsgQueue(object):
 
 queue = MsgQueue()
 
+
 class Ban(object):
     """Hold my bans"""
     def __init__(self, args=None, **kwargs):
         self.id = None
         if args:
             # in most ircd: args = (nick, channel, mask, who, when)
+            self.channel = args[1]
             self.mask = args[2]
             self.who = args[3]
             self.when = float(args[4])
         else:
+            self.channel = kwargs['channel']
             self.mask = kwargs['mask']
             self.who = kwargs['who']
             self.when = float(kwargs['when'])
@@ -171,17 +310,53 @@ class Ban(object):
     def time(self):
         return datetime.datetime.fromtimestamp(self.when)
 
+    @property
+    def type(self):
+        return guessBanType(self.mask)
+
+    def serialize(self):
+        id = self.id
+        if id is None:
+            id = ''
+        return (id, self.channel, self.mask, self.who, self.when)
+
+    def deserialize(self, L):
+        id = L[0]
+        if id == '':
+            id = None
+        else:
+            id = int(id)
+        self.id = id
+        self.channel, self.mask, self.who = L[1:4]
+        self.when = float(L[4])
+        self.ascwhen = time.asctime(time.gmtime(self.when))
+
+
 def guessBanType(mask):
     if mask[0] == '%':
         return 'quiet'
-    elif ircutils.isUserHostmask(mask) or mask.endswith('(realname)'):
+    elif ircutils.isUserHostmask(mask) \
+            or mask[0] == '$' \
+            or mask.endswith('(realname)'):
+        if not ('*' in mask or '?' in mask or '$' in mask):
+            # XXX hack over hack, we are supposing these are marks as normal
+            # bans aren't usually set to exact match, while marks are.
+            return 'mark'
         return 'ban'
     return 'removal'
 
-class PersistentCache(dict):
+
+class ReviewStore(dict):
     def __init__(self, filename):
         self.filename = conf.supybot.directories.data.dirize(filename)
-        self.time = 0
+        self.lastReview = 0
+
+    def __getitem__(self, k):
+        try:
+            return dict.__getitem__(self, k)
+        except KeyError:
+            self[k] = L = []
+            return L
 
     def open(self):
         import csv
@@ -189,7 +364,7 @@ class PersistentCache(dict):
             reader = csv.reader(open(self.filename, 'rb'))
         except IOError:
             return
-        self.time = int(reader.next()[1])
+        self.lastReview = int(reader.next()[1])
         for row in reader:
             host, value = self.deserialize(*row)
             try:
@@ -205,7 +380,7 @@ class PersistentCache(dict):
             writer = csv.writer(open(self.filename, 'wb'))
         except IOError:
             return
-        writer.writerow(('time', str(int(self.time))))
+        writer.writerow(('time', str(int(self.lastReview))))
         for host, values in self.iteritems():
             for v in values:
                 writer.writerow(self.serialize(host, v))
@@ -225,13 +400,116 @@ class PersistentCache(dict):
         return (host, nick, command, channel, text)
 
 
+class BanRemoval(object):
+    """This object saves information about a ban that should be removed when expires"""
+    def __init__(self, ban, expires):
+        """
+        ban: ban object
+        expires: time in seconds for it to expire
+        """
+        self.ban = ban
+        self.expires = expires
+        self.notified = False
+
+    def __getattr__(self, attr):
+        return getattr(self.ban, attr)
+
+    def timeLeft(self):
+        return (self.when + self.expires) - nowSeconds()
+
+    def expired(self, offset=0):
+        """Check if the ban did expire."""
+        if (nowSeconds() + offset) > (self.when + self.expires):
+            return True
+        return False
+
+    def serialize(self):
+        notified = self.notified and 1 or 0
+        L = [ self.expires, notified ]
+        L.extend(self.ban.serialize())
+        return tuple(L)
+
+    def deserialize(self, L):
+        self.expires = int(L[0])
+        self.notified = bool(int(L[1]))
+        self.ban = Ban(args=(None, None, None, None, 0))
+        self.ban.deserialize(L[2:])
+
+def enumerateReversed(L):
+    """enumerate in reverse order"""
+    for i in reversed(xrange(len(L))):
+        yield i, L[i]
+
+class BanStore(object):
+    def __init__(self, filename):
+        self.filename = conf.supybot.directories.data.dirize(filename)
+        self.shelf = []
+
+    def __iter__(self):
+        return iter(self.shelf)
+
+    def __len__(self):
+        return len(self.shelf)
+
+    def open(self):
+        try:
+            reader = csv.reader(open(self.filename, 'rb'))
+        except IOError:
+            return
+
+        for row in reader:
+            ban = BanRemoval(None, None)
+            ban.deserialize(row)
+            self.add(ban)
+
+    def close(self):
+        try:
+            writer = csv.writer(open(self.filename, 'wb'))
+        except IOError:
+            return
+
+        for ban in self:
+            writer.writerow(ban.serialize())
+
+    def add(self, obj):
+        self.shelf.append(obj)
+
+    def sort(self):
+        """Sort bans by expire date"""
+        def key(x):
+            return x.when + x.expires
+
+        self.shelf.sort(key=key, reverse=True)
+
+    def popExpired(self, time=0):
+        """Pops a list of expired bans"""
+        L = []
+        for i, ban in enumerateReversed(self.shelf):
+            if ban.expired(offset=time):
+                L.append(ban)
+                del self.shelf[i]
+        return L
+
+    def getExpired(self, time=0):
+        def generator():
+            for ban in self.shelf:
+                if ban.expired(offset=time):
+                    yield ban
+        return generator()
+
+# opStatus stores in which channels are we currently opped. We define it here
+# in a try-except block so it survives if the plugin is reloaded.
+try:
+    opStatus
+except:
+    opStatus = defaultdict(lambda: False)
 
 class Bantracker(callbacks.Plugin):
     """Plugin to manage bans.
        See '@list Bantracker' and '@help <command>' for commands"""
     noIgnore = True
     threaded = True
-    
+
     def __init__(self, irc):
         self.__parent = super(Bantracker, self)
         self.__parent.__init__(irc)
@@ -243,6 +521,8 @@ class Bantracker(callbacks.Plugin):
         self.nicks = {}
         self.hosts = {}
         self.bans = ircutils.IrcDict()
+        self.opped = opStatus
+        self.pendingBanremoval = {}
 
         self.thread_timer = threading.Timer(10.0, dequeue, args=(self,irc))
         self.thread_timer.start()
@@ -254,16 +534,21 @@ class Bantracker(callbacks.Plugin):
             self.db = None
         self.get_bans(irc)
         self.get_nicks(irc)
-        self.pendingReviews = PersistentCache('bt.reviews.db')
+
+        # init review stuff
+        self.pendingReviews = ReviewStore('bt.reviews.db')
         self.pendingReviews.open()
         self._banreviewfix()
-        # add scheduled event for check bans that need review, check every hour
-        try:
-            schedule.removeEvent(self.name())
-        except:
-            pass
-        schedule.addPeriodicEvent(lambda : self.reviewBans(irc), 60*60,
-                name=self.name())
+
+        # init autoremove stuff
+        self.managedBans = BanStore('bt.autoremove.db')
+        self.managedBans.open()
+
+        # add our scheduled events for check bans for reviews or removal
+        schedule.addPeriodicEvent(lambda: self.reviewBans(irc), 60*60,
+                                  'Bantracker_review')
+        schedule.addPeriodicEvent(lambda: self.autoRemoveBans(irc), 600,
+                                  'Bantracker_autoremove')
 
     def get_nicks(self, irc):
         self.hosts.clear()
@@ -390,8 +675,10 @@ class Bantracker(callbacks.Plugin):
         except:
             pass
         queue.clear()
-        schedule.removeEvent(self.name())
+        schedule.removeEvent(self.name() + '_review')
+        schedule.removeEvent(self.name() + '_autoremove')
         self.pendingReviews.close()
+        self.managedBans.close()
 
     def reset(self):
         global queue
@@ -464,7 +751,7 @@ class Bantracker(callbacks.Plugin):
             return
         # check the type of the action taken
         mask = ban.mask
-        type = guessBanType(mask)
+        type = ban.type
         if type == 'quiet':
             mask = mask[1:]
         # check if type is enabled
@@ -479,11 +766,12 @@ class Bantracker(callbacks.Plugin):
         if nickMatch(nick, self.registryValue('request.ignore', channel)):
             return
         if nickMatch(nick, self.registryValue('request.forward', channel)):
+            # somebody else should comment this (like with bans set by bots)
             s = "Please somebody comment on the %s of %s in %s done by %s, use:"\
                 " %scomment %s <comment>" %(type, mask, channel, nick, prefix, ban.id)
             self._sendForward(irc, s, 'request', channel)
         else:
-            # send to op
+            # send to operator
             s = "Please comment on the %s of %s in %s, use: %scomment %s <comment>" \
                     %(type, mask, channel, prefix, ban.id)
             irc.reply(s, to=nick, private=True)
@@ -493,12 +781,13 @@ class Bantracker(callbacks.Plugin):
         if not reviewTime:
             # time is zero, do nothing
             return
-        now = time.mktime(time.gmtime())
-        lastreview = self.pendingReviews.time
-        self.pendingReviews.time = now # update last time reviewed
-        if not lastreview:
+
+        now = nowSeconds()
+        lastReview = self.pendingReviews.lastReview
+        self.pendingReviews.lastReview = now # update last time reviewed
+        if not lastReview:
             # initialize last time reviewed timestamp
-            lastreview = now - reviewTime
+            lastReview = now - reviewTime
 
         for channel, bans in self.bans.iteritems():
             if not self.registryValue('enabled', channel) \
@@ -510,17 +799,17 @@ class Bantracker(callbacks.Plugin):
                 # the less I touch it the better.
                 if ban.mask.endswith('$#ubuntu-read-topic'):
                     continue
-                type = guessBanType(ban.mask)
-                if type == 'removal':
-                    # skip kicks
+
+                type = ban.type
+                if type in ('removal', 'mark'):
+                    # skip kicks and marks
                     continue
-                if not ('*' in ban.mask or '?' in ban.mask or '$' in ban.mask):
-                    # XXX hack over hack, we are supposing these are marks.
-                    continue
+
                 banAge = now - ban.when
-                reviewWindow = lastreview - ban.when
-                #self.log.debug('review ban: %s ban %s by %s (%s/%s/%s %s)', channel, ban.mask,
-                #        ban.who, reviewWindow, reviewTime, banAge, reviewTime - reviewWindow)
+                reviewWindow = lastReview - ban.when
+                #self.log.debug('review ban: %s ban %s by %s (%s/%s/%s %s)', 
+                #        channel, ban.mask, ban.who, reviewWindow, reviewTime,
+                #        banAge, reviewTime - reviewWindow)
                 if reviewWindow <= reviewTime < banAge:
                     # ban is old enough, and inside the "review window"
                     try:
@@ -563,11 +852,8 @@ class Bantracker(callbacks.Plugin):
                                    self.registryValue('bansite'),
                                    ban.id)
                         msg = ircmsgs.privmsg(nick, s)
-                        if host in self.pendingReviews \
-                            and (nick, msg) not in self.pendingReviews[host]:
+                        if (nick, msg) not in self.pendingReviews[host]:
                             self.pendingReviews[host].append((nick, msg))
-                        else:
-                            self.pendingReviews[host] = [(nick, msg)]
                 elif banAge < reviewTime:
                     # since we made sure bans are sorted by time, the bans left are more recent
                     break
@@ -596,10 +882,7 @@ class Bantracker(callbacks.Plugin):
         self.pendingReviews.clear()
 
         for host, nick, msg in nodups:
-            if host in self.pendingReviews:
-                self.pendingReviews[host].append((nick, msg))
-            else:
-                self.pendingReviews[host] = [(nick, msg)]
+            self.pendingReviews[host].append((nick, msg))
 
     def _sendReviews(self, irc, msg):
         host = ircutils.hostFromHostmask(msg.prefix)
@@ -621,6 +904,81 @@ class Bantracker(callbacks.Plugin):
                     del L[i]
             if not L:
                 del self.pendingReviews[None]
+
+    def getOp(self, irc, channel):
+        msg = ircmsgs.privmsg('Chanserv', "op %s %s" % (channel, irc.nick))
+        irc.queueMsg(msg)
+        schedule.addEvent(lambda: self._getOpFail(irc, channel), time.time() + 60,
+                          'Bantracker_getop_%s' % channel)
+
+    def _getOpFail(self, irc, channel):
+        for c in self.registryValue('autoremove.notify.channels', channel):
+            notice = ircmsgs.notice(c, "Failed to get op in %s" % channel)
+            irc.queueMsg(notice)
+
+    def _getOpOK(self, channel):
+        try:
+            schedule.removeEvent('Bantracker_getop_%s' % channel)
+            return True
+        except KeyError:
+            return False
+
+    def removeBans(self, irc, channel, modes, deop=False):
+        # send unban messages, with 4 modes max each.
+        maxModes = 4
+        if deop:
+            modes.append(('-o', irc.nick))
+        for i in range(len(modes) / maxModes + 1):
+            L = modes[i * maxModes : (i + 1) * maxModes]
+            if L:
+                msg = ircmsgs.mode(channel, ircutils.joinModes(L))
+                irc.queueMsg(msg)
+
+    def autoRemoveBans(self, irc):
+        modedict = { 'quiet': '-q', 'ban': '-b' }
+        unbandict = defaultdict(list)
+        for ban in self.managedBans.popExpired():
+            channel, mask, type = ban.channel, ban.mask, ban.type
+            if not self.registryValue('autoremove', channel):
+                continue
+
+            if type == 'quiet':
+                mask = mask[1:]
+            self.log.info("%s [%s] %s in %s expired", type,
+                                                      ban.id,
+                                                      mask,
+                                                      channel)
+            unbandict[channel].append((modedict[type], mask))
+        for channel, modes in unbandict.iteritems():
+            if not self.opped[channel]:
+                self.pendingBanremoval[channel] = modes
+                self.getOp(irc, channel)
+            else:
+                self.removeBans(irc, channel, modes)
+
+        # notify about bans soon to expire
+        for ban in self.managedBans.getExpired(600):
+            if ban.notified:
+                continue
+
+            channel = ban.channel
+            if not self.registryValue('autoremove', channel) \
+                    or not self.registryValue('autoremove.notify', channel):
+                continue
+
+            type, mask = ban.type, ban.mask
+            if type == 'quiet':
+                mask = mask[1:]
+            for c in self.registryValue('autoremove.notify.channels', channel):
+                notice = ircmsgs.notice(c, "%s %s%s%s %s in %s will expire in a few minutes." \
+                        % (type,
+                           ircutils.mircColor('[', 'light green'),
+                           ircutils.bold(ban.id),
+                           ircutils.mircColor(']', 'light green'),
+                           ircutils.mircColor(mask, 'teal'),
+                           ircutils.mircColor(channel, 'teal')))
+                irc.queueMsg(notice)
+            ban.notified = True
 
     def doLog(self, irc, channel, s):
         if not self.registryValue('enabled', channel):
@@ -655,7 +1013,7 @@ class Bantracker(callbacks.Plugin):
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, kickmsg, n))
         if extra_comment:
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, extra_comment, n))
-        ban = Ban(mask=target, who=operator, when=time.mktime(time.gmtime()), id=id)
+        ban = Ban(mask=target, who=operator, when=time.mktime(time.gmtime()), id=id, channel=channel)
         if add_to_cache:
             if channel not in self.bans:
                 self.bans[channel] = []
@@ -670,11 +1028,13 @@ class Bantracker(callbacks.Plugin):
             self.db_run("UPDATE bans SET removal=%s , removal_op=%s WHERE id=%s", (now(), nick, int(data[0][0])))
         if not channel in self.bans:
             self.bans[channel] = []
-        for ban in self.bans[channel]:
+        for idx, ban in enumerateReversed(self.bans[channel]):
             if ban.mask == mask:
-                idx = self.bans[channel].index(ban)
                 del self.bans[channel][idx]
                 # we don't break here because bans might be duplicated.
+        for idx, br in enumerateReversed(self.managedBans.shelf):
+            if (channel == br.ban.channel) and (mask == br.ban.mask):
+                del self.managedBans.shelf[idx]
 
     def doPrivmsg(self, irc, msg):
         (recipients, text) = msg.args
@@ -756,24 +1116,38 @@ class Bantracker(callbacks.Plugin):
                         ' '.join(msg.args[2:])))
             modes = ircutils.separateModes(msg.args[1:])
             for param in modes:
-                realname = ''
                 mode = param[0]
-                mask = ''
-                comment=None
-                if param[0] not in ("+b", "-b", "+q", "-q"):
+                # op stuff
+                if mode[1] == "o":
+                    if ircutils.nickEqual(irc.nick, param[1]):
+                        opped = self.opped[channel] = mode[0] == '+'
+                        if opped == True:
+                            opped_ok = self._getOpOK(channel)
+                            # check if we have bans to remove
+                            if channel in self.pendingBanremoval:
+                                modes = self.pendingBanremoval.pop(channel)
+                                self.removeBans(irc, channel, modes, deop=opped_ok)
                     continue
+
+                # channel mask stuff
+                realname = mask = ''
+                comment = None
+                if mode[1] not in "bq":
+                    continue
+
                 mask = param[1]
                 if mask.startswith("$r:"):
                     mask = mask[3:]
                     realname = ' (realname)'
 
-                if param[0][1] == 'q':
+                if mode[1] == 'q':
                     mask = '%' + mask
 
-                if param[0] in ('+b', '+q'):
+                if mode[0] == '+':
                     comment = self.getHostFromBan(irc, msg, mask)
-                    self.doKickban(irc, channel, msg.prefix, mask + realname, extra_comment=comment)
-                elif param[0] in ('-b', '-q'):
+                    ban = self.doKickban(irc, channel, msg.prefix, mask + realname, 
+                                         extra_comment=comment)
+                elif mode[0] == '-':
                     self.doUnban(irc,channel, msg.nick, mask + realname)
 
     def getHostFromBan(self, irc, msg, mask):
@@ -1165,30 +1539,202 @@ class Bantracker(callbacks.Plugin):
 
     updatebt = wrap(updatebt, [optional('anything', default=None)])
 
-    def comment(self, irc, msg, args, id, kickmsg):
-        """<id> [<comment>]
+    def _getBan(self, id):
+        """gets mask, channel and removal date of ban"""
+        L = self.db_run("SELECT mask, channel, removal FROM bans WHERE id = %s",
+                        id, expect_result=True)
+        if not L:
+            raise ValueError
+        return L[0]
 
-        Reads or adds the <comment> for the ban with <id>,
-        use @bansearch to find the id of a ban
+    def _setBanDuration(self, id, duration):
+        """Set ban for remove after <duration> time, if <duration> is negative
+        or zero, never remove the ban.
         """
+        # check if ban has already a duration time
+        for idx, br in enumerate(self.managedBans):
+            if id == br.id:
+                ban = br.ban
+                del self.managedBans.shelf[idx]
+                break
+        else:
+            if duration < 1:
+                # nothing to do.
+                raise Exception("ban isn't marked for removal")
+
+            # ban obj ins't in self.managedBans
+            try:
+                mask, channel, removal = self._getBan(id)
+            except ValueError:
+                raise Exception("unknow id")
+
+            type = guessBanType(mask)
+            if type not in ('ban', 'quiet'):
+                raise Exception("not a ban or quiet")
+
+            if removal:
+                raise Exception("ban was removed")
+
+            for ban in self.bans[channel]:
+                if mask == ban.mask:
+                    if ban.id is None:
+                        ban.id = id
+                    break
+            else:
+                # ban not in sync it seems, shouldn't happen normally.
+                raise Exception("bans not in sync")
+
+        # add ban duration if is positive and non-zero
+        if duration > 0:
+            self.managedBans.add(BanRemoval(ban, duration))
+
+    def comment(self, irc, msg, args, ids, kickmsg):
+        """<id>[,<id> ...] [<comment>][, <duration>]
+
+        Reads or adds the <comment> for the ban with <id>, use @bansearch to
+        find the id of a ban. Using <duration> will set the duration of the ban.
+        """
+
         def addComment(id, nick, msg):
             n = now()
             self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, msg, n))
+
         def readComment(id):
             return self.db_run("SELECT who, comment, time FROM comments WHERE ban_id=%i", (id,), True)
 
         nick = msg.nick
-        if kickmsg:
-            addComment(id, nick, kickmsg)
-            irc.replySuccess()
-        else:
-            data = readComment(id)
-            if data:
-                for c in data:
-                    irc.reply("%s %s: %s" % (cPickle.loads(c[2]).astimezone(pytz.timezone('UTC')).strftime("%b %d %Y %H:%M:%S"), c[0], c[1].strip()) )
+        duration, banset = None, []
+        if kickmsg and ',' in kickmsg:
+            s = kickmsg[kickmsg.rfind(',') + 1:]
+            try:
+                duration = readTimeDelta(s)
+            except ValueError:
+                pass
+
+        for id in splitID(ids):
+            try:
+                self._getBan(id)
+            except ValueError:
+                irc.reply("I don't know any ban with id %s." % id)
+                continue
+
+            if kickmsg:
+                addComment(id, nick, kickmsg)
+                if duration is not None:
+                    # set duration time
+                    try:
+                        self._setBanDuration(id, duration)
+                        banset.append(str(id))
+                    except Exception as exc:
+                        irc.reply("Failed to set duration time on %s (%s)" % (id, exc))
             else:
-                irc.error("No comments recorded for ban %i" % id)
-    comment = wrap(comment, ['id', optional('text')])
+                data = readComment(id)
+                if data:
+                    for c in data:
+                        date = cPickle.loads(c[2]).astimezone(pytz.timezone('UTC')).strftime("%b %d %Y %H:%M")
+                        irc.reply("%s %s: %s" % (date, c[0], c[1].strip()))
+                else:
+                    irc.reply("No comments recorded for ban %s" % id)
+
+        # success reply. If duration time used, say which ones were set.
+        if kickmsg:
+            if banset:
+                if duration < 1:
+                    irc.reply(Format("Comment added. %L won't expire.", banset))
+                    return
+
+                try:
+                    time = 'after ' + timeElapsed(duration)
+                except ValueError:
+                    time = 'soon'
+                irc.reply(Format("Comment added. %L will be removed %s.",
+                                 banset, time))
+            else:
+                # only a comment
+                irc.reply("Comment added.")
+
+    comment = wrap(comment, ['something', optional('text')])
+
+    def duration(self, irc, msg, args, ids, duration):
+        """[<id>[,<id> ...]] [<duration>]
+
+        Sets the duration of a ban. If <duration> isn't given show when a ban expires. f no <id> is given shows the ids of bans set to expire.
+        """
+        if ids is None:
+            count = len(self.managedBans)
+            L = [ str(item.id) for item in self.managedBans ]
+            irc.reply(Format("%n set to expire: %L", (count, 'ban'), L))
+            return
+
+        if duration is not None:
+            try:
+                duration = readTimeDelta(duration)
+            except ValueError:
+                irc.error("bad time format.")
+                return
+
+        banset = []
+        for id in splitID(ids):
+            if duration is not None:
+                # set ban duration
+                try:
+                    self._setBanDuration(id, duration)
+                    banset.append(str(id))
+                except Exception as exc:
+                    irc.reply("Failed to set duration time on %s (%s)" \
+                              % (id, exc))
+            else:
+                # get ban information
+                try:
+                    mask, channel, removal = self._getBan(id)
+                except ValueError:
+                    irc.reply("I don't know any ban with id %s." % id)
+                    continue
+
+                type = guessBanType(mask)
+                if type == 'quiet':
+                    mask = mask[1:]
+                for br in self.managedBans:
+                    if br.id == id:
+                        break
+                else:
+                    br = None
+
+                expires = None
+                if br:
+                    expires = br.timeLeft()
+                    if expires > 0:
+                        try:
+                            expires = "expires in %s" % timeElapsed(expires)
+                        except ValueError:
+                            expires = "expires soon"
+                    else:
+                        expires = "expired and will be removed soon"
+                else:
+                    if type in ('quiet', 'ban'):
+                        if not removal:
+                            expires = "never expires"
+                        else:
+                            expires = "not active"
+
+                if expires:
+                    irc.reply("[%s] %s - %s - %s - %s" % (id, type, mask, channel, expires))
+                else:
+                    irc.reply("[%s] %s - %s - %s" % (id, type, mask, channel))
+
+        # reply with the bans ids that were correctly set.
+        if banset:
+            if duration < 1:
+                irc.reply(Format("%L won't expire.", banset))
+                return
+
+            try:
+                time = 'after ' + timeElapsed(duration)
+            except ValueError:
+                time = 'soon'
+            irc.reply(Format("%L will be removed %s.", banset, time))
+
+    duration = wrap(duration, [optional('something'), optional('text')])
 
     def banlink(self, irc, msg, args, id, highlight):
         """<id> [<highlight>]
@@ -1225,9 +1771,9 @@ class Bantracker(callbacks.Plugin):
                 nick, host = key.split('@', 1)
             else:
                 nick, host = key, None
-            try:
+            if host in self.pendingReviews:
                 reviews = self.pendingReviews[host]
-            except KeyError:
+            else:
                 irc.reply('No reviews for %s, use --verbose for check the correct nick@host key.' % key)
                 return
 

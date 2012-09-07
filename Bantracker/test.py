@@ -20,6 +20,7 @@ import supybot.conf as conf
 import supybot.ircmsgs as ircmsgs
 import supybot.world as world
 
+import re
 import time
 
 
@@ -56,6 +57,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
             else:
                 return f(*args, **kwargs)
         cb.check_auth = test_check_auth
+        cb.opped.clear()
 
     def setDb(self):
         import sqlite, os
@@ -123,7 +125,65 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.irc.feedMsg(ban)
         return ban
 
+    def op(self):
+        msg = ircmsgs.mode(self.channel, ('+o', self.irc.nick),
+                    'Chanserv!service@service')
+        self.irc.feedMsg(msg)
+
+    def deop(self):
+        msg = ircmsgs.mode(self.channel, ('-o', self.irc.nick),
+                    'Chanserv!service@service')
+        self.irc.feedMsg(msg)
+
     def testComment(self):
+        self.assertResponse('comment 1', "I don't know any ban with id 1.")
+        self.feedBan('asd!*@*')
+        self.assertResponse('comment 1', 'No comments recorded for ban 1')
+        self.assertResponse('comment 1 this is a test',
+                            'Comment added.')
+        self.assertRegexp('comment 1', 'test: this is a test$')
+        self.assertResponse('comment 1 this is a test, another test',
+                            'Comment added.')
+        self.feedBan('nick', mode='k')
+        self.assertResponse('comment 2 this is a kick, 2week',
+                            "Failed to set duration time on 2 (not a ban or quiet)")
+        msg = self.irc.takeMsg()
+        self.assertEqual(msg.args[1], 'test: Comment added.')
+        self.assertResponse('comment 1 not a valid, duration 2',
+                            'Comment added.')
+
+    def testMultiComment(self):
+        self.feedBan('asd!*@*')
+        self.feedBan('qwe!*@*')
+        self.assertResponse('comment 1,2,3 this is a test, 2 days',
+                            "I don't know any ban with id 3.")
+        msg = self.irc.takeMsg()
+        self.assertEqual(msg.args[1], 
+                "test: Comment added. 1 and 2 will be removed after 2 days.")
+        self.assertRegexp('comment 1,2', 'test: this is a test, 2 days$')
+        msg = self.irc.takeMsg()
+        self.assertTrue(msg.args[1].endswith("test: this is a test, 2 days"))
+
+    def testCommentDuration(self):
+        self.feedBan('asd!*@*')
+        self.assertResponse('comment 1 this is a test, 1 week 10',
+                            'Comment added. 1 will be removed after 1 week.')
+        self.assertRegexp('comment 1', 'test: this is a test, 1 week 10$')
+        self.assertRegexp('duration 1', 'expires in 1 week$')
+
+    def testCommentDurationRemove(self):
+        self.feedBan('asd!*@*')
+        self.assertResponse('comment 1 this is a test, -10',
+                "Failed to set duration time on 1 (ban isn't marked for removal)")
+        msg = self.irc.takeMsg()
+        self.assertEqual(msg.args[1], 'test: Comment added.')
+        self.assertResponse('comment 1 this is a test, 10',
+                            'Comment added. 1 will be removed soon.')
+        self.assertResponse('comment 1 this is a test, -10',
+                "Comment added. 1 won't expire.")
+        self.assertRegexp('duration 1', 'never expires$')
+
+    def testCommentRequest(self):
         pluginConf.request.setValue(True)
         # test bans
         self.feedBan('asd!*@*')
@@ -241,12 +301,12 @@ class BantrackerTestCase(ChannelPluginTestCase):
         cb.reviewBans(self.irc)
         # since it's a forward, it was sent already
         self.assertFalse(cb.pendingReviews)
-        self.assertEqual(str(self.irc.takeMsg()).strip(),
-                "NOTICE #channel :Review: ban 'asd!*@*' set by bot on %s in #test, link: "\
-                "%s/bans.cgi?log=1" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
-        self.assertEqual(str(self.irc.takeMsg()).strip(),
-                "NOTICE #channel :Review: quiet 'asd!*@*' set by bot on %s in #test, link: "\
-                "%s/bans.cgi?log=2" %(cb.bans['#test'][0].ascwhen, pluginConf.bansite()))
+        self.assertTrue(re.search(
+                r"^NOTICE #channel :Review: ban 'asd!\*@\*' set by bot on .* in #test,"\
+                r" link: .*/bans\.cgi\?log=1$", str(self.irc.takeMsg()).strip()))
+        self.assertTrue(re.search(
+                r"^NOTICE #channel :Review: quiet 'asd!\*@\*' set by bot on .* in #test,"\
+                r" link: .*/bans\.cgi\?log=2$", str(self.irc.takeMsg()).strip()))
 
     def testReviewIgnore(self):
         pluginConf.review.setValue(True)
@@ -286,7 +346,7 @@ class BantrackerTestCase(ChannelPluginTestCase):
         # check not pending anymore
         self.assertFalse(cb.pendingReviews)
 
-    def testPersistentCache(self):
+    def testReviewStore(self):
         """Save pending reviews and when bans were last checked. This is needed for plugin
         reloads"""
         msg1 = ircmsgs.privmsg('nick', 'Hello World')
@@ -346,5 +406,214 @@ class BantrackerTestCase(ChannelPluginTestCase):
         fetch = self.query("SELECT id,channel,mask,operator FROM bans")
         self.assertEqual((1, '#test', 'troll', 'op'), fetch[0])
 
+    def testDuration(self):
+        self.op()
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        cb.autoRemoveBans(self.irc)
+        self.assertFalse(cb.managedBans)
+        self.assertResponse('duration 1 1', "1 will be removed soon.")
+        self.assertTrue(cb.managedBans) # ban in list
+        print 'waiting 2 secs ...'
+        time.sleep(2)
+        cb.autoRemoveBans(self.irc)
+        self.assertFalse(cb.managedBans) # ban removed
+        msg = self.irc.takeMsg() # unban msg
+        self.assertEqual(str(msg).strip(), "MODE #test -b :asd!*@*")
+
+    def testDurationRemove(self):
+        self.feedBan('asd!*@*')
+        self.assertResponse('duration 1 -1',
+                "Failed to set duration time on 1 (ban isn't marked for removal)")
+        self.assertResponse('duration 1 10', '1 will be removed soon.')
+        self.assertResponse('duration 1 -1', "1 won't expire.")
+        self.assertRegexp('duration 1', 'never expires')
+
+    def testDurationMergeModes(self):
+        self.op()
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.feedBan('qwe!*@*')
+        self.feedBan('zxc!*@*')
+        self.feedBan('asd!*@*', mode='q')
+        self.feedBan('qwe!*@*', mode='q')
+        self.feedBan('zxc!*@*', mode='q')
+        self.assertNotError('duration 1,2,3,4,5,6 1')
+        print 'waiting 2 secs ...'
+        time.sleep(2)
+        cb.autoRemoveBans(self.irc)
+        msg = self.irc.takeMsg() # unban msg
+        self.assertEqual(str(msg).strip(),
+                         "MODE #test -qqqb zxc!*@* qwe!*@* asd!*@* :zxc!*@*")
+        msg = self.irc.takeMsg()
+        self.assertEqual(str(msg).strip(), "MODE #test -bb qwe!*@* :asd!*@*")
+
+    def testDurationMultiSet(self):
+        self.feedBan('asd!*@*')
+        self.assertResponse('duration 1,2 10d',
+                "Failed to set duration time on 2 (unknow id)")
+        msg = self.irc.takeMsg()
+        self.assertEqual(msg.args[1],
+                "test: 1 will be removed after 1 week and 3 days.")
+
+    def testDurationQuiet(self):
+        self.op()
+        cb = self.getCallback()
+        self.feedBan('asd!*@*', mode='q')
+        self.assertNotError('duration 1 1')
+        print 'waiting 2 sec ...'
+        time.sleep(2)
+        cb.autoRemoveBans(self.irc)
+        msg = self.irc.takeMsg() # unban msg
+        self.assertEqual(str(msg).strip(), "MODE #test -q :asd!*@*")
+
+    def testDurationBadType(self):
+        self.feedBan('nick', mode='k')
+        self.assertResponse('duration 1 1',
+                "Failed to set duration time on 1 (not a ban or quiet)")
+        self.feedBan('$a:nick')
+        self.assertResponse('duration 2 1', '2 will be removed soon.')
+
+    def testDurationBadId(self):
+        self.assertResponse('duration 1 1', 
+                "Failed to set duration time on 1 (unknow id)")
+
+    def testDurationInactiveBan(self):
+        self.feedBan('asd!*@*')
+        self.irc.feedMsg(ircmsgs.unban(self.channel, 'asd!*@*', 
+                                       'op!user@host.net'))
+        self.assertResponse('duration 1 1', 
+                "Failed to set duration time on 1 (ban was removed)")
+
+    def testDurationTimeFormat(self):
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.assertNotError('duration 1 10m')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 600)
+        self.assertNotError('duration 1 2 weeks')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 1209600)
+        self.assertNotError('duration 1 1m 2 days')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 172860)
+        self.assertNotError('duration 1 24h 1day')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 172800)
+        self.assertNotError('duration 1 1m1h1d1w1M1y')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 34822860)
+        self.assertNotError('duration 1 999')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 999)
+
+    def testDurationTimeFormatBad(self):
+        self.assertError('duration 1 10 apples')
+
+    def testDurationNotice(self):
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.assertNotError('duration 1 300')
+        pluginConf.autoremove.notify.channels.set('#test')
+        try:
+            cb.autoRemoveBans(self.irc)
+            msg = self.irc.takeMsg()
+            self.assertEqual(str(msg).strip(),
+                "NOTICE #test :ban \x0309[\x03\x021\x02\x0309]\x03 \x0310asd!*@*\x03"\
+                " in \x0310#test\x03 will expire in a few minutes.")
+            # don't send the notice again.
+            cb.autoRemoveBans(self.irc)
+            self.assertFalse(self.irc.takeMsg())
+        finally:
+            pluginConf.autoremove.notify.channels.set('')
+
+    def testAutoremoveStore(self):
+        self.feedBan('asd!*@*')
+        self.feedBan('qwe!*@*')
+        self.feedBan('zxc!*@*', mode='q')
+        self.assertNotError('duration 1 10m')
+        self.assertNotError('duration 2 1d')
+        self.assertNotError('duration 3 1w')
+        cb = self.getCallback()
+        cb.managedBans.shelf[1].notified = True
+        cb.managedBans.close()
+        cb.managedBans.shelf = []
+        cb.managedBans.open()
+        L = cb.managedBans.shelf
+        for i, n in enumerate((600, 86400, 604800)):
+            self.assertEqual(L[i].expires, n)
+        for i, n in enumerate((False, True, False)):
+            self.assertEqual(L[i].notified, n)
+        for i, n in enumerate((1, 2, 3)):
+            self.assertEqual(L[i].ban.id, n)
+        for i, n in enumerate(('asd!*@*', 'qwe!*@*', '%zxc!*@*')):
+            self.assertEqual(L[i].ban.mask, n)
+        self.assertEqual(L[0].ban.channel, '#test')
+
+    def testBaninfo(self):
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.assertResponse('duration 1', 
+                "[1] ban - asd!*@* - #test - never expires")
+        self.assertNotError('duration 1 10')
+        self.assertResponse('duration 1', 
+                "[1] ban - asd!*@* - #test - expires soon")
+        self.assertNotError('duration 1 34502')
+        self.assertResponse('duration 1', 
+                "[1] ban - asd!*@* - #test - expires in 9 hours and 35 minutes")
+        self.irc.feedMsg(ircmsgs.unban(self.channel, 'asd!*@*', 
+                                       'op!user@host.net'))
+        self.assertResponse('duration 1', 
+                "[1] ban - asd!*@* - #test - not active")
+
+    def testBaninfoGeneral(self):
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.feedBan('qwe!*@*')
+        self.assertNotError('duration 1 1d')
+        self.assertResponse('duration', "1 ban set to expire: 1")
+        self.assertNotError('duration 2 1d')
+        self.assertResponse('duration', "2 bans set to expire: 1 and 2")
+
+    def testOpTrack(self):
+        cb = self.getCallback()
+        self.assertEqual(cb.opped['#test'], False)
+        self.op()
+        self.assertEqual(cb.opped['#test'], True)
+        self.deop()
+        self.assertEqual(cb.opped['#test'], False)
+
+    def testOpDuration(self):
+        cb = self.getCallback()
+        self.feedBan('asd!*@*')
+        self.assertNotError('duration 1 1')
+        print 'waiting 2 secs ...'
+        time.sleep(2)
+        cb.autoRemoveBans(self.irc)
+        msg = self.irc.takeMsg() # op msg
+        self.assertEqual(str(msg).strip(), "PRIVMSG Chanserv :op #test test")
+        self.op()
+        msg = self.irc.takeMsg() # unban msg
+        self.assertEqual(str(msg).strip(), "MODE #test -bo asd!*@* :test")
+
+    def testOpFail(self):
+        import supybot.drivers as drivers
+        import supybot.schedule as schedule
+
+        pluginConf.autoremove.notify.channels.set('#test')
+        try:
+            cb = self.getCallback()
+            self.feedBan('asd!*@*')
+            self.assertNotError('duration 1 1')
+            print 'waiting 4 secs ...'
+            time.sleep(2)
+            cb.autoRemoveBans(self.irc)
+            msg = self.irc.takeMsg() # op msg
+            self.assertEqual(str(msg).strip(), "PRIVMSG Chanserv :op #test test")
+            schedule.rescheduleEvent('Bantracker_getop_#test', 1)
+            time.sleep(2)
+            drivers.run()
+            msg = self.irc.takeMsg() # fail msg
+            self.assertEqual(str(msg).strip(),
+                    "NOTICE #test :Failed to get op in #test")
+            self.op()
+            msg = self.irc.takeMsg() # unban msg
+            self.assertEqual(str(msg).strip(), "MODE #test -b :asd!*@*")
+        finally:
+            pluginConf.autoremove.notify.channels.set('')
 
 
