@@ -338,7 +338,10 @@ def guessBanType(mask):
     elif ircutils.isUserHostmask(mask) \
             or mask[0] == '$' \
             or mask.endswith('(realname)'):
-        if not ('*' in mask or '?' in mask or '$' in mask):
+        if not ('*' in mask or \
+                '?' in mask or \
+                '$' in mask or \
+                ' ' in mask):
             # XXX hack over hack, we are supposing these are marks as normal
             # bans aren't usually set to exact match, while marks are.
             return 'mark'
@@ -628,8 +631,6 @@ class Bantracker(callbacks.Plugin):
         except KeyError:
             bans = self.bans[channel] = []
         ban = Ban(msg.args)
-        if ban.mask.startswith("$r:"):
-            ban.mask = ban.mask[3:] + " (realname)"
         if ban not in bans:
             bans.append(ban)
 
@@ -1130,25 +1131,21 @@ class Bantracker(callbacks.Plugin):
                     continue
 
                 # channel mask stuff
-                realname = mask = ''
+                mask = ''
                 comment = None
                 if mode[1] not in "bq":
                     continue
 
                 mask = param[1]
-                if mask.startswith("$r:"):
-                    mask = mask[3:]
-                    realname = ' (realname)'
-
                 if mode[1] == 'q':
                     mask = '%' + mask
 
                 if mode[0] == '+':
                     comment = self.getHostFromBan(irc, msg, mask)
-                    ban = self.doKickban(irc, channel, msg.prefix, mask + realname, 
+                    ban = self.doKickban(irc, channel, msg.prefix, mask,
                                          extra_comment=comment)
                 elif mode[0] == '-':
-                    self.doUnban(irc,channel, msg.nick, mask + realname)
+                    self.doUnban(irc,channel, msg.nick, mask)
 
     def getHostFromBan(self, irc, msg, mask):
         if irc not in self.lastStates:
