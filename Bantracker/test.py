@@ -391,6 +391,11 @@ class BantrackerTestCase(ChannelPluginTestCase):
         fetch = self.query("SELECT id,channel,mask,operator FROM bans")
         self.assertEqual((1, '#test', 'asd!*@*', 'op'), fetch[0])
 
+    def testBanRealname(self):
+        self.feedBan('$r:asd')
+        fetch = self.query("SELECT id,channel,mask,operator FROM bans")
+        self.assertEqual((1, '#test', '$r:asd', 'op'), fetch[0])
+
     def testQuiet(self):
         self.feedBan('asd!*@*', mode='q')
         fetch = self.query("SELECT id,channel,mask,operator FROM bans")
@@ -466,6 +471,17 @@ class BantrackerTestCase(ChannelPluginTestCase):
         cb.autoRemoveBans(self.irc)
         msg = self.irc.takeMsg() # unban msg
         self.assertEqual(str(msg).strip(), "MODE #test -q :asd!*@*")
+
+    def testDurationRealname(self):
+        self.op()
+        cb = self.getCallback()
+        self.feedBan('$r:asd?asd', mode='b')
+        self.assertNotError('duration 1 1')
+        print 'waiting 2 sec ...'
+        time.sleep(2)
+        cb.autoRemoveBans(self.irc)
+        msg = self.irc.takeMsg() # unban msg
+        self.assertEqual(str(msg).strip(), "MODE #test -b :$r:asd?asd")
 
     def testDurationBadType(self):
         self.feedBan('nick', mode='k')
