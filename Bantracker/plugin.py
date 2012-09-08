@@ -1077,6 +1077,8 @@ class Bantracker(callbacks.Plugin):
                 self.doLog(irc, channel,
                        '*** %s has joined %s\n' % (msg.prefix, channel))
             if msg.nick == irc.nick:
+                if channel in self.opped:
+                    del self.opped[channel]
                 if channel in self.bans:
                     del self.bans[channel]
                 queue.queue(ircmsgs.mode(channel, 'b'))

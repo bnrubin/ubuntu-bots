@@ -576,6 +576,12 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertEqual(cb.opped['#test'], True)
         self.deop()
         self.assertEqual(cb.opped['#test'], False)
+        self.op()
+        self.irc.feedMsg(ircmsgs.part('#test', prefix=self.prefix))
+        self.irc.feedMsg(ircmsgs.join('#test', prefix=self.prefix))
+        self.irc.takeMsg() # MODE msg
+        self.irc.takeMsg() # WHO msg
+        self.assertEqual(cb.opped['#test'], False)
 
     def testOpDuration(self):
         cb = self.getCallback()
