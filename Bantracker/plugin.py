@@ -269,7 +269,7 @@ queue = MsgQueue()
 
 class Ban(object):
     """Hold my bans"""
-    def __init__(self, args=None, quiet=False, **kwargs):
+    def __init__(self, args=None, **kwargs):
         self.id = None
         if args:
             # in most ircd: args = (nick, channel, mask, who, when)
@@ -285,8 +285,6 @@ class Ban(object):
             if 'id' in kwargs:
                 self.id = kwargs['id']
         self.ascwhen = time.asctime(time.gmtime(self.when))
-        if quiet:
-            self.mask = '%' + self.mask
 
     def __tuple__(self):
         return (self.mask, self.who, self.ascwhen)
@@ -633,7 +631,14 @@ class Bantracker(callbacks.Plugin):
             bans = self.bans[channel]
         except KeyError:
             bans = self.bans[channel] = []
-        ban = Ban(msg.args, quiet=quiet)
+        if quiet:
+            # args = (nick, channel, mode, mask, who, when)
+            args = list(msg.args)
+            del args[2] # drop the 'q' bit
+            args[2] = '%' + args[2]
+            ban = Ban(args)
+        else:
+            ban = Ban(msg.args)
         if ban not in bans:
             bans.append(ban)
 
