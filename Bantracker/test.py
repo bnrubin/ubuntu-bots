@@ -638,4 +638,24 @@ class BantrackerTestCase(ChannelPluginTestCase):
         finally:
             pluginConf.autoremove.notify.channels.set('')
 
+    def testQuietFetch(self):
+        quiet = ircmsgs.IrcMsg(
+            ':server.net 728 test #channel q troll!*@* op!user@home.com 123456789')
+        end = ircmsgs.IrcMsg(
+            ':server.net 729 test #channel q :End of Channel Quiet List')
+        self.irc.feedMsg(quiet)
+        self.irc.feedMsg(end)
+        obj = self.getCallback().bans['#channel'][0]
+        self.assertEqual('%troll!*@*', obj.mask)
+
+    def testBanFetch(self):
+        ban = ircmsgs.IrcMsg(
+            ':server.net 367 test #channel troll!*@* op!user@home.com 123456789')
+        end = ircmsgs.IrcMsg(
+            ':server.net 368 test #channel :End of Channel Ban List')
+        self.irc.feedMsg(ban)
+        self.irc.feedMsg(end)
+        obj = self.getCallback().bans['#channel'][0]
+        self.assertEqual('troll!*@*', obj.mask)
+
 
