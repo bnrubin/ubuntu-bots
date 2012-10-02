@@ -248,6 +248,10 @@ def dequeue(parent, irc):
     global queue
     queue.dequeue(parent, irc)
 
+def supported(irc, mode):
+    chanmodes = irc.state.supported.get('chanmodes', '')
+    return mode in chanmodes.split(',')[0]
+
 class MsgQueue(object):
     def __init__(self):
         self.msgcache = []
@@ -570,14 +574,25 @@ class Bantracker(callbacks.Plugin):
                             self.hosts[host] = []
                         self.hosts[host].append(nick)
 
-    def get_bans(self, irc, mode='b'):
+    def get_bans(self, irc, channel=None, mode='b'):
         global queue
-        for channel in irc.state.channels.keys():
+
+        if not supported(irc, mode):
+            return
+
+        def fetch(channel):
             if not self.registryValue('enabled', channel):
-                continue
+                return
+
             if channel not in self.bans:
                 self.bans[channel] = []
             queue.queue(ircmsgs.mode(channel, mode))
+
+        if not channel:
+            for channel in irc.state.channels.keys():
+                fetch(channel)
+        else:
+            fetch(channel)
 
     def sendWhois(self, irc, nick, do_reply=False, *args):
         nick = nick.lower()
@@ -653,10 +668,13 @@ class Bantracker(callbacks.Plugin):
 
     def do728(self, irc, msg):
         """Got quiet"""
-        self.do367(irc, msg, quiet=True)
+        if supported(irc, 'q'):
+            self.do367(irc, msg, quiet=True)
 
     # End of channel quiet list.
-    do729 = do368
+    def do729(self, irc, msg):
+        if supported(irc, 'q'):
+            self.do368(irc, msg)
 
     def nick_to_host(self, irc=None, target='', with_nick=True, reply_now=True):
         target = target.lower()
@@ -1097,8 +1115,8 @@ class Bantracker(callbacks.Plugin):
                     del self.opped[channel]
                 if channel in self.bans:
                     del self.bans[channel]
-                queue.queue(ircmsgs.mode(channel, 'b'))
-                queue.queue(ircmsgs.mode(channel, 'q'))
+                self.get_bans(irc, channel)
+                self.get_bans(irc, channel, 'q')
         nick = msg.nick.lower() or msg.prefix.lower().split('!', 1)[0]
         self.nicks[nick] = msg.prefix.lower()
 

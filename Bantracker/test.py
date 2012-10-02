@@ -638,23 +638,32 @@ class BantrackerTestCase(ChannelPluginTestCase):
         finally:
             pluginConf.autoremove.notify.channels.set('')
 
-    def testQuietFetch(self):
-        quiet = ircmsgs.IrcMsg(
-            ':server.net 728 test #channel q troll!*@* op!user@home.com 123456789')
-        end = ircmsgs.IrcMsg(
-            ':server.net 729 test #channel q :End of Channel Quiet List')
-        self.irc.feedMsg(quiet)
-        self.irc.feedMsg(end)
-        obj = self.getCallback().bans['#channel'][0]
-        self.assertEqual('%troll!*@*', obj.mask)
+    def testQuietList(self):
+        self.irc.feedMsg(ircmsgs.IrcMsg(
+            ':server.net 005 test CHANMODES=eIbq,k,flj,CFLMPQcgimnprstz :are supported'))
+        self.irc.feedMsg(ircmsgs.IrcMsg(
+            ':server.net 728 test #channel q troll!*@* op!user@home.com 123456789'))
+        self.irc.feedMsg(ircmsgs.IrcMsg(
+            ':server.net 729 test #channel q :End of Channel Quiet List'))
+        L = self.getCallback().bans.get('#channel')
+        self.assertTrue(L != None)
+        self.assertEqual('%troll!*@*', L[0].mask)
 
-    def testBanFetch(self):
-        ban = ircmsgs.IrcMsg(
-            ':server.net 367 test #channel troll!*@* op!user@home.com 123456789')
-        end = ircmsgs.IrcMsg(
-            ':server.net 368 test #channel :End of Channel Ban List')
-        self.irc.feedMsg(ban)
-        self.irc.feedMsg(end)
+    def testQuietListNotSupported(self):
+        self.irc.feedMsg(ircmsgs.IrcMsg(
+            ':server.net 005 test CHANMODES=eIb,k,flj,CFLMPQcgimnprstz :are supported'))
+        self.irc.feedMsg(ircmsgs.IrcMsg(
+            ':server.net 728 test #channel q troll!*@* op!user@home.com 123456789'))
+        self.irc.feedMsg(ircmsgs.IrcMsg(
+            ':server.net 729 test #channel q :End of Channel Quiet List'))
+        L = self.getCallback().bans.get('#channel')
+        self.assertTrue(L == None)
+
+    def testBanList(self):
+        self.irc.feedMsg(ircmsgs.IrcMsg(
+            ':server.net 367 test #channel troll!*@* op!user@home.com 123456789'))
+        self.irc.feedMsg(ircmsgs.IrcMsg(
+            ':server.net 368 test #channel :End of Channel Ban List'))
         obj = self.getCallback().bans['#channel'][0]
         self.assertEqual('troll!*@*', obj.mask)
 
