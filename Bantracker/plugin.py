@@ -248,6 +248,10 @@ def dequeue(parent, irc):
     global queue
     queue.dequeue(parent, irc)
 
+def supported(irc, mode):
+    chanmodes = irc.state.supported.get('chanmodes', '')
+    return mode in chanmodes.split(',')[0]
+
 class MsgQueue(object):
     def __init__(self):
         self.msgcache = []
@@ -536,6 +540,7 @@ class Bantracker(callbacks.Plugin):
         else:
             self.db = None
         self.get_bans(irc)
+        self.get_bans(irc, mode='q')
         self.get_nicks(irc)
 
         # init review stuff
@@ -569,14 +574,25 @@ class Bantracker(callbacks.Plugin):
                             self.hosts[host] = []
                         self.hosts[host].append(nick)
 
-    def get_bans(self, irc):
+    def get_bans(self, irc, channel=None, mode='b'):
         global queue
-        for channel in irc.state.channels.keys():
+
+        if not supported(irc, mode):
+            return
+
+        def fetch(channel):
             if not self.registryValue('enabled', channel):
-                continue
+                return
+
             if channel not in self.bans:
                 self.bans[channel] = []
-            queue.queue(ircmsgs.mode(channel, 'b'))
+            queue.queue(ircmsgs.mode(channel, mode))
+
+        if not channel:
+            for channel in irc.state.channels.keys():
+                fetch(channel)
+        else:
+            fetch(channel)
 
     def sendWhois(self, irc, nick, do_reply=False, *args):
         nick = nick.lower()
@@ -623,14 +639,21 @@ class Bantracker(callbacks.Plugin):
             kwargs = {'from_reply': True, 'reply': None}
             f(*args, **kwargs)
 
-    def do367(self, irc, msg):
+    def do367(self, irc, msg, quiet=False):
         """Got ban"""
         channel = msg.args[1]
         try:
             bans = self.bans[channel]
         except KeyError:
             bans = self.bans[channel] = []
-        ban = Ban(msg.args)
+        if quiet:
+            # args = (nick, channel, mode, mask, who, when)
+            args = list(msg.args)
+            del args[2] # drop the 'q' bit
+            args[2] = '%' + args[2]
+            ban = Ban(args)
+        else:
+            ban = Ban(msg.args)
         if ban not in bans:
             bans.append(ban)
 
@@ -642,6 +665,16 @@ class Bantracker(callbacks.Plugin):
             bans.sort(key=lambda x: x.when) # needed for self.reviewBans
         except KeyError:
             pass
+
+    def do728(self, irc, msg):
+        """Got quiet"""
+        if supported(irc, 'q'):
+            self.do367(irc, msg, quiet=True)
+
+    # End of channel quiet list.
+    def do729(self, irc, msg):
+        if supported(irc, 'q'):
+            self.do368(irc, msg)
 
     def nick_to_host(self, irc=None, target='', with_nick=True, reply_now=True):
         target = target.lower()
@@ -1082,7 +1115,8 @@ class Bantracker(callbacks.Plugin):
                     del self.opped[channel]
                 if channel in self.bans:
                     del self.bans[channel]
-                queue.queue(ircmsgs.mode(channel, 'b'))
+                self.get_bans(irc, channel)
+                self.get_bans(irc, channel, 'q')
         nick = msg.nick.lower() or msg.prefix.lower().split('!', 1)[0]
         self.nicks[nick] = msg.prefix.lower()
 
