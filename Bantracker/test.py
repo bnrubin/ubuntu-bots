@@ -512,10 +512,12 @@ class BantrackerTestCase(ChannelPluginTestCase):
         self.assertEqual(cb.managedBans.shelf[0].expires, 172860)
         self.assertNotError('duration 1 24h 1day')
         self.assertEqual(cb.managedBans.shelf[0].expires, 172800)
-        self.assertNotError('duration 1 1m1h1d1w1M1y')
-        self.assertEqual(cb.managedBans.shelf[0].expires, 34822860)
+        self.assertNotError('duration 1 1s1m1h1d1w1M1y')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 34822861)
         self.assertNotError('duration 1 999')
         self.assertEqual(cb.managedBans.shelf[0].expires, 999)
+        self.assertNotError('duration 1 1 second')
+        self.assertEqual(cb.managedBans.shelf[0].expires, 1)
 
     def testDurationTimeFormatBad(self):
         self.assertError('duration 1 10 apples')

@@ -97,6 +97,7 @@ class FuzzyDict(dict):
             return dict.__getitem__(self, keys[0])
 
 timeUnits = FuzzyDict({
+        'seconds': 1,
         'minutes': 60,      'm': 60,
         'hours'  : 3600,    'M': 2592000,
         'days'   : 86400,
