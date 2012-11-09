@@ -1692,7 +1692,8 @@ class Bantracker(callbacks.Plugin):
     def duration(self, irc, msg, args, ids, duration):
         """[<id>[,<id> ...]] [<duration>]
 
-        Sets the duration of a ban. If <duration> isn't given show when a ban expires. f no <id> is given shows the ids of bans set to expire.
+        Sets the duration of a ban. If <duration> isn't given show when a ban expires. If no <id> is
+        given shows the ids of bans set to expire.
         """
         if ids is None:
             count = len(self.managedBans)
