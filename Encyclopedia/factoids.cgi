@@ -77,12 +77,18 @@ class Log:
             return self._added[:self._added.find('.')]
         return self._added
 
+## SQLite function to check if a string contains a substring
+## Because we can't pass % along to WHERE X LIKE %s
+def contains(needle, haystack):
+  return needle.lower() in haystack.lower() and 1 or 0
+
 # Read POST
 if 'db' in form:
     database = form['db'].value
 if database not in databases:
     database = default_database
 con = sqlite.connect(os.path.join(datadir, database + '.db'))
+con.create_function('contains', 2, contains)
 cur = con.cursor()
 
 try: page = int(form['page'].value)
@@ -97,24 +103,25 @@ if 'search' in form:
 # Select factoids
 if search:
     keys = [urllib2.unquote(x.strip()) for x in search.split() if len(x.strip()) >=2][:5]
+    values = []
     if not keys:
         keys = ['']
-    query1 = "SELECT name, value, author, added, popularity FROM facts WHERE name NOT LIKE '%-also' AND ("
+    query1 = "SELECT name, value, author, added, popularity FROM facts WHERE name NOT LIKE '%%-also' AND ("
     query2 = "SELECT COUNT(name) FROM facts WHERE "
     bogus = False
     for k in keys:
-        k = repr('%' + k + '%')
+        values.extend((k, k))
         if bogus:
             query1 += ' OR '
             query2 += ' OR '
-        query1 += "name LIKE %s OR VAlUE LIKE %s" % (k, k)
-        query2 += "name LIKE %s OR VAlUE LIKE %s" % (k, k)
+        query1 += "contains(%s, name) OR contains(%s, value)"
+        query2 += "contains(%s, name) OR contains(%s, value)"
         bogus=True
 
     query1 += ') ORDER BY %s LIMIT %d, %d' % (order_by, NUM_PER_PAGE*page, NUM_PER_PAGE)
-    cur.execute(query1)
+    cur.execute(query1, values)
     factoids = [Factoid(x) for x in cur.fetchall()]
-    cur.execute(query2)
+    cur.execute(query2, values)
     total = cur.fetchall()[0][0]
 else:
     cur.execute("SELECT name, value, author, added, popularity FROM facts WHERE value NOT LIKE '<alias>%%' AND name NOT LIKE '%%-also' ORDER BY %s LIMIT %d, %d" % (order_by, page*NUM_PER_PAGE, NUM_PER_PAGE))
