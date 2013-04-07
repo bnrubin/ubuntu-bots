@@ -1055,10 +1055,13 @@ class Bantracker(callbacks.Plugin):
             self.bans[channel].append(ban)
         return ban
 
-    def doUnban(self, irc, channel, nick, mask):
+    def doUnban(self, irc, channel, nick, mask, id = None):
         if not self.registryValue('enabled', channel):
             return
-        data = self.db_run("SELECT MAX(id) FROM bans where channel=%s and mask=%s", (channel, mask), expect_result=True)
+        if id is None:
+            data = self.db_run("SELECT MAX(id) FROM bans where channel=%s and mask=%s", (channel, mask), expect_result=True)
+        else:
+            data = [[id]]
         if data and len(data) and not (data[0][0] == None):
             self.db_run("UPDATE bans SET removal=%s , removal_op=%s WHERE id=%s", (now(), nick, int(data[0][0])))
         if not channel in self.bans:
@@ -1572,6 +1575,45 @@ class Bantracker(callbacks.Plugin):
         irc.reply("Cleared %i obsolete bans, Added %i new bans" % (rem_res, add_res))
 
     updatebt = wrap(updatebt, [optional('anything', default=None)])
+
+    def clearban(self, irc, msg, args, ids, comment):
+        """<id>[,<id> ...] [<comment>]
+
+        Marks the ban with <id> as removed with <comment>, if no comment is
+        given it defaults to "Cleared by $nick".
+        """
+
+        def addComment(id, nick, message):
+            self.db_run("INSERT INTO comments (ban_id, who, comment, time) values(%s,%s,%s,%s)", (id, nick, message, now()))
+
+        if not self.check_auth(irc, msg, args):
+            return
+
+        if comment is None:
+            comment = "Cleared by " +  msg.nick
+
+        removed = []
+        for id in splitID(ids):
+            try:
+                mask, channel, removal = self._getBan(id)
+            except ValueError:
+                irc.reply("I don't know any ban with id %s" % id)
+                continue
+
+            if removal:
+                irc.reply("The ban with id %s is already marked as removed" % id)
+                continue
+
+            addComment(id, msg.nick, comment)
+            self.doUnban(irc, channel, msg.nick, mask, id)
+            removed.append(id)
+
+        if removed:
+            irc.reply("Removed %s" % utils.str.commaAndify(map(str, removed)))
+        else:
+            irc.reply("No bans removed")
+
+    clearban = wrap(clearban, ['something', optional('text')])
 
     def _getBan(self, id):
         """gets mask, channel and removal date of ban"""
