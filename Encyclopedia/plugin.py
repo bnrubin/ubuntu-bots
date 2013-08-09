@@ -454,9 +454,10 @@ class Encyclopedia(callbacks.Plugin):
         text = self.addressed(recipient, text, irc, msg)
         if not text:
             return
-        doChanMsg = True
-        display_info = False
-        display_raw = False
+        doChanMsg = True # Send message to channel
+        display_info = False # Switch to info display
+        display_raw = False # Switch to raw display
+        queue_msg = True # Queue message or send directly
         target = msg.args[0]
         if target[0] != '#':
             target = msg.nick
@@ -512,6 +513,7 @@ class Encyclopedia(callbacks.Plugin):
                                                  (msg.args[0], msg.nick, msg.args[1])))
                     self.logRequest(msg.args[0], msg.nick, text)
                     return
+                queue_msg = False
                 ret = self.factoid_edit(text, channel, msg.prefix)
             elif (' is ' in lower_text and '|' in lower_text and lower_text.index('|') > lower_text.index(' is ')) or (' is ' in lower_text and '|' not in lower_text):
                 if not (capab(msg.prefix, 'editfactoids') \
@@ -526,6 +528,7 @@ class Encyclopedia(callbacks.Plugin):
                                                      (msg.args[0], msg.nick, msg.args[1])))
                         self.logRequest(msg.args[0], msg.nick, text)
                     return
+                queue_msg = False
                 ret = self.factoid_add(text, channel, msg.prefix)
             else:
                 text, target, retmsg = self.get_target(msg.nick, orig_text, target)
@@ -553,7 +556,7 @@ class Encyclopedia(callbacks.Plugin):
             if self.alert and (target[0] == '#' and not target.endswith('bots')):
                 # !ops factoid called with an url, most likely spam.
                 # we filter the msg, but we still warn in -ops.
-                queue(irc, self.registryValue('relayChannel', channel), '%s called the ops in %s (%s)' % (msg.nick, msg.args[0], retmsg[:-2]))
+                irc.queueMsg(ircmsgs.privmsg(self.registryValue('relayChannel', channel), '%s called the ops in %s (%s)' % (msg.nick, msg.args[0], retmsg[:-2])))
                 self.alert = False
             # do nothing
             return
@@ -566,7 +569,7 @@ class Encyclopedia(callbacks.Plugin):
             queue(irc, target, retmsg + ret[0])
             if self.alert:
                 if target.startswith('#') and not target.endswith('bots'):
-                    queue(irc, self.registryValue('relayChannel', channel), '%s called the ops in %s (%s)' % (msg.nick, msg.args[0], retmsg[:-2]))
+                    irc.queueMsg(ircmsgs.privmsg(self.registryValue('relayChannel', channel), '%s called the ops in %s (%s)' % (msg.nick, msg.args[0], retmsg[:-2])))
                 self.alert = False
             for r in ret[1:]:
                 queue(irc, target, r)
@@ -607,7 +610,7 @@ class Encyclopedia(callbacks.Plugin):
         
         for s in L:
             msg = ircmsgs.privmsg(nick, s)
-            irc.queueMsg(msg)
+            irc.queueMsg(msg) ## Should this use our queue? --tsimpson 2013/08/09
 
     def factoid_edit(self, text, channel, editor):
         db = self.get_db(channel)
