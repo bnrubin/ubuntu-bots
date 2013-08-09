@@ -443,6 +443,12 @@ class Encyclopedia(callbacks.Plugin):
                     return True
             return False
 
+        queue_msg = True # Queue message or send directly
+        def noqueue(irc, to, msg):
+            irc.queueMsg(ircmsgs.privmsg(to, msg))
+        def myqueue(irc, to, msg):
+            (queue if queue_msg else noqueue)(irc, to, msg)
+
         # Filter CTCP
         if chr(1) in msg.args[1]:
             return
@@ -457,7 +463,6 @@ class Encyclopedia(callbacks.Plugin):
         doChanMsg = True # Send message to channel
         display_info = False # Switch to info display
         display_raw = False # Switch to raw display
-        queue_msg = True # Queue message or send directly
         target = msg.args[0]
         if target[0] != '#':
             target = msg.nick
@@ -544,12 +549,10 @@ class Encyclopedia(callbacks.Plugin):
             ret = self.registryValue('notfoundmsg')
             if ret.count('%') == ret.count('%s') == 1:
                 ret = ret % repr(text)
-            if channel.lower() == irc.nick.lower():
-                queue(irc, msg.nick, ret)
-            elif self.registryValue('privateNotFound', channel):
-                queue(irc, msg.nick, ret)
+            if channel.lower() == irc.nick.lower() or self.registryValue('privateNotFound', channel):
+                myqueue(irc, msg.nick, ret)
             else:
-                queue(irc, channel, ret)
+                myqueue(irc, channel, ret)
             return
         # check if retmsg has urls (possible spam)
         if checkUrl(retmsg):
@@ -562,17 +565,17 @@ class Encyclopedia(callbacks.Plugin):
             return
         if doChanMsg and channel.lower() != irc.nick.lower() and target[0] != '#': # not /msg
             if target in irc.state.channels[channel].users:
-                queue(irc, channel, "%s, please see my private message" % target)
+                myqueue(irc, channel, "%s, please see my private message" % target)
         if type(ret) != list:
-            queue(irc, target, retmsg + ret)
+            myqueue(irc, target, retmsg + ret)
         else:
-            queue(irc, target, retmsg + ret[0])
+            myqueue(irc, target, retmsg + ret[0])
             if self.alert:
                 if target.startswith('#') and not target.endswith('bots'):
                     irc.queueMsg(ircmsgs.privmsg(self.registryValue('relayChannel', channel), '%s called the ops in %s (%s)' % (msg.nick, msg.args[0], retmsg[:-2])))
                 self.alert = False
             for r in ret[1:]:
-                queue(irc, target, r)
+                myqueue(irc, target, r)
 
     def doPart(self, irc, msg):
         if len(msg.args) < 2 or not msg.args[1].startswith('requested by'):
