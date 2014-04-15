@@ -304,6 +304,7 @@ print '<div style="float:left">'
 makeInput("kicks", "Kicks")
 makeInput("bans", "Bans")
 makeInput("oldbans", "Removed bans")
+makeInput("marks", "Marks")
 print '</div>'
     
 print '<div style="float:left">'
@@ -324,7 +325,7 @@ if not haveQuery:
     send_page('bans.tmpl')
 
 # Select and filter bans
-def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floodbots=True, operator=None,
+def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, marks=True, floodbots=True, operator=None,
             channel=None, limit=None, offset=0, withCount=False):
     sql = "SELECT channel, mask, operator, time, removal, removal_op, id FROM bans"
     args = []
@@ -343,6 +344,8 @@ def getBans(id=None, mask=None, kicks=True, oldbans=True, bans=True, floodbots=T
     if channel:
         where.append("channel LIKE %s")
         args.append(channel)
+    if not marks:
+        where.append("id NOT IN (SELECT ban_id FROM comments WHERE comment LIKE '**MARK**%%')")
     if not kicks:
         where.append("mask LIKE '%%!%%'")
     if not (oldbans or bans):
@@ -424,6 +427,7 @@ if not bans:
     bans, ban_count = getBans(mask=query, kicks=isOn('kicks'),
                                oldbans=isOn('oldbans') or isOn('oldmutes'),
                                bans=isOn('bans') or isOn('mutes'),
+                               marks=isOn('marks'),
                                floodbots=isOn('floodbots'),
                                operator=oper,
                                channel=chan,
