@@ -1593,15 +1593,17 @@ class Bantracker(callbacks.Plugin):
             comment = "Cleared by " +  msg.nick
 
         removed = []
+        unknown = []
+        existing = []
         for id in splitID(ids):
             try:
                 mask, channel, removal = self._getBan(id)
             except ValueError:
-                irc.reply("I don't know any ban with id %s" % id)
+                unknown.append(id)
                 continue
 
             if removal:
-                irc.reply("The ban with id %s is already marked as removed" % id)
+                existing.append(id)
                 continue
 
             addComment(id, msg.nick, comment)
@@ -1612,6 +1614,12 @@ class Bantracker(callbacks.Plugin):
             irc.reply("Removed %s" % utils.str.commaAndify(map(str, removed)))
         else:
             irc.reply("No bans removed")
+
+        if unknown:
+            irc.reply("The following ban ID(s) are unknown: %s" % utils.str.commaAndify(map(str, unknown)))
+        if existing:
+            irc.reply("The following ban ID(s) are already marked as removed: %s" % utils.str.commaAndify(map(str, existing)))
+            
 
     clearban = wrap(clearban, ['something', optional('text')])
 
