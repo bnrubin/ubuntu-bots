@@ -1056,7 +1056,7 @@ class Bantracker(callbacks.Plugin):
         return ban
 
     def doUnban(self, irc, channel, nick, mask, id = None):
-        if not self.registryValue('enabled', channel):
+        if id is None and not self.registryValue('enabled', channel):
             return
         if id is None:
             data = self.db_run("SELECT MAX(id) FROM bans where channel=%s and mask=%s", (channel, mask), expect_result=True)
