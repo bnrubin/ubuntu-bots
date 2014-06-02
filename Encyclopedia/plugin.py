@@ -457,6 +457,9 @@ class Encyclopedia(callbacks.Plugin):
             return
         # Are we being queried?
         recipient, text = msg.args
+        if not self.registryValue('enabled', ircutils.isChannel(recipient) and recipient or None):
+            # Encyclopedia is disabled here, do nothing
+            return
         text = self.addressed(recipient, text, irc, msg)
         if not text:
             return
