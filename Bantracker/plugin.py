@@ -840,12 +840,24 @@ class Bantracker(callbacks.Plugin):
                     # skip kicks and marks
                     continue
 
+                # skip bans have a duration set
+                skipBan = False
+                for mban in self.managedBans:
+                    if ban.id == mban.id:
+                        if mban.expires:
+                            skipBan = True
+                        break
+
                 banAge = now - ban.when
                 reviewWindow = lastReview - ban.when
                 #self.log.debug('review ban: %s ban %s by %s (%s/%s/%s %s)', 
                 #        channel, ban.mask, ban.who, reviewWindow, reviewTime,
                 #        banAge, reviewTime - reviewWindow)
-                if reviewWindow <= reviewTime < banAge:
+                skipBan = skipBan or banAge < reviewTime
+                if skipBan:
+                    # since we made sure bans are sorted by time, the bans left are more recent
+                    break
+                elif reviewWindow <= reviewTime < banAge:
                     # ban is old enough, and inside the "review window"
                     try:
                         # ban.who should be a user hostmask
@@ -889,9 +901,6 @@ class Bantracker(callbacks.Plugin):
                         msg = ircmsgs.privmsg(nick, s)
                         if (nick, msg) not in self.pendingReviews[host]:
                             self.pendingReviews[host].append((nick, msg))
-                elif banAge < reviewTime:
-                    # since we made sure bans are sorted by time, the bans left are more recent
-                    break
 
     def _sendForward(self, irc, s, setting, channel=None):
         if not irc:
