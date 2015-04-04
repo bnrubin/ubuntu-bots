@@ -120,7 +120,7 @@ if search:
 
     query1 += ') ORDER BY %s LIMIT %d, %d' % (order_by, NUM_PER_PAGE*page, NUM_PER_PAGE)
     cur.execute(query1, values)
-    factoids = [Factoid(x) for x in cur.fetchall()]
+    factoids = [Factoid(*x) for x in cur.fetchall()]
     cur.execute(query2, values)
     total = cur.fetchall()[0][0]
 else:
@@ -183,7 +183,7 @@ for fact in factoids:
         data[3] += "<br />Last edited by %s<br />Last modified: %s" % (q(log.author), q(log.added))
     else:
         data[3] += "<br />Never edited"
-    fact.name = name
+    data[0] = name
     sys.stdout.write('   <tr')
     if i % 2: sys.stdout.write(' class="bg2"')
     i += 1
