@@ -1,0 +1,15 @@
+[submodule "PackageInfo"]
+	path = PackageInfo
+	url = git@github.com:bnrubin/PackageInfo.git
+[submodule "IRCLogin"]
+	path = IRCLogin
+	url = git@github.com:bnrubin/IRCLogin.git
+[submodule "Encyclopedia"]
+	path = Encyclopedia
+	url = git@github.com:bnrubin/Encyclopedia.git
+[submodule "Bugtracker"]
+	path = Bugtracker
+	url = git@github.com:bnrubin/Bugtracker.git
+[submodule "Bantracker"]
+	path = Bantracker
+	url = git@github.com:bnrubin/Bantracker.git
